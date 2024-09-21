@@ -4,6 +4,7 @@
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
 import { Component } from "./Component";
+import { GetComponentFrom } from "./typesVariants";
 
 
 // - Component signals - //
@@ -52,7 +53,16 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     willUnmount: () => void;
 };
 
-export type ComponentExternalSignalsFor<Comp extends Component = Component, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Comp["constructor"]["_Info"] & {}> & (Comp["constructor"]["_Info"] & {} & { signals: {}})["signals"]> =
+// export type ComponentExternalSignalsFor<
+//     Comp extends Component = Component,
+//     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Comp["constructor"]["_Info"] & {}> & (Comp["constructor"]["_Info"] & {} & { signals: {}})["signals"]
+// > =
+//     { [SignalName in keyof CompSignals]: (comp: Comp, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
+export type ComponentExternalSignalsFrom<
+    Info extends Partial<ComponentInfo> = Partial<ComponentInfo>,
+    Comp extends Component = GetComponentFrom<Info>,
+    CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]
+> =
     { [SignalName in keyof CompSignals]: (comp: Comp, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
 
 export type ComponentExternalSignals<Comp extends Component = Component> = {

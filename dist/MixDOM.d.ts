@@ -1,8 +1,9 @@
-/// <reference types="node" />
 import * as data_signals from 'data-signals';
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, NodeJSTimeout, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
 import * as mixin_types from 'mixin-types';
 import { AsClass, ClassType, IterateBackwards, AsMixin } from 'mixin-types';
+
+type InstanceTypeFrom<Anything> = Anything extends abstract new (...args: any[]) => infer Instance ? Instance : {};
 
 /** Type for className input.
  * - Represents what can be fed into the MixDOM.classNames method with (ValidName extends string):
@@ -740,9 +741,13 @@ type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {}> = Ba
     constructor: {
         _Info?: Partial<ComponentInfo>;
     };
-}> | undefined ? InstanceType<(Anything & {})>["constructor"]["_Info"] : Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> : Anything extends Partial<ComponentInfo> ? Anything : {});
+}> | undefined ? (InstanceTypeFrom<Anything> & {
+    ["constructor"]: {
+        _Info: {};
+    };
+})["constructor"]["_Info"] : Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> : Anything extends Partial<ComponentInfo> ? Anything : {});
 /** Read merged info from multiple anythings inputted as an array. */
-type ReadComponentInfos<Anythings extends any[], BaseInfo extends Record<string, any> = {}, Index extends number = Anythings["length"], Collected extends Partial<ComponentInfo> = {}> = Index extends 0 ? Collected & BaseInfo : ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
+type ReadComponentInfos<Anythings extends any[], BaseInfo extends Record<string, any> = {}, Index extends number = Anythings["length"], Collected extends Partial<ComponentInfo> = {}> = number extends Index ? Collected & BaseInfo : Index extends 0 ? Collected & BaseInfo : ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
 /** For mixing components together, this reads any kind of info that refers to mixable's "_Required" part (in any form from anything, supporting mixables and HOCs).
  * - The _Required info indicates what the mixable component requires before it in the mixing chain.
  * - The actual info in _Required can be info or a componentfunc with info or such, but in here we read only the component info part from it.
@@ -757,7 +762,11 @@ type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, any> = 
     constructor: {
         _Required?: ComponentInfoInterpretable;
     };
-}> | undefined ? ReadComponentInfo<InstanceType<(Anything & {})>["constructor"]["_Required"], BaseInfo> : Anything extends ((...args: any[]) => any | void) | undefined ? Anything extends (Base: ComponentTypeAny) => ComponentTypeAny ? ReadComponentInfo<Parameters<Anything>[0], BaseInfo> : Parameters<(Anything & {})> extends [Record<string, any> | undefined, {
+}> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & {
+    ["constructor"]: {
+        _Required: {};
+    };
+})["constructor"]["_Required"], BaseInfo> : Anything extends ((...args: any[]) => any | void) | undefined ? Anything extends (Base: ComponentTypeAny) => ComponentTypeAny ? ReadComponentInfo<Parameters<Anything>[0], BaseInfo> : Parameters<(Anything & {})> extends [Record<string, any> | undefined, {
     constructor: {
         _Required?: ComponentInfoInterpretable;
     };
@@ -1199,9 +1208,7 @@ type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
     willUnmount: () => void;
 };
-type ComponentExternalSignalsFor<Comp extends Component = Component, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Comp["constructor"]["_Info"] & {}> & (Comp["constructor"]["_Info"] & {} & {
-    signals: {};
-})["signals"]> = {
+type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component = GetComponentFrom<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
     [SignalName in keyof CompSignals]: (comp: Comp, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
 };
 type ComponentExternalSignals<Comp extends Component = Component> = {
@@ -1336,7 +1343,7 @@ declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClas
 declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
 
 /** Type for the ComponentShadowAPI signals. */
-type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFor<ComponentShadow<Info>>;
+type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
 type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)) & {
     Info?: Info;
     api: ComponentShadowAPI<Info>;
@@ -1354,6 +1361,7 @@ interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends 
 }
 /** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
 interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    ["constructor"]: ComponentShadowType<Info>;
 }
 /** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
 interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
@@ -1434,12 +1442,16 @@ type ComponentWiredFunc<ParentProps extends Record<string, any> = {}, BuildProps
 interface ComponentWiredType<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowType<{
     props: ParentProps;
 }> {
-    api: ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
+    api: ComponentShadowAPI<{
+        props: ParentProps;
+        state: MixedProps;
+    }> & ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
 }
 /** There is no actual class for ComponentWired. Instead a new class is created when createWired is used. */
-interface ComponentWired<ParentProps extends Record<string, any> = {}> extends Component<{
+interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends Component<{
     props: ParentProps;
 }> {
+    ["constructor"]: ComponentWiredType<ParentProps, BuildProps, MixedProps>;
 }
 
 type WithContentInfo = {
@@ -1606,14 +1618,13 @@ interface ComponentType<Info extends Partial<ComponentInfo> = {}> {
 }
 declare const Component_base: {
     new (props: MixDOMPreComponentOnlyProps<{}>, boundary?: SourceBoundary | undefined, ...passArgs: any[]): {
-        constructor: ComponentType<{}>;
         readonly boundary: SourceBoundary;
         readonly props: {};
         readonly _lastState?: {} | undefined;
         state: {};
         updateModes: Partial<MixDOMUpdateCompareModesBy>;
         constantProps?: Partial<Record<never, number | true | MixDOMUpdateCompareMode>> | undefined;
-        timers?: Map<any, number | NodeJS.Timeout> | undefined;
+        timers?: Map<any, number | NodeJSTimeout> | undefined;
         readonly wired?: Set<ComponentWiredType<{}, {}, {}> | ComponentWiredFunc<{}, {}, {}>> | undefined;
         contextAPI?: ComponentContextAPI<{}> | undefined;
         /** This initializes the contextAPI instance (once). */
@@ -1654,7 +1665,7 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: State;
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
-    timers?: Map<Info["timers"] & {}, number | NodeJS.Timeout>;
+    timers?: Map<Info["timers"] & {}, number | NodeJSTimeout>;
     /** If any is undefined / null, then uses the default from host.settings. */
     updateModes: Partial<MixDOMUpdateCompareModesBy>;
     /** If constantProps is defined, then its keys defines props that must not change, and values how the comparison is done for each.
@@ -1926,7 +1937,7 @@ type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither,
     didAttach: (component: Type) => void;
     /** Called when a ref is about to be detached from a component. */
     willDetach: (component: Type | ContentBoundary) => void;
-} & ([Instance] extends [Component] ? ComponentExternalSignalsFor<Instance> : {});
+} & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
 type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
 interface RefBase {
     signals: Record<string, SignalListener[]>;
@@ -2535,7 +2546,7 @@ declare const MixDOM: {
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowWith: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFor<ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
+    shadowWith: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
@@ -2661,4 +2672,4 @@ declare const MixDOM: {
     parseStyle: typeof parseStyle;
 };
 
-export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFor, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };
+export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, InstanceTypeFrom, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };

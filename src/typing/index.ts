@@ -1,6 +1,7 @@
 
 // - Export all - //
 
+export * from "./CommonTypes";
 export * from "./NameValidation";
 export * from "./HTMLTypes";
 export * from "./SVGTypes";

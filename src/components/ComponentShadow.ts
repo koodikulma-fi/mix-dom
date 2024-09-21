@@ -5,7 +5,7 @@
 import { MixDOMPreComponentOnlyProps, MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
-import { ComponentExternalSignalsFor } from "./typesSignals";
+import { ComponentExternalSignalsFrom } from "./typesSignals";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { Component, ComponentType } from "./Component";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
@@ -14,7 +14,7 @@ import { ComponentShadowAPI } from "./ComponentShadowAPI";
 // - Helper types - //
 
 /** Type for the ComponentShadowAPI signals. */
-export type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFor<ComponentShadow<Info>>;
+export type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
 export type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (
     ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)
     ) & { Info?: Info; api: ComponentShadowAPI<Info>; };
@@ -30,7 +30,9 @@ export interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> e
     api: ComponentShadowAPI<Info>;
 }
 /** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
-export interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> { }
+export interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    ["constructor"]: ComponentShadowType<Info>;
+}
 /** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
 export interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
     contextAPI: ComponentContextAPI<Info["contexts"] & {}>;

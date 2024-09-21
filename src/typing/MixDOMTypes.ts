@@ -107,17 +107,6 @@ export type HTMLSVGAttributes<Tag extends DOMTags = DOMTags, Other = never> = [T
 export type HTMLSVGAttributesBy = { [Tag in DOMTags]: HTMLSVGAttributes<Tag>; };
 
 
-// // - Node JS - //
-//
-// export interface NodeJSTimeout {
-//     ref(): this;
-//     unref(): this;
-//     hasRef(): boolean;
-//     refresh(): this;
-//     [Symbol.toPrimitive](): number;
-// }
-
-
 // - Component & Boundary - //
 
 export type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends Record<string, any> = {}> = (props: Props, state: State) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;

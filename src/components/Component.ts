@@ -3,7 +3,7 @@
 
 // Library.
 import { ClassType, AsMixin } from "mixin-types";
-import { ContextsAllType, SignalMan, mixinSignalMan, SetLike } from "data-signals";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout } from "data-signals";
 // Typing.
 import {
     MixDOMDoubleRenderer,
@@ -44,7 +44,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
 
     // A bit surprisingly, using this way of typing (combined with the ComponentMixin definition below), everything works perfectly.
     // .. The only caveat is that within here, we don't have the base class available.
-    return class _Component extends (mixinSignalMan(Base) as ClassType) {
+    return class _Component extends (mixinSignalMan(Base) as any as ClassType) {
 
 
         // - Static side - //
@@ -56,7 +56,8 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
         // <-- Note that holding this here wouldn't help in practice. It's because in here we don't actually have the final typed Info.
 
         public static MIX_DOM_CLASS = "Component";
-        ["constructor"]: ComponentType<Info>;
+
+        // ["constructor"]: ComponentType<Info>;
 
 
         // - Members - //
@@ -67,7 +68,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
         public state: State;
         public updateModes: Partial<MixDOMUpdateCompareModesBy>;
         public constantProps?: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>>;
-        public timers?: Map<any, number | NodeJS.Timeout>;
+        public timers?: Map<any, number | NodeJSTimeout>;
         public readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
 
         public contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
@@ -321,7 +322,7 @@ export interface Component<
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: State;
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
-    timers?: Map<Info["timers"] & {}, number | NodeJS.Timeout>;
+    timers?: Map<Info["timers"] & {}, number | NodeJSTimeout>;
 
     /** If any is undefined / null, then uses the default from host.settings. */
     updateModes: Partial<MixDOMUpdateCompareModesBy>;

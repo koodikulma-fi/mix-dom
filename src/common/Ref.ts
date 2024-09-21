@@ -9,9 +9,10 @@ import { MixDOMTreeNode, MixDOMDOMDiffs, MixDOMContentSimple } from "../typing";
 import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
 import { ContentBoundary } from "../boundaries/ContentBoundary";
-import { ComponentExternalSignalsFor } from "../components/typesSignals";
+import { ComponentExternalSignalsFrom } from "../components/typesSignals";
 import { ComponentInstanceType, ComponentTypeEither } from "../components/typesVariants";
 import { Component } from "../components/Component";
+import { ReadComponentInfo } from "../components";
 
 
 // - Types - //
@@ -38,9 +39,8 @@ export type RefComponentSignals<Type extends ComponentTypeEither = ComponentType
     didAttach: (component: Type) => void;
     /** Called when a ref is about to be detached from a component. */
     willDetach: (component: Type | ContentBoundary) => void;
-} & ([Instance] extends [Component] ? ComponentExternalSignalsFor<Instance> : {});
+} & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
 export type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
-// export type RefSignals<Type extends Node | ComponentTypeEither | null = null> = [null] extends [Type] ? {} : [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
 
 export interface RefBase {
     signals: Record<string, SignalListener[]>;

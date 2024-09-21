@@ -82,7 +82,7 @@ export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrCla
 /** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
 export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: (component: ComponentShadow<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name: string = func.name): ComponentShadowFuncWith<Info> => {
     // Create and attach ComponentShadowAPI.
-    const Shadow = createComponentCtx(func, name) as ComponentShadowFuncWith<Info>;
+    const Shadow = createComponentCtx(func as any, name) as ComponentShadowFuncWith<Info>;
     Shadow.api = new ComponentShadowAPI();
     if (signals)
         for (const sName in signals)

@@ -5,7 +5,7 @@
 import { ClassType, IterateBackwards } from "mixin-types";
 import { ContextsAllType } from "data-signals";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
+import { InstanceTypeFrom, MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
 import { ComponentTypeAny } from "./typesVariants";
 import { Component, ComponentFunc, ComponentType } from "./Component";
@@ -107,7 +107,7 @@ export type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {
     
     // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
     // .. Note that if we were to directly add static _Info on the _Component mixin base, it would not contain the correctly typed info.
-    Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? InstanceType<(Anything & {})>["constructor"]["_Info"] :
+    Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info: {}; }; })["constructor"]["_Info"] :
 
     // Func without info - infer from parameters.
     Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> :
@@ -121,7 +121,12 @@ export type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {
 
 /** Read merged info from multiple anythings inputted as an array. */
 export type ReadComponentInfos<Anythings extends any[], BaseInfo extends Record<string, any> = {}, Index extends number = Anythings["length"], Collected extends Partial<ComponentInfo> = {}> =
-    Index extends 0 ? Collected & BaseInfo : ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
+    // Asking generically.
+    number extends Index ? Collected & BaseInfo :
+    // Last one.
+    Index extends 0 ? Collected & BaseInfo :
+    // Read infos.
+    ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
 
 /** For mixing components together, this reads any kind of info that refers to mixable's "_Required" part (in any form from anything, supporting mixables and HOCs).
  * - The _Required info indicates what the mixable component requires before it in the mixing chain.
@@ -138,7 +143,7 @@ export type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, 
     Anything extends { constructor: { _Required?: ComponentInfoInterpretable }; } | undefined ? ReadComponentInfo<(Anything & {})["constructor"]["_Required"], BaseInfo> :
     
     // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
-    Anything extends ClassType<{ constructor: { _Required?: ComponentInfoInterpretable } }> | undefined ? ReadComponentInfo<InstanceType<(Anything & {})>["constructor"]["_Required"], BaseInfo> :
+    Anything extends ClassType<{ constructor: { _Required?: ComponentInfoInterpretable } }> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & { ["constructor"]: { _Required: {}; }; })["constructor"]["_Required"], BaseInfo> :
 
     // Func without info - infer from parameters.
     Anything extends ((...args: any[]) => any | void) | undefined ?

@@ -1,0 +1,26 @@
+{
+  "name": "mix-dom",
+  "version": "4.0.0",
+  "description": "",
+  "keywords": [
+    "mix-dom"
+  ],
+  "homepage": "https://github.com/koodikulma-fi/mix-dom",
+  "author": "Mikael Saurén",
+  "license": "MIT",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koodikulma-fi/mix-dom.git"
+  },
+  "module": "./MixDOM.module.js",
+  "main": "./MixDOM.js",
+  "types": "./MixDOM.d.ts",
+  "exports": {
+    ".": {
+      "import": "./MixDOM.module.js",
+      "require": "./MixDOM.js"
+    },
+    "./package.json": "./package.json"
+  }
+}

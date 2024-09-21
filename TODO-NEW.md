@@ -9,6 +9,7 @@
   - MIX_DOM_CLASS ... especially.. that Context use to have such...
   - compiling
 
+
 VERIFY:
 
 - THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
@@ -38,6 +39,7 @@ VERIFY:
     - TODO: Refine that eg. { width, height, left, right } as numbers get "px" on JS side.
       * They only get it in some situations. Eg. in mixdom docs could do { width: 5 } on JS side, but on another not..!
       * Also refine / verify typing all around this + maybe extra comments about number -> "px".
+    - TODO: `MixDOM.def("span", { "style": { colorFAIL: "#aac" } });` <-- colorFAIL won't fail.
   * ATTRIBUTE related refines:
     - TODO: In relation to "onclick" vs. "onClick".
       * <-- Solve it by allowing to select JSX or JSX_lowercase or JSX_camelCase. When declares the globals..!
@@ -55,6 +57,8 @@ VERIFY:
   
 - Cleanups and refines:
   * Simplified component timers methods (from 5 methods to 3 methods).
+
+- REMOVE THE DEV LOGS... Simply leave them as comments.. can just uncomment...
 
 - Coming soon:
   - TODO: `data-signals-debug` to allow viewing Context signals & data changes in a UI in another window. (Rendered with MixDOM.)

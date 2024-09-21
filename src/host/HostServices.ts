@@ -431,7 +431,7 @@ export class HostServices {
         services._whileUpdating = true;
 
         // Update again immediately, if new ones collected. We'll reassign pending variable below.
-        while (pending.updates[0]) {
+        while (pending.updates.size) {
 
             // Collect output.
             let renderInfos: MixDOMRenderInfo[] = [];
