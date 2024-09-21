@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import * as data_signals from 'data-signals';
-import { ContextsAllType, ContextAPIType, ContextAPI, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
 import * as mixin_types from 'mixin-types';
 import { AsClass, ClassType, IterateBackwards, AsMixin } from 'mixin-types';
 
@@ -577,6 +577,10 @@ declare class HostShadowAPI<Contexts extends ContextsAllType = {}> {
 
 /** Class type for HostContextAPI. */
 interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
+    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
+    getListenersFor<CtxName extends string & keyof Contexts>(contextAPI: HostContextAPI<Contexts>, ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
+    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
+    callDataListenersFor(contextAPI: HostContextAPI<Contexts>, ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
 }
 /** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
  * - It also has the afterRefresh method assign to the host's cycles.
@@ -610,10 +614,6 @@ interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
-    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
 }
 declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     awaitDelay(): Promise<void>;

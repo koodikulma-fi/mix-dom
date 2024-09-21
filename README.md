@@ -6,6 +6,12 @@ Current state:
 - Refactored to use new "data-signals" base. Not tested at all. Not likely to work 100% correctly currently.
 - Note. Tried changing Routines to static classes from direct export functions but fattened the MixDOM.module.js size from 61.4KB to 64.0KB. Changed back.
 
+## QUICK TODO
+- Refactor COMPONENT MIXIN usage base, according to "mixin-types" approach.
+- Start testing to make basic things work.
+- Make the new modifications for REMOTE components.
+- The TYPE refines and FIXES.
+
 ## MixDOM
 
 MixDOM is a state based DOM rendering library for JavaScript/TypeScript. It provides a flexible framework for building user interfaces all the way up to complex application with several laterally interrelated parts - using contexts with their data and signals from "data-signals". Get the most out of MixDOM by using a JSX compiler and TypeScript.
