@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { askListeners, callListeners, areEqual, CompareDataDepthEnum, RefreshCycle } from "data-signals";
+import { askListeners, callListeners, areEqual, CompareDataDepthEnum, updateCallTimer } from "data-signals";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -35,23 +35,13 @@ import { ComponentRemote } from "../components/ComponentRemote";
 
 // - HostServices (the technical part) for Host  - //
 
-interface HostUpdateCycleInfo {
-    updates: Set<SourceBoundary>;
-}
-interface HostRenderCycleInfo {
-    rCalls: MixDOMSourceBoundaryChange[][];
-    rInfos: MixDOMRenderInfo[][];
-}
-
 export class HostServices {
 
     // Relations.
     /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and hydration. */
     public renderer: HostRender;
     /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
-    public host: Host;
-    public updateCycle: RefreshCycle<HostUpdateCycleInfo>;
-    public renderCycle: RefreshCycle<HostRenderCycleInfo>;
+    private host: Host;
 
     // Bookkeeping.
     /** A simple counter is used to create unique id for each boundary (per host). */
@@ -59,19 +49,35 @@ export class HostServices {
     /** This is the target render definition that defines the host's root boundary's render output. */
     private rootDef: MixDOMDefTarget | null;
 
+    // Update flow.
+    private updateTimer: number | NodeJS.Timeout | null;
+    private updatesPending: Set<SourceBoundary>;
+    // Render flow: execute render infos and boundary calls (eg. didMount and didUpdate).
+    private renderTimer: number | NodeJS.Timeout | null;
+    private rCallsPending: MixDOMSourceBoundaryChange[][];
+    private rInfosPending: MixDOMRenderInfo[][];
+
     // Temporary flags.
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?: true;
+    /** Temporary forced render timeout. */
+    private _renderTimeout?: number | null;
     /** Temporary flag to mark while update process is in progress. */
-    private _whileUpdating?: true;
+    private _isUpdating?: boolean;
+    /** Temporary internal callbacks that will be called when the update cycle is done. */
+    _afterUpdate?: Array<() => void>;
+    /** Temporary internal callbacks that will be called after the render cycle is done. */
+    _afterRender?: Array<() => void>;
 
     constructor(host: Host) {
         this.host = host;
-        this.bIdCount = 0;
         this.renderer = new HostRender(host.settings, host.groundedTree); // Should be constructed after assigning settings and groundedTree.
-        this.updateCycle = new RefreshCycle<HostUpdateCycleInfo>(() => ({ updates: new Set() }));
-        this.renderCycle = new RefreshCycle<HostRenderCycleInfo>(() => ({ rCalls: [], rInfos: [] }));
-        (this.constructor as typeof HostServices).initializeCyclesFor(this);
+        this.bIdCount = 0;
+        this.updateTimer = null;
+        this.renderTimer = null;
+        this.updatesPending = new Set();
+        this.rInfosPending = [];
+        this.rCallsPending = [];
     }
 
     
@@ -84,13 +90,18 @@ export class HostServices {
 
     public clearTimers(forgetPending: boolean = false): void {
         // Unless we are destroying the whole thing, it's best to (update and) render the post changes into dom.
-        if (!forgetPending) {
-            this.updateCycle.resolve();
-            this.renderCycle.resolve();
+        if (!forgetPending)
+            this.runUpdates(null);
+        // Clear update timer.
+        if (this.updateTimer != null) {
+            clearTimeout(this.updateTimer);
+            this.updateTimer = null;
         }
-        // Make sure are cleared.
-        this.updateCycle.reject();
-        this.renderCycle.reject();
+        // Clear render timer.
+        if (this.renderTimer != null) {
+            clearTimeout(this.renderTimer);
+            this.renderTimer = null;
+        }
     }
 
 
@@ -141,22 +152,17 @@ export class HostServices {
     }
 
 
-    // - Refresh helpers - //
+    // - Has pending updates or post process - //
 
     public hasPending(updateSide: boolean = true, postSide: boolean = true): boolean {
-        return !!(updateSide && this.updateCycle.state || postSide && this.renderCycle.state);
-    }
-
-    public addRefreshCall(callback: () => void, renderSide: boolean = false): void {
-        renderSide ? this.renderCycle.promise.then(callback) : this.updateCycle.promise.then(callback);
+        return updateSide && this.updateTimer !== null || postSide && this.renderTimer !== null;
     }
 
 
     // - 1. Update flow - //
 
     public cancelUpdates(boundary: SourceBoundary): void {
-        this.updateCycle.pending.updates?.delete(boundary);
-        // this.updateCycle.eject({ updates: [boundary] }); // Alternative.
+        this.updatesPending.delete(boundary);
     }
 
     /** This is the main method to update a boundary.
@@ -189,30 +195,82 @@ export class HostServices {
             return;
         }
         // Add to collection.
-        this.updateCycle.pending.updates.add(boundary);
+        this.updatesPending.add(boundary);
         // Trigger.
         if (refresh)
-            this.triggerRefresh(forceUpdateTimeout, forceRenderTimeout);
+            this.triggerUpdates(forceUpdateTimeout, forceRenderTimeout);
     }
 
     /** This triggers the update cycle. */
-    public triggerRefresh(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-        // Update times.
-        this.updateRefreshTimes(forceUpdateTimeout, forceRenderTimeout);
-        // Trigger update.
-        this.updateCycle.trigger(this.host.settings.updateTimeout, forceUpdateTimeout);
+    public triggerUpdates(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null) {
+        // Update temporary time out if given a tighter time.
+        if (forceRenderTimeout !== undefined) {
+            if ((forceRenderTimeout === null) || (this._renderTimeout === undefined) || (this._renderTimeout !== null) && (forceRenderTimeout < this._renderTimeout) )
+                this._renderTimeout = forceRenderTimeout;
+        }
+        // If is updating, just wait.
+        if (this._isUpdating)
+            return;
+        // Refresh.
+        this.triggerRefreshFor("update", forceUpdateTimeout);
     }
 
-    /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
-    public updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-        // Optionally set custom render timeout.
-        // .. Note that if is set to use instant rendering, we won't trigger the instant now, but just mark renderCycle to be infinite.
-        // .. We then later (in initializeCyclesFor hookup) check if it had no timeout set, then resolve instantly.
-        if (forceRenderTimeout !== undefined)
-            this.renderCycle.extend(forceRenderTimeout ?? undefined, false);
-        // Trigger update.
-        if (forceUpdateTimeout !== undefined)
-            this.updateCycle.extend(forceUpdateTimeout, false);
+    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
+     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together. */
+    private runUpdates(postTimeout?: number | null) {
+
+        // Set flags.
+        this.updateTimer = null;
+        this._isUpdating = true;
+        // Get render timeout.
+        postTimeout = postTimeout !== undefined ? postTimeout : (this._renderTimeout !== undefined ? this._renderTimeout : this.host.settings.renderTimeout);
+        delete this._renderTimeout;
+
+        // Update again immediately, if new ones collected.
+        while (this.updatesPending.size) {
+
+            // Copy and clear delayed, so can add new during.
+            let sortedUpdates = [...this.updatesPending];
+            this.updatesPending.clear();
+
+            // Do smart sorting here if has at least 2 boundaries.
+            if (sortedUpdates[1])
+                sortBoundaries(sortedUpdates);
+
+            // Collect output.
+            let renderInfos: MixDOMRenderInfo[] = [];
+            let bChanges: MixDOMSourceBoundaryChange[] = [];
+
+            // Run update for each.
+            for (const boundary of sortedUpdates) {
+                const updates = this.updateBoundary(boundary);
+                if (updates) {
+                    renderInfos = renderInfos.concat(updates[0]);
+                    bChanges = bChanges.concat(updates[1]);
+                }
+            }
+
+            // Add to post post.
+            if (renderInfos[0])
+                this.rInfosPending.push(renderInfos);
+            if (bChanges[0]) {
+                if (this.host.settings.useImmediateCalls)
+                    HostServices.callBoundariesBy(bChanges);
+                else
+                    this.rCallsPending.push(bChanges);
+            }
+
+        }
+
+        // Call listeners.
+        if (this._afterUpdate)
+            this.callAndClear("_afterUpdate");
+
+        // Render.
+        this.triggerRefreshFor("render", postTimeout);
+
+        // Finished.
+        delete this._isUpdating;
     }
 
     /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
@@ -382,7 +440,7 @@ export class HostServices {
     public absorbChanges(renderInfos: MixDOMRenderInfo[] | null, boundaryChanges?: MixDOMSourceBoundaryChange[] | null, forceRenderTimeout?: number | null) {
         // Add rendering to post.
         if (renderInfos)
-            this.renderCycle.pending.rInfos.push(renderInfos);
+            this.rInfosPending.push(renderInfos);
         // Add boundary calls.
         if (boundaryChanges) {
             // Immediately.
@@ -390,101 +448,44 @@ export class HostServices {
                 HostServices.callBoundariesBy(boundaryChanges);
             // After rendering.
             else
-                this.renderCycle.pending.rCalls.push(boundaryChanges);
+                this.rCallsPending.push(boundaryChanges);
         }
         // Refresh.
-        // .. Don't trigger instantly. If set to be instant, just mark as infinite - we'll resolve it instantly _after_ the update cycle.
-        this.renderCycle.trigger(this.host.settings.renderTimeout ?? undefined, forceRenderTimeout ?? undefined);
+        this.triggerRefreshFor("render", forceRenderTimeout);
     }
 
-
-    // - Public static cycle helpers - //
-
-    /** Initialize cycles. */
-    public static initializeCyclesFor(services: HostServices): void {
-        // Hook up cycle interconnections.
-        // .. Do the actual running.
-        services.updateCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runUpdateFor(services, pending, resolvePromise));
-        services.renderCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runRenderFor(services, pending, resolvePromise));
-        // .. Make sure "render" is run when "update" finishes.
-        services.updateCycle.listenTo("onFinish", () => {
-            // Trigger with default timing. (If was already active, won't do anything.)
-            services.renderCycle.trigger(services.host.settings.renderTimeout);
-            // See here if renderCycle had been set to infinite timeout. If so, resolve instantly.
-            if (services.renderCycle.timer === undefined)
-                services.renderCycle.resolve();
-        });
-        // .. Make sure to start "update" when "render" is started.
-        services.renderCycle.listenTo("onStart", () => services.updateCycle.trigger(services.host.settings.updateTimeout));
-        // .. Make sure "update" is always resolved right before "render".
-        services.renderCycle.listenTo("onResolve", () => services.updateCycle.resolve());
-    }
-    
-    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
-     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
-     */
-    public static runUpdateFor(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
-
-        // Prevent multi-running during.
-        if (services._whileUpdating)
-            return;
-        services._whileUpdating = true;
-
-        // Update again immediately, if new ones collected. We'll reassign pending variable below.
-        while (pending.updates[0]) {
-
-            // Collect output.
-            let renderInfos: MixDOMRenderInfo[] = [];
-            let bChanges: MixDOMSourceBoundaryChange[] = [];
-
-            // Run update for each.
-            // .. Do smart sorting here if has at least 2 boundaries.
-            for (const boundary of (pending.updates.size > 1 ? sortBoundaries(pending.updates) : [...pending.updates])) {
-                const updates = services.updateBoundary(boundary);
-                if (updates) {
-                    renderInfos = renderInfos.concat(updates[0]);
-                    bChanges = bChanges.concat(updates[1]);
-                }
-            }
-
-            // Add infos to render cycle.
-            if (renderInfos[0])
-                services.renderCycle.pending.rInfos.push(renderInfos);
-            if (bChanges[0]) {
-                if (services.host.settings.useImmediateCalls)
-                    HostServices.callBoundariesBy(bChanges);
-                else
-                    services.renderCycle.pending.rCalls.push(bChanges);
-            }
-
-            // Reassign.
-            pending = services.updateCycle.resetPending();
-        }
-
-        // Finished.
-        delete services._whileUpdating;
-
-        // Call listeners - we just do it automatically by having resolvePromise be auto-called after.
-        // resolvePromise();
-    }
-
-    public static runRenderFor(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
+    private runRender() {
+        // Clear timer ref.
+        this.renderTimer = null;
         // Render infos.
-        if (pending.rInfos)
-            for (const renderInfos of pending.rInfos)
-                if (renderInfos[0])
-                    services.renderer.applyToDOM(renderInfos);
+        const infos = this.rInfosPending;
+        this.rInfosPending = [];
+        for (const renderInfos of infos)
+            if (renderInfos[0])
+                this.renderer.applyToDOM(renderInfos);
         // Boundary changes.
-        if (pending.rCalls)
-            for (const boundaryChanges of pending.rCalls)
-                if (boundaryChanges[0])
-                    HostServices.callBoundariesBy(boundaryChanges);
-        // Call listeners - we just do it automatically by having resolvePromise be auto-called after.
-        // resolvePromise();
+        const calls = this.rCallsPending;
+        this.rCallsPending = [];
+        for (const boundaryChanges of calls)
+            if (boundaryChanges[0])
+                HostServices.callBoundariesBy(boundaryChanges);
+        // Call listeners.
+        if (this._afterRender)
+            this.callAndClear("_afterRender");
     }
 
 
-    // - Other static helpers - //
+    // - Helpers - //
+
+    private triggerRefreshFor(side: "update" | "render", forceTimeout?: number | null) {
+        if (side === "update")
+            this.updateTimer = updateCallTimer(() => this.runUpdates(), this.updateTimer, this.host.settings.updateTimeout, forceTimeout);
+        else
+            this.renderTimer = updateCallTimer(() => this.runRender(), this.renderTimer, this.host.settings.renderTimeout, forceTimeout);
+    }
+
+
+    // - Static - //
 
     public static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean {
         // Prepare.
@@ -514,7 +515,18 @@ export class HostServices {
         return false;
     }
 
-    public static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]) {
+
+    // - Private helpers - //
+
+    /** Get callbacks by a property and delete the member and call each. */
+    private callAndClear(property: string) {
+        const calls = this[property] as Array<() => void>;
+        delete this[property];
+        for (const callback of calls)
+            callback();
+    }
+
+    private static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]) {
         // Loop each.
         for (const info of boundaryChanges) {
             // Parse.

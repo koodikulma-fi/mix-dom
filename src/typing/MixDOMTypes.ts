@@ -138,7 +138,7 @@ export type MixDOMComponentTag<Props extends Record<string, any> = {}> = Compone
 export type MixDOMPreTag = DOMTags | MixDOMPseudoTag | MixDOMComponentTag;
 export type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
- * The number type refers to the values of searchTagByType in routinesPairing. */
+ * The number type refers to the values of searchByTag in routinesPairing. */
 export type MixDOMDefKeyTag = MixDOMPostTag | MixDOMDefTarget | typeof PseudoFragment | Host | number;
 
 

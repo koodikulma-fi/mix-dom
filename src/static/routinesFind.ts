@@ -11,7 +11,7 @@ import { MixDOMTreeNode, MixDOMTreeNodeDOM, MixDOMTreeNodeType, MixDOMDefApplied
  * - If includeNested is true, searches recursively inside sub boundaries - not just within the render scope. (Normally stops after meets a source or content boundary.)
  * - If includeInHosts is true, extends the search to inside nested hosts as well. (Not recommended.)
  * - If includeInInactive is true, extends the search to include inactive boundaries and treeNodes inside them. */
-export function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Partial<Record<MixDOMTreeNodeType, boolean>>, maxCount: number = 0, includeNested: boolean = false, includeInHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
+export function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Set<MixDOMTreeNodeType | "">, maxCount: number = 0, includeNested: boolean = false, includeInHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
     // Prepare.
     const list: MixDOMTreeNode[] = [];
     let treeNodesLeft : MixDOMTreeNode[] = [rootTreeNode];
@@ -26,7 +26,7 @@ export function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Partial<
         if (treeNode.boundary && treeNode.boundary.isMounted === null)
             continue;
         // Accepted.
-        if (!okTypes || okTypes[treeNode.type]) {
+        if (!okTypes || okTypes.has(treeNode.type)) {
             if (!validator || validator(treeNode)) {
                 const count = list.push(treeNode);
                 if (maxCount && count >= maxCount)
@@ -104,6 +104,7 @@ export function allDefsIn(rootDef: MixDOMDefApplied): MixDOMDefApplied[] {
     return allDefs;
 }
 
+
 // /** This is a very quick way to find all boundaries within and including the given one - recursively if includeNested is true.
 //  * - Note that this stays inside the scope of the host (as .innerBoundaries never contains the root boundary of another host).
 //  */
@@ -142,13 +143,13 @@ export function allDefsIn(rootDef: MixDOMDefApplied): MixDOMDefApplied[] {
 
 export function domElementByQuery<T extends Element = Element>(treeNode: MixDOMTreeNode, selectors: string, allowWithinBoundaries: boolean = false, allowOverHosts: boolean = false): T | null {
     const validator = (tNode: MixDOMTreeNode) => tNode.domNode && tNode.domNode instanceof Element && tNode.domNode.matches(selectors);
-    const foundNode = treeNodesWithin(treeNode, { dom: true }, 1, allowWithinBoundaries, allowOverHosts, validator)[0];
+    const foundNode = treeNodesWithin(treeNode, new Set(["dom"]), 1, allowWithinBoundaries, allowOverHosts, validator)[0];
     return foundNode && foundNode.domNode as T || null;
 }
 
 export function domElementsByQuery<T extends Element = Element>(treeNode: MixDOMTreeNode, selectors: string, maxCount: number = 0, allowWithinBoundaries: boolean = false, allowOverHosts: boolean = false): T[] {
     const validator = (tNode: MixDOMTreeNode) => tNode.domNode && tNode.domNode instanceof Element && tNode.domNode.matches(selectors);
-    return treeNodesWithin(treeNode, { dom: true }, maxCount, allowWithinBoundaries, allowOverHosts, validator).map(tNode => tNode.domNode as T);
+    return treeNodesWithin(treeNode, new Set(["dom"]), maxCount, allowWithinBoundaries, allowOverHosts, validator).map(tNode => tNode.domNode as T);
 }
 
 // export function treeNodesIn(treeNode: TreeNode, types: RecordableType<MixDOMTreeNodeType>, maxCount: number = 0, allowWithinBoundaries: boolean = false, allowOverHosts: boolean = false, validator?: (treeNode: TreeNode) => any): TreeNode[] {

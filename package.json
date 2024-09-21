@@ -44,6 +44,7 @@
         "build": "tsc && rollup -c rollup.config.js"
     },
     "dependencies": {
+        "mixin-types": "^1.0.0",
         "data-signals": "^1.0.0"
     },
     "devDependencies": {

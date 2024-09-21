@@ -26,7 +26,7 @@ export type ToApplyPair = [MixDOMDefTarget, MixDOMDefApplied, MixDOMTreeNode];
 // - Local constants - //
 
 /** For the special types, just anything unique other than string and function - and not !!false. */
-const searchTagByType = {
+const searchByTag = {
     "fragment": 1,
     "portal": 2,
     "pass": 3,
@@ -409,7 +409,7 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
         const childDef = parentDef.childDefs[i];
         const hasKey = childDef.key != null;
         const defType = childDef.MIX_DOM_DEF;
-        const sTag = childDef.getRemote || searchTagByType[defType] || childDef.tag;
+        const sTag = childDef.getRemote || searchByTag[defType] || childDef.tag;
         /** Whether did move for sure. If not sure, don't put to true. */
         let wideMove = false;
         let aDef: MixDOMDefApplied | null = null;
@@ -420,7 +420,7 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
             for (const def of siblingDefs) {
                 // Prepare.
                 // Not matching by: 1. key vs. non-key, 2. wrong tag, 3. already used.
-                if ((hasKey ? def.key !== childDef.key : def.key != null) || sTag !== (def.getRemote || searchTagByType[def.MIX_DOM_DEF] || def.tag) || !unusedDefs.has(def))
+                if ((hasKey ? def.key !== childDef.key : def.key != null) || sTag !== (def.getRemote || searchByTag[def.MIX_DOM_DEF] || def.tag) || !unusedDefs.has(def))
                     continue;
                 // Not matching by constant props.
                 if (defType === "boundary" && def.treeNode?.boundary?.component?.constantProps &&
@@ -495,7 +495,7 @@ export function buildDefMaps(appliedDef: MixDOMDefApplied, ignoreSelf: boolean =
         // Add to the base collection.
         unusedDefs.add(searchDef);
         // Add to defsByTags.
-        const sTag = searchDef.getRemote || searchTagByType[searchDef.MIX_DOM_DEF] || searchDef.tag;
+        const sTag = searchDef.getRemote || searchByTag[searchDef.MIX_DOM_DEF] || searchDef.tag;
         const byTags = defsByTags.get(sTag);
         byTags ? byTags.push(searchDef) : defsByTags.set(sTag, [ searchDef ]);
         // Isolate if has scope type - eg. spread and content pass copies within spread.

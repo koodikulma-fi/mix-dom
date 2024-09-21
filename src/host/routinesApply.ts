@@ -19,14 +19,14 @@ import {
     MixDOMTreeNodeBoundary,
 } from "../typing";
 // Routines.
-import { equalDOMProps, getDictionaryDiffs, newDefFrom, newAppliedDef, rootDOMTreeNodes, allDefsIn } from "../static/index";
+import { allDefsIn, equalDOMProps, getDictionaryDiffs, newAppliedDef, newDefFrom, rootDOMTreeNodes } from "../static/index";
 // Common.
 import { Ref, MixDOMContent } from "../common/index";
 // Boundaries.
 import { ContentBoundary, SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
 // Local.
-import { collectInterestedInClosure, mergeChanges, updatedInterestedInClosure } from "./routinesCommon";
-import { assignTreeNodesForPass, pairDefs, buildDefMaps, ToApplyPair } from "./routinesPairing";
+import { mergeChanges, collectInterestedInClosure, updatedInterestedInClosure } from "./routinesCommon";
+import { pairDefs, buildDefMaps, assignTreeNodesForPass, ToApplyPair } from "./routinesPairing";
 // Only typing (local).
 import { Host } from "./Host";
 // Only typing (distant).
@@ -36,7 +36,7 @@ import { ComponentShadowType } from "../components/ComponentShadow";
 import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRemote";
 
 
-// - Closure update process - //
+// - About closure update process - //
 
 // Visual analogy: ContentClosure as a SEALED ENVELOPE:
 //
@@ -88,6 +88,8 @@ import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRem
 //   * So whenever a new sealed copy (with same "id") is passed to replace the old one, the spying boundaries will also update.
 //     .. The flow also takes care of that the spying boundaries won't be updated multiple times (because they are kids, might be updated anyway).
 
+
+// - Methods - //
 
 /**
  * For true ContentPass, the situation is very distinguished:
@@ -176,7 +178,6 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
 
     // - 1. Handle source boundary vs. content boundary. - //
 
-
     // Prepare.
     let preDef : MixDOMDefTarget | null = null;
     let appliedDef: MixDOMDefApplied | null = byBoundary._innerDef;
@@ -195,7 +196,9 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
     else
         preDef = (byBoundary as ContentBoundary).targetDef;
 
+
     // - 2. Collect a map of current tags and applied defs - //
+    //
     // .. These maps will be used for wide pairing as well as for clean up.
     // .. Note that we should always build the map, even on boundary mount.
     // .... This is because in that case we were given a newly created appliedDef in runBoundaryUpdate, and it needs to be reusable, too.
@@ -208,6 +211,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
     if (preDef) {
 
         // - 3. Go over the preDef tree and assign appliedDef to each targetDef (including smart assigning for multiple MixDOM.Contentes). - //
+        //
         // .. We collect the new appliedDef tree as we go - as a separate copy from the original.
         // .. We also collect toApplyPairs already for a future phase of the process.
 
@@ -220,12 +224,13 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
         byBoundary._innerDef = toApplyPairs[0][1];
 
         // - 4. Apply the target defs recursively until each boundary starts (automatically limited by our toApplyPairs). - //
+        //
         // .. We update each def collecting render infos, and on boundaries create/update content closure and call mount/update.
         [ renderInfos, boundaryChanges ] = applyDefPairs(byBoundary, toApplyPairs, forceUpdate);
 
 
         // - 5a. Extra clean ups - //
-
+        //
         // The toCleanUpDefs are defs that might need clean up.
         // .. Now that all the grounding has been done, we can check if they really should be cleaned up.
         if (toCleanUpDefs[0]) {
@@ -251,7 +256,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
             // .. Not sure if is needed, but certainly can't hurt - maybe is even required (if appeared as a first child).
             emptyMovers.push(byBoundary.treeNode);
         // Nullify and cut.
-        // .. The innerBoundaries are normally reassigned on .applyDefPairs.
+        // .. The innerBoundaries are normally reassigned on applyDefPairs.
         byBoundary.innerBoundaries = [];
         // .. Note. The cutting would normally be done in the processing in .assignTreeNodesFor (part of .pairDefs).
         byBoundary.treeNode.children = [];

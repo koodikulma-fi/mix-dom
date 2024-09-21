@@ -9,4 +9,6 @@ export * from "./routinesPairing"; // Requires HostRender and routinesCommon.
 export * from "./routinesApply"; // Requires routinesCommon and routinesPairing.
 // Classes (post).
 export * from "../host/HostServices"; // Requires routinesApply and HostRender.
-export * from "../host/Host"; // Requires SourceBoundary, HostRender and HostServices.
+export * from "../host/HostShadowAPI";
+export * from "../host/HostContextAPI";
+export * from "../host/Host"; // Requires HostShadowAPI, HostContextAPI, HostRender and HostServices.

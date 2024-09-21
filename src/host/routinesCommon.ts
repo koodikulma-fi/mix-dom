@@ -37,7 +37,7 @@ export function mergeChanges<T extends MixDOMChangeInfos | null>(firstInfo: T, .
  * - Note. This implicitly supports sorting boundaries from different hosts, as the id's are in the form of: "h-number:b-number", eg. "h-0:b-47".
  * - So accordingly we might have a parent chain id like this: "h-0:b:0>h-0:b-15" which would mean has two parents: root boundary (b:0) > boundary (b:15) > self.
  */
-export function sortBoundaries(boundaries: Iterable<SourceBoundary>): void {
+export function sortBoundaries(boundaries: Set<SourceBoundary>): Array<SourceBoundary> {
 
     // 1. Collect boundaryId chains.
     const keysMap: Map<string, SourceBoundary[]> = new Map();
@@ -95,13 +95,13 @@ export function sortBoundaries(boundaries: Iterable<SourceBoundary>): void {
 
     // 3. Reassign in correct order.
     let i = 0;
+    const bArr: SourceBoundary[] = [];
     for (const key of sortedKeys) {
         // Unravel any of the same cousin family.
-        for (const boundary of keysMap.get(key) as SourceBoundary[]) {
-            boundaries[i] = boundary;
-            i++;
-        }
+        for (const boundary of keysMap.get(key) as SourceBoundary[])
+            bArr[i++] = boundary;
     }
+    return bArr;
 }
 
 
@@ -111,11 +111,9 @@ export function updatedInterestedInClosure(bInterested: Set<SourceBoundary>, sor
     // Prepare return.
     let renderInfos: MixDOMRenderInfo[] = [];
     let boundaryChanges: MixDOMSourceBoundaryChange[] = [];
-    // Sort, if needs and has at least two entries.
-    if (sortBefore && bInterested.size > 1)
-        sortBoundaries(bInterested);
     // Update each - if still needs to be updated (when the call comes).
-    for (const thruBoundary of bInterested) {
+    // .. Sort, if needs and has at least two entries.
+    for (const thruBoundary of (sortBefore && bInterested.size > 1 ? sortBoundaries(bInterested) : bInterested)) {
         // Was already updated.
         if (!thruBoundary._forceUpdate && !thruBoundary.component._lastState && thruBoundary.component.props === thruBoundary._outerDef.props)
             continue;

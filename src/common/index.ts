@@ -1,5 +1,6 @@
 
 // - Export all - //
 
+// Special features.
 export * from "./MixDOMContent";
-export { RefBase, Ref, newRef, RefSignals, RefDOMSignals, RefComponentSignals } from "./Ref";
+export * from "./Ref";

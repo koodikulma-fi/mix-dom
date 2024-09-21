@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Library.
-import { ContextAPI, ContextsAllType, SignalListener, RecordableType, buildRecordable, GetJoinedDataKeysFrom, GetDataFromContexts } from "data-signals";
+import { ContextAPI, ContextsAllType, SignalListener, SetLike, GetJoinedDataKeysFrom, GetDataFromContexts } from "data-signals";
 // Typing.
 import {
     DOMTags,
@@ -20,12 +20,14 @@ import {
     MixDOMDefApplied,
 } from "../typing";
 // Routines.
-import { newAppliedDef, domElementByQuery, domElementsByQuery, rootDOMTreeNodes, treeNodesWithin } from "../static/index";
+import { domElementByQuery, domElementsByQuery, newAppliedDef, rootDOMTreeNodes, treeNodesWithin } from "../static/index";
 // Boundaries.
 import { SourceBoundary } from "../boundaries/index";
 // Local.
-import { HostServices } from "./HostServices";
+import { HostShadowAPI } from "./HostShadowAPI";
+import { HostContextAPI } from "./HostContextAPI";
 import { HostRender } from "./HostRender";
+import { HostServices } from "./HostServices";
 // Only typing (distant).
 import { ComponentTypeAny } from "../components/typesVariants";
 import { ComponentCtx } from "../components/ComponentContextAPI";
@@ -39,147 +41,6 @@ export type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 export type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 export type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
 export type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
-
-
-// - HostContextAPI class - //
-
-/** This is simply a tiny class that is used to manage the host duplication features in a consistent way.
- * - Each Host has a `.shadowAPI`, but it's the very same class instance for all the hosts that are duplicated - the original and any duplicates have the same instance here.
- * - This way, it doesn't matter who is the original source (or if it dies away). As long as the shadowAPI instance lives, the originality lives.
- */
-export class HostShadowAPI<Contexts extends ContextsAllType = {}> {
-    /** These are the Host instances that share the common duplication basis. Note that only appear here once mounted (and disappear once cleaned up). */
-    hosts: Set<Host<Contexts>> = new Set();
-    /** These are the duplicatable contexts (by names). Any time a Host is duplicated, it will get these contexts automatically. */
-    contexts: Partial<Contexts> = {};
-}
-
-/** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
- * - It also has the afterRefresh method assign to the host's cycles. */
-export interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    /** The Host that this ContextAPI is attached to. Should be set manually after construction.
-     * - It's used for two purposes: 1. Marking duplicatable contexts to the Host's shadowAPI, 2. syncing to the host refresh (with the afterRefresh method).
-     * - It's assigned as a member to write HostContextAPI as a clean class.
-     */
-    host: Host<Contexts>;
-    /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
-     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
-     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
-     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
-     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
-     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
-     */
-    setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
-    /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
-     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
-     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
-     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
-     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
-     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
-     */
-    setContexts(contexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
-    /** This triggers a refresh and returns a promise that is resolved when the Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately. 
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order. */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
-    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
-}
-export class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-
-
-    // - Setting contexts - //
-
-    public setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): boolean { 
-        // Handle local bookkeeping.
-        if (markAsDuplicatable)
-            context ? this.host.shadowAPI.contexts[name] = context : delete this.host.shadowAPI.contexts[name];
-        // Basis.
-        return super.setContext(name as never, context as never, callDataIfChanged);
-    }
-    public setContexts(namedContexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): boolean {
-        // Handle local bookkeeping.
-        if (markAsDuplicatable) {
-            const dContexts = this.host.shadowAPI.contexts;
-            for (const ctxName in namedContexts)
-                namedContexts[ctxName] ? dContexts[ctxName] = namedContexts[ctxName] as any : delete dContexts[ctxName];
-        }
-        // Basis.
-        return super.setContexts(namedContexts, callDataIfChanged);
-    }
-
-
-    // - Handling refresh - //
-
-    public afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
-        return this.host.afterRefresh(fullDelay, updateTimeout, renderTimeout);
-    }
-
-
-    // - Getting / Calling indirect (component) listeners - //
-
-    public getListenersFor<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined {
-        // All within a context.
-        const ctxSignalName = ctxName + "." + (signalName || "");
-        const ctxComponents = [...this.host.contextComponents];
-        if (!signalName) {
-            // Add all our own matching signals.
-            let listeners: SignalListener[] = [];
-            for (const sName in this.signals) {
-                // If matches the context name + ".", then get the listeners.
-                if (sName.startsWith(ctxSignalName))
-                    listeners = listeners.concat(this.signals[sName]);
-            }
-            // Likewise, add from all the components.
-            return listeners.concat(
-                // Check all contextual components, and all signals in them.
-                ctxComponents.reduce((cum, comp) => {
-                    // Only allow from those components that do _not_ have direct overrides for the given context name - as they would be collected directly if related.
-                    if (comp.contextAPI.contexts[ctxName] !== undefined)
-                        return cum;
-                    // Check for match.
-                    const signals = comp.contextAPI.signals;
-                    for (const sName in signals) {
-                        // If matches the context name + ".", then get the listeners.
-                        if (sName.startsWith(ctxSignalName))
-                            cum = cum.concat(signals[sName]);
-                    }
-                    return cum;
-                }, [] as SignalListener[])
-            );
-        }
-        // All directly matching - the normal case.
-        const listeners = (this.signals[ctxSignalName] || []).concat(
-            // Components.
-            ctxComponents
-            // Only allow those that match and are _not_ on components that have direct overrides for the given context name - as they would be collected directly if related. (If unrelated, then nothing to do.)
-            .filter(comp => comp.contextAPI.signals[ctxSignalName] && (comp.contextAPI.contexts[ctxName] === undefined))
-            // Convert to the listeners and reduce the double structure away.
-            .map(comp => comp.contextAPI.signals[ctxSignalName]).reduce((a, c) => a.concat(c), [])
-        );
-        return listeners[0] && listeners;
-    }
-
-    // Hook up the feature.
-    public callDataListenersFor(ctxDataKeys: true | string[] = true): void {
-        // Call the direct. (That's what would happen without the presence of this method.)
-        this.callDataBy(ctxDataKeys as any);
-        // Call indirect - but only the ones who has not overridden the given context names locally.
-        // .. If has overridden locally, will be refreshed directly if related.
-        if (this.host.contextComponents.size) {
-            // Read context names.
-            const ctxNames = ContextAPI.readContextNamesFrom(ctxDataKeys === true ? Object.keys(this.contexts) : ctxDataKeys);
-            // Loop contextual components.
-            for (const comp of this.host.contextComponents) {
-                // If the context is not overridden by any of the names (typically only 1), then refresh.
-                if (ctxNames.some(ctxName => comp.contextAPI.contexts[ctxName] === undefined))
-                    comp.contextAPI.callDataBy(ctxDataKeys as never);
-            }
-        }
-    }
-}
 
 
 // - Types - //
@@ -498,15 +359,22 @@ export class Host<Contexts extends ContextsAllType = {}> {
     // Overridden.
     /** This triggers a refresh and returns a promise that is resolved when the update / render cycle is completed.
      * - If there's nothing pending, then will resolve immediately. 
-     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     public afterRefresh(renderSide: boolean = false, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
         return new Promise<void>(resolve => this.afterRefreshCall(resolve, renderSide, updateTimeout, renderTimeout));
+    }
+
+    /** Update the refresh times without triggering update. Not however that if updates updateTimeout to `null`, will trigger the update cycle instantly if was pending. */
+    public updateRefreshTimes(updateTimeout?: number | null, renderTimeout?: number | null): void {
+        this.services.updateRefreshTimes(updateTimeout, renderTimeout);
     }
 
     /** This is like afterRefresh but works with a callback, given as the first arg. (This is the core method for the feature.)
      * - Triggers a refresh and calls the callback once the update / render cycle is completed.
      * - If there's nothing pending, then will call immediately. 
-     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     public afterRefreshCall(callback: () => void, renderSide: boolean = false, updateTimeout?: number | null, renderTimeout?: number | null): void {
         // No pending - call immediately.
         if (!this.services.hasPending(true, renderSide))
@@ -516,20 +384,19 @@ export class Host<Contexts extends ContextsAllType = {}> {
             // Add to refresh wait.
             this.addRefreshCall(callback, renderSide);
             // Trigger updates.
-            this.services.triggerUpdates(updateTimeout, renderTimeout);
+            this.services.triggerRefresh(updateTimeout, renderTimeout);
         }
     }
 
     /** This adds a one-shot callback to the refresh cycle (update / render) - without triggering refresh. (So like afterRefreshCall but without refreshing.) */
     public addRefreshCall(callback: () => void, renderSide: boolean = false): void {
-        // Add to callback queue.
-        const side = renderSide ? "_afterRender" : "_afterUpdate";
-        (this.services[side] || (this.services[side] = [])).push(callback);
+        // Add to the promise.
+        this.services.addRefreshCall(callback, renderSide);
     }
     
     /** Trigger refreshing the host's pending updates and render changes. */
     public triggerRefresh(updateTimeout?: number | null, renderTimeout?: number | null): void {
-        this.services.triggerUpdates(updateTimeout, renderTimeout);
+        this.services.triggerRefresh(updateTimeout, renderTimeout);
     }
 
 
@@ -596,15 +463,16 @@ export class Host<Contexts extends ContextsAllType = {}> {
     }
     /** Find all dom nodes by an optional validator. */
     public findElements<T extends Node = Node>(maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): T[] {
-        return treeNodesWithin(this.groundedTree, { dom: true }, maxCount, true, overHosts, validator).map(tNode => tNode.domNode) as T[];
+        return treeNodesWithin(this.groundedTree, new Set(["dom"]), maxCount, true, overHosts, validator).map(tNode => tNode.domNode) as T[];
     }
     /** Find all components by an optional validator. */
     public findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): Comp[] {
-        return treeNodesWithin(this.groundedTree, { boundary: true }, maxCount, true, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp);
+        return treeNodesWithin(this.groundedTree, new Set(["boundary"]), maxCount, true, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp);
     }
     /** Find all treeNodes by given types and an optional validator. */
-    public findTreeNodes(types: RecordableType<MixDOMTreeNodeType>, maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
-        return treeNodesWithin(this.groundedTree, types && buildRecordable<MixDOMTreeNodeType>(types), maxCount, true, overHosts, validator);
+    public findTreeNodes(types: SetLike<MixDOMTreeNodeType>, maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
+        const okTypes = types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types));
+        return treeNodesWithin(this.groundedTree, okTypes as Set<MixDOMTreeNodeType | "">, maxCount, true, overHosts, validator);
     }
 
 
@@ -693,6 +561,9 @@ export class Host<Contexts extends ContextsAllType = {}> {
 
 }
 
+
+// - Shortcut - //
+
 /** Create a new host and start rendering into it. */
 export const newHost = <Contexts extends ContextsAllType = {}>(
     content?: MixDOMRenderOutput,
@@ -701,4 +572,3 @@ export const newHost = <Contexts extends ContextsAllType = {}>(
     contexts?: Contexts,
     // shadowAPI?: HostShadowAPI | null
 ) => new Host<Contexts>(content, container, settings, contexts); //, shadowAPI);
-

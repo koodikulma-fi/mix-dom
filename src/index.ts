@@ -3,7 +3,7 @@
 
 // Order of JS-inheritance by folders:
 // ./typing/
-// ./routines/
+// ./static/
 // ./common/
 // ./boundaries/
 // ./host/
@@ -13,13 +13,13 @@
 
 // - Export public like - //
 
-// All types - with JSX IntrinsicElements support.
+// All common typing.
 export * from "./typing/index";
-
-// The public part of routines.
-export * from "./static/index";
-// All from common.
+// All from common (Ref and MixDOMContent).
 export * from "./common/index";
+// Host and HostContextAPI from Host.
+export * from "./host/HostContextAPI";
+export * from "./host/Host";
 // All from components.
 export * from "./components/index";
 // All from MixDOM collection.

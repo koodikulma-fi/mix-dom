@@ -43,20 +43,18 @@ export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extend
     // - Auto pass listeners to components - //
 
     /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
-    public onListener(name: string, index: number, wasAdded: boolean) {
-        // Middleware.
-        super.onListener(name as any, index, wasAdded);
+    public static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean) {
         // Add our only listener, using the callback as the key.
-        if (this.components.size) {
-            const listener: SignalListener = this.signals[name][index];
+        if (compContextAPI.components.size) {
+            const listener: SignalListener = compContextAPI.signals[name][index];
             const callback = listener[0];
             // Add our only listener, using the callback as the key.
             if (wasAdded)
-                for (const component of this.components)
+                for (const component of compContextAPI.components)
                     (component as Component).listenTo(name as any, (...args: any[]) => listener[1] ? callback(component, ...args, ...listener[1]) : callback(component, ...args), null, listener[2], callback);
             // Remove our listener, using the callback as the groupId.
             else
-                for (const component of this.components)
+                for (const component of compContextAPI.components)
                     component.unlistenTo(name as any, callback);
         }
     }

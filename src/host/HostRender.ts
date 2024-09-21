@@ -22,7 +22,7 @@ import {
     MixDOMHydrationSuggester,
 } from "../typing";
 // Routines.
-import { cleanDOMStyle, getClassNameDiffs, getDictionaryDiffs, rootDOMTreeNodes } from "../static/index";
+import { getClassNameDiffs, getDictionaryDiffs, parseStyle, rootDOMTreeNodes } from "../static/index";
 // Common.
 import { Ref } from "../common/index";
 // Only typing (local).
@@ -1012,7 +1012,7 @@ export class HostRender {
         // Style.
         const cssText = (domNode as HTMLElement | SVGElement).style.cssText;
         if (cssText)
-            domProps.style = cleanDOMStyle(cssText);
+            domProps.style = parseStyle(cssText);
         // Data.
         const data = (domNode as HTMLElement).dataset;
         if (data && Object.keys(data).length) {

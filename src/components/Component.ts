@@ -2,15 +2,8 @@
 // - Imports - //
 
 // Library.
-import {
-    ContextsAllType,
-    SignalMan,
-    SignalManMixin,
-    RecordableType,
-    ClassType,
-    ClassMixer,
-    buildRecordable
-} from "data-signals";
+import { ClassType, AsMixin } from "mixin-types";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike } from "data-signals";
 // Typing.
 import {
     MixDOMDoubleRenderer,
@@ -51,7 +44,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
 
     // A bit surprisingly, using this way of typing (combined with the ComponentMixin definition below), everything works perfectly.
     // .. The only caveat is that within here, we don't have the base class available.
-    return class _Component extends (SignalManMixin(Base) as ClassType) {
+    return class _Component extends (mixinSignalMan(Base) as ClassType) {
 
 
         // - Static side - //
@@ -134,15 +127,16 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
         }
 
         public findElements(maxCount: number = 0, withinBoundaries: boolean = false, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): Node[] {
-            return treeNodesWithin(this.boundary.treeNode, { dom: true }, maxCount, withinBoundaries, overHosts, validator).map(tNode => tNode.domNode) as Node[];
+            return treeNodesWithin(this.boundary.treeNode, new Set(["dom"]), maxCount, withinBoundaries, overHosts, validator).map(tNode => tNode.domNode) as Node[];
         }
 
         public findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount: number = 0, withinBoundaries: boolean = false, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): Comp[] {
-            return treeNodesWithin(this.boundary.treeNode, { boundary: true }, maxCount, withinBoundaries, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp);
+            return treeNodesWithin(this.boundary.treeNode, new Set(["boundary"]), maxCount, withinBoundaries, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp);
         }
 
-        public findTreeNodes(types?: RecordableType<MixDOMTreeNodeType>, maxCount: number = 0, withinBoundaries: boolean = false, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
-            return treeNodesWithin(this.boundary.treeNode, types && buildRecordable<MixDOMTreeNodeType>(types), maxCount, withinBoundaries, overHosts, validator);
+        public findTreeNodes(types?: SetLike<MixDOMTreeNodeType>, maxCount: number = 0, withinBoundaries: boolean = false, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
+            const okTypes = types ? types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types)) : undefined;
+            return treeNodesWithin(this.boundary.treeNode, okTypes as Set<MixDOMTreeNodeType> | undefined, maxCount, withinBoundaries, overHosts, validator);
         }
 
 
@@ -284,7 +278,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
  *      * For example: `class MyMix extends (ComponentMixin as ClassMixer<ComponentType<{ props: MyProps; timers: MyTimers; }>>)(MyBase) {}`
  * - Note that the Info["class"] only works for functional components. In class form, you simply extend the class or mixin with a custom class or mixin.
  */
-export const ComponentMixin = _ComponentMixin as unknown as ClassMixer<ComponentType>;
+export const ComponentMixin = _ComponentMixin as unknown as AsMixin<ComponentType>;
 
 
 // - Class - //
@@ -351,7 +345,8 @@ export interface Component<
     // - Extend signal delay handling - //
 
     /** This returns a promise that is resolved after the host's refresh cycle has finished.
-     * - By default delays until the "update" cycle (renderSide = false). If renderSide is true, then is resolved after the "render" cycle (after updates). */
+     * - By default delays until the "update" cycle (renderSide = false). If renderSide is true, then is resolved after the "render" cycle (after updates).
+     */
     afterRefresh(renderSide?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): Promise<void>;
 
 
@@ -361,7 +356,8 @@ export interface Component<
     isMounted(): boolean;
     /** This gets the state that was used during last render call, and by default falls back to the current state.
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered. 
-     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render. */
+     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+     */
     getLastState(fallbackToCurrent?: true): State;
     getLastState(fallbackToCurrent?: boolean): State | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
@@ -375,7 +371,7 @@ export interface Component<
     /** Find all components within by an optional validator. */
     findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[];
     /** Find all treeNodes within by given types and an optional validator. */
-    findTreeNodes(types?: RecordableType<MixDOMTreeNodeType>, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
+    findTreeNodes(types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
 
 
     // - Timer service - automatically cleared on unmount - //

@@ -2,7 +2,7 @@
 // - Import - //
 
 // Libraries.
-import { ContextsAllType, ContextsAllTypeWith, ContextAPI, RecordableType, Context } from "data-signals";
+import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context } from "data-signals";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Host.
@@ -43,10 +43,11 @@ export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> exte
      * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
      * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
      */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
     /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
      * - If there's nothing pending, then will resolve immediately. 
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
 }
 /** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
@@ -55,12 +56,21 @@ export class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends 
     public getContext<Name extends keyof Contexts & string>(name: Name, includeInherited: boolean = true): Contexts[Name] | null | undefined {
         return this.contexts[name] !== undefined ? this.contexts[name] as Contexts[Name] | null : includeInherited ? this.host.contextAPI.contexts[name] as Contexts[Name] | undefined : undefined;
     }
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited: boolean = true, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited: boolean = true, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
         return (includeInherited ? { ...this.host.contextAPI.getContexts(onlyNames, skipNulls), ...super.getContexts(onlyNames, skipNulls) } : super.getContexts(onlyNames, skipNulls)) as Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>>;
     }
     public afterRefresh(fullDelay?: boolean | undefined, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
-        return this.host.afterRefresh(fullDelay, updateTimeout, renderTimeout);
+        // Trigger and await update cycle.
+        if (!fullDelay)
+            return this.host.afterRefresh(false, updateTimeout, renderTimeout);
+        // Trigger and await render cycle.
+        this.host.updateRefreshTimes(updateTimeout, renderTimeout);
+        return this.awaitDelay();
+    }
+    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
+    awaitDelay(): Promise<void> {
+        return this.host.afterRefresh(true);
     }
 }

@@ -10,7 +10,7 @@ import { MixDOMContent } from "../common/index";
 // Boundaries.
 import { SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
 // Host.
-import { mergeChanges, applyClosureEnvelope, applyClosureRefresh, collectInterestedInClosure, preRefreshClosure } from "../host/index";
+import { applyClosureEnvelope, applyClosureRefresh, collectInterestedInClosure, mergeChanges, preRefreshClosure } from "../host/index";
 // Local.
 import { Component, ComponentType } from "./Component";
 

@@ -1,6 +1,8 @@
 /// <reference types="node" />
 import * as data_signals from 'data-signals';
-import { ContextsAllType, ContextAPI, RecordableType, Context, ContextsAllTypeWith, ClassType, IterateBackwards, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, SignalMan, ClassMixer, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, ContextAPI, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
+import * as mixin_types from 'mixin-types';
+import { AsClass, ClassType, IterateBackwards, AsMixin } from 'mixin-types';
 
 /** Type for className input.
  * - Represents what can be fed into the MixDOM.classNames method with (ValidName extends string):
@@ -562,6 +564,63 @@ interface SVGNativeAttributes extends SVGCoreAttributes {
     "zoomAndPan": string;
 }
 
+/** This is simply a tiny class that is used to manage the host duplication features in a consistent way.
+ * - Each Host has a `.shadowAPI`, but it's the very same class instance for all the hosts that are duplicated - the original and any duplicates have the same instance here.
+ * - This way, it doesn't matter who is the original source (or if it dies away). As long as the shadowAPI instance lives, the originality lives.
+ */
+declare class HostShadowAPI<Contexts extends ContextsAllType = {}> {
+    /** These are the Host instances that share the common duplication basis. Note that only appear here once mounted (and disappear once cleaned up). */
+    hosts: Set<Host<Contexts>>;
+    /** These are the duplicatable contexts (by names). Any time a Host is duplicated, it will get these contexts automatically. */
+    contexts: Partial<Contexts>;
+}
+
+/** Class type for HostContextAPI. */
+interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
+}
+/** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
+ * - It also has the afterRefresh method assign to the host's cycles.
+ */
+interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    /** The Host that this ContextAPI is attached to. Should be set manually after construction.
+     * - It's used for two purposes: 1. Marking duplicatable contexts to the Host's shadowAPI, 2. syncing to the host refresh (with the afterRefresh method).
+     * - It's assigned as a member to write HostContextAPI as a clean class.
+     */
+    host: Host<Contexts>;
+    /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
+     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
+     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
+     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
+     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
+     */
+    setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
+    /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
+     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
+     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
+     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
+     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
+     */
+    setContexts(contexts: Partial<{
+        [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
+    }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
+    /** This triggers a refresh and returns a promise that is resolved when the Host's update / render cycle is completed.
+     * - If there's nothing pending, then will resolve immediately.
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
+    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
+    getListenersFor<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
+    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
+    callDataListenersFor(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
+}
+declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    awaitDelay(): Promise<void>;
+    static getListenersFor(contextAPI: HostContextAPI, ctxName: string, signalName?: string): SignalListener[] | undefined;
+    static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys?: true | string[]): void;
+}
+
 /** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
 type SpreadFunc<Props extends Record<string, any> = {}> = (props: Props) => MixDOMRenderOutput;
 /** Typing for a SpreadFunc with extra arguments. Note that it's important to define the JS side as (props, ...args) so that the func.length === 1.
@@ -611,17 +670,20 @@ interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends Con
      * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
      * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
      */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
     /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
      * - If there's nothing pending, then will resolve immediately.
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
 }
 /** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
 declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     host: Host<Contexts>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
+    awaitDelay(): Promise<void>;
 }
 
 /** Typing infos for Components. */
@@ -745,30 +807,28 @@ type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [Ext
  */
 type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
 
+interface HostUpdateCycleInfo {
+    updates: Set<SourceBoundary>;
+}
+interface HostRenderCycleInfo {
+    rCalls: MixDOMSourceBoundaryChange[][];
+    rInfos: MixDOMRenderInfo[][];
+}
 declare class HostServices {
     /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and hydration. */
     renderer: HostRender;
     /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
-    private host;
+    host: Host;
+    updateCycle: RefreshCycle<HostUpdateCycleInfo>;
+    renderCycle: RefreshCycle<HostRenderCycleInfo>;
     /** A simple counter is used to create unique id for each boundary (per host). */
     private bIdCount;
     /** This is the target render definition that defines the host's root boundary's render output. */
     private rootDef;
-    private updateTimer;
-    private updatesPending;
-    private renderTimer;
-    private rCallsPending;
-    private rInfosPending;
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?;
-    /** Temporary forced render timeout. */
-    private _renderTimeout?;
     /** Temporary flag to mark while update process is in progress. */
-    private _isUpdating?;
-    /** Temporary internal callbacks that will be called when the update cycle is done. */
-    _afterUpdate?: Array<() => void>;
-    /** Temporary internal callbacks that will be called after the render cycle is done. */
-    _afterRender?: Array<() => void>;
+    private _whileUpdating?;
     constructor(host: Host);
     /** This creates a new boundary id in the form of "h-hostId:b-bId", where hostId and bId are strings from the id counters. For example: "h-1:b:5"  */
     createBoundaryId(): MixDOMSourceBoundaryId;
@@ -779,6 +839,7 @@ declare class HostServices {
     clearRoot(forgetPending?: boolean): void;
     getRootDef(shallowCopy?: boolean): MixDOMDefTarget | null;
     hasPending(updateSide?: boolean, postSide?: boolean): boolean;
+    addRefreshCall(callback: () => void, renderSide?: boolean): void;
     cancelUpdates(boundary: SourceBoundary): void;
     /** This is the main method to update a boundary.
      * - It applies the updates to bookkeeping immediately.
@@ -786,10 +847,9 @@ declare class HostServices {
      *   .. It's recommended to use a tiny update timeout (eg. 0ms) to group multiple updates together. */
     absorbUpdates(boundary: SourceBoundary, updates: MixDOMComponentUpdates, refresh?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** This triggers the update cycle. */
-    triggerUpdates(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
-     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together. */
-    private runUpdates;
+    triggerRefresh(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
+    updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
      * - It handles the updates bookkeeping and should update checking and return infos for changes.
      * - It should only be called from a few places: 1. runUpdates flow above, 2. within applyDefPairs for updating nested, 3. HostServices.updatedInterestedInClosure for updating indirectly interested sub boundaries.
@@ -797,12 +857,15 @@ declare class HostServices {
     updateBoundary(boundary: SourceBoundary, forceUpdate?: boolean | "all", movedNodes?: MixDOMTreeNode[], bInterested?: Set<SourceBoundary> | null): MixDOMChangeInfos | null;
     /** This absorbs infos from the updates done. Infos are for update calls and to know what to render. Triggers calling runRender. */
     absorbChanges(renderInfos: MixDOMRenderInfo[] | null, boundaryChanges?: MixDOMSourceBoundaryChange[] | null, forceRenderTimeout?: number | null): void;
-    private runRender;
-    private triggerRefreshFor;
+    /** Initialize cycles. */
+    static initializeCyclesFor(services: HostServices): void;
+    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
+     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
+     */
+    static runUpdateFor(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
+    static runRenderFor(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
-    /** Get callbacks by a property and delete the member and call each. */
-    private callAndClear;
-    private static callBoundariesBy;
+    static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]): void;
 }
 
 /** The basic dom node cloning modes - either deep or shallow: element.clone(mode === "deep").
@@ -811,53 +874,6 @@ type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
 type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
-/** This is simply a tiny class that is used to manage the host duplication features in a consistent way.
- * - Each Host has a `.shadowAPI`, but it's the very same class instance for all the hosts that are duplicated - the original and any duplicates have the same instance here.
- * - This way, it doesn't matter who is the original source (or if it dies away). As long as the shadowAPI instance lives, the originality lives.
- */
-declare class HostShadowAPI<Contexts extends ContextsAllType = {}> {
-    /** These are the Host instances that share the common duplication basis. Note that only appear here once mounted (and disappear once cleaned up). */
-    hosts: Set<Host<Contexts>>;
-    /** These are the duplicatable contexts (by names). Any time a Host is duplicated, it will get these contexts automatically. */
-    contexts: Partial<Contexts>;
-}
-/** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
- * - It also has the afterRefresh method assign to the host's cycles. */
-interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    /** The Host that this ContextAPI is attached to. Should be set manually after construction.
-     * - It's used for two purposes: 1. Marking duplicatable contexts to the Host's shadowAPI, 2. syncing to the host refresh (with the afterRefresh method).
-     * - It's assigned as a member to write HostContextAPI as a clean class.
-     */
-    host: Host<Contexts>;
-    /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
-     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
-     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
-     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
-     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
-     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
-     */
-    setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
-    /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
-     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
-     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
-     * - Note that this method is extended on the HostContextAPI to include markAsDuplicatable option (defaults to false).
-     *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
-     *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
-     */
-    setContexts(contexts: Partial<{
-        [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
-    }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
-    /** This triggers a refresh and returns a promise that is resolved when the Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately.
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order. */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
-    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
-}
-declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-}
 interface HostType<Contexts extends ContextsAllType = {}> {
     /** Used for host based id's. To help with sorting fluently across hosts. */
     idCount: number;
@@ -1014,12 +1030,16 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     refreshDOM(forceDOMRead?: boolean, renderTimeout?: number | null): void;
     /** This triggers a refresh and returns a promise that is resolved when the update / render cycle is completed.
      * - If there's nothing pending, then will resolve immediately.
-     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     afterRefresh(renderSide?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+    /** Update the refresh times without triggering update. Not however that if updates updateTimeout to `null`, will trigger the update cycle instantly if was pending. */
+    updateRefreshTimes(updateTimeout?: number | null, renderTimeout?: number | null): void;
     /** This is like afterRefresh but works with a callback, given as the first arg. (This is the core method for the feature.)
      * - Triggers a refresh and calls the callback once the update / render cycle is completed.
      * - If there's nothing pending, then will call immediately.
-     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order. */
+     * - Note that this uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
     afterRefreshCall(callback: () => void, renderSide?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): void;
     /** This adds a one-shot callback to the refresh cycle (update / render) - without triggering refresh. (So like afterRefreshCall but without refreshing.) */
     addRefreshCall(callback: () => void, renderSide?: boolean): void;
@@ -1059,7 +1079,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     /** Find all components by an optional validator. */
     findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[];
     /** Find all treeNodes by given types and an optional validator. */
-    findTreeNodes(types: RecordableType<MixDOMTreeNodeType>, maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
+    findTreeNodes(types: SetLike<MixDOMTreeNodeType>, maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
     /** Modify previously given settings with partial settings.
      * - Note that if any value in the dictionary is `undefined` uses the default setting.
      * - Supports handling the related special cases:
@@ -1069,6 +1089,8 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     static modifySettings(base: HostSettings, newSettings: HostSettingsUpdate, useDefaults?: boolean): void;
     static getDefaultSettings(): HostSettings;
 }
+/** Create a new host and start rendering into it. */
+declare const newHost: <Contexts extends ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | undefined) => Host<Contexts>;
 
 type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "devLogWarnings" | "devLogRenderInfos">;
 declare class HostRender {
@@ -1303,7 +1325,7 @@ declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> exten
     /** Call this to trigger an update on the instanced components. */
     update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
-    onListener(name: string, index: number, wasAdded: boolean): void;
+    static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean): void;
 }
 /** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
  * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
@@ -1449,7 +1471,7 @@ declare function mergeShadowWiredAPIs(apis: Array<ComponentWiredAPI>): Component
  *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
  *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
  */
-declare function mixComponentFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, useRenderer?: boolean): A;
+declare function mixComponentFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, useRenderer?: boolean): ComponentFunc<ReadComponentInfo<A>>;
 declare function mixComponentFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>>(a: A, b: B, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B]>>;
 declare function mixComponentFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>>(a: A, b: B, c: C, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C]>>;
 declare function mixComponentFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>>(a: A, b: B, c: C, d: D, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D]>>;
@@ -1567,7 +1589,7 @@ type ComponentFuncCtxShortcut<Info extends Partial<ComponentInfo> = {}> = (compo
  *      * For example: `class MyMix extends (ComponentMixin as ClassMixer<ComponentType<{ props: MyProps; timers: MyTimers; }>>)(MyBase) {}`
  * - Note that the Info["class"] only works for functional components. In class form, you simply extend the class or mixin with a custom class or mixin.
  */
-declare const ComponentMixin: ClassMixer<ComponentType<{}>>;
+declare const ComponentMixin: AsMixin<ComponentType<{}>, any[]>;
 /** Functional type for component fed with ComponentInfo. */
 type ComponentFunc<Info extends Partial<ComponentInfo> = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
     _Info?: Info;
@@ -1603,7 +1625,7 @@ declare const Component_base: {
         queryElements(selector: string, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean): Element[];
         findElements(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): Node[];
         findComponents<Comp extends ComponentTypeAny<{}> = ComponentTypeAny<{}>>(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): Comp[];
-        findTreeNodes(types?: RecordableType<MixDOMTreeNodeType> | undefined, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): MixDOMTreeNode[];
+        findTreeNodes(types?: SetLike<MixDOMTreeNodeType> | undefined, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): MixDOMTreeNode[];
         setTimer(timerId: any, callback: () => void, timeout: number): void;
         hasTimer(timerId: any): boolean;
         clearTimers(...timerIds: any[]): void;
@@ -1647,13 +1669,15 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     /** The constructor is typed as ComponentType. */
     ["constructor"]: ComponentType<Info>;
     /** This returns a promise that is resolved after the host's refresh cycle has finished.
-     * - By default delays until the "update" cycle (renderSide = false). If renderSide is true, then is resolved after the "render" cycle (after updates). */
+     * - By default delays until the "update" cycle (renderSide = false). If renderSide is true, then is resolved after the "render" cycle (after updates).
+     */
     afterRefresh(renderSide?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): Promise<void>;
     /** Whether this component has mounted. If false, then has not yet mounted or has been destroyed. */
     isMounted(): boolean;
     /** This gets the state that was used during last render call, and by default falls back to the current state.
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
-     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render. */
+     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+     */
     getLastState(fallbackToCurrent?: true): State;
     getLastState(fallbackToCurrent?: boolean): State | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
@@ -1667,7 +1691,7 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     /** Find all components within by an optional validator. */
     findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[];
     /** Find all treeNodes within by given types and an optional validator. */
-    findTreeNodes(types?: RecordableType<MixDOMTreeNodeType>, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
+    findTreeNodes(types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
     /** Add a new timer with a custom id, or without if null. Returns id. Timers will be automatically cancelled if the component unmounts. You can provide the typing locally to the method. */
     setTimer(timerId: NonNullable<Info["timers"]> | null, callback: () => void, timeout: number): NonNullable<Info["timers"]> | {};
     /** Check whether the current timer id exists. */
@@ -1907,7 +1931,6 @@ type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEi
 interface RefBase {
     signals: Record<string, SignalListener[]>;
     treeNodes: Set<MixDOMTreeNode>;
-    onListener(name: string, index: number, wasAdded: boolean): void;
     getTreeNode(): MixDOMTreeNode | null;
     getTreeNodes(): MixDOMTreeNode[];
     getElement(onlyForDOMRefs?: boolean): Node | null;
@@ -1915,14 +1938,22 @@ interface RefBase {
     getComponent(): Component | null;
     getComponents(): Component[];
 }
+interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalManType<RefSignals<Type>> {
+    new (): Ref<Type>;
+    MIX_DOM_CLASS: string;
+    /** Internal call tracker. */
+    onListener(instance: RefBase & SignalMan<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
+    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
+    didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
+    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
+    willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
+}
 declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalMan<RefSignals<Type>> {
     static MIX_DOM_CLASS: string;
     /** The collection (for clarity) of tree nodes where is attached to.
      * It's not needed internally but might be useful for custom needs. */
     treeNodes: Set<MixDOMTreeNode>;
     constructor(...args: any[]);
-    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
-    onListener(name: string & keyof RefSignals<Type>, index: number, wasAdded: boolean): void;
     /** This returns the last reffed treeNode, or null if none.
      * - The MixDOMTreeNode is a descriptive object attached to a location in the grounded tree. Any tree node can be targeted by refs.
      * - The method works as if the behaviour was to always override with the last one.
@@ -1942,7 +1973,11 @@ declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentType
     getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstanceType<Type> : Component | null;
     /** This returns all the currently reffed components (in the order added). */
     getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstanceType<ComponentTypeEither & Type>[] : Component[];
+    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
+    static onListener(ref: RefBase & SignalMan<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void;
+    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
     static didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
+    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
     static willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
 }
 /** Create a new ref instance shortcut. */
@@ -2194,7 +2229,7 @@ type MixDOMComponentTag<Props extends Record<string, any> = {}> = ComponentTypeA
 type MixDOMPreTag = DOMTags | MixDOMPseudoTag | MixDOMComponentTag;
 type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
- * The number type refers to the values of searchTagByType in routinesPairing. */
+ * The number type refers to the values of searchByTag in routinesPairing. */
 type MixDOMDefKeyTag = MixDOMPostTag | MixDOMDefTarget | typeof PseudoFragment | Host | number;
 type MixDOMHydrationItem = {
     tag: DOMTags;
@@ -2387,28 +2422,10 @@ declare namespace JSX {
     }
 }
 
-/** Finds treeNodes of given types within the given rootTreeNode (including it).
- * - If includeNested is true, searches recursively inside sub boundaries - not just within the render scope. (Normally stops after meets a source or content boundary.)
- * - If includeInHosts is true, extends the search to inside nested hosts as well. (Not recommended.)
- * - If includeInInactive is true, extends the search to include inactive boundaries and treeNodes inside them. */
-declare function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Partial<Record<MixDOMTreeNodeType, boolean>>, maxCount?: number, includeNested?: boolean, includeInHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
-declare function rootDOMTreeNodes(rootNode: MixDOMTreeNode, inNestedBoundaries?: boolean, includeEmpty?: boolean, maxCount?: number): MixDOMTreeNodeDOM[];
-/** Get all defs (including the given one) in tree order traversing down from the given one.
- * - The search is automatically limited to inside the render scope, as defs are.
- */
-declare function allDefsIn(rootDef: MixDOMDefApplied): MixDOMDefApplied[];
-declare function domElementByQuery<T extends Element = Element>(treeNode: MixDOMTreeNode, selectors: string, allowWithinBoundaries?: boolean, allowOverHosts?: boolean): T | null;
-declare function domElementsByQuery<T extends Element = Element>(treeNode: MixDOMTreeNode, selectors: string, maxCount?: number, allowWithinBoundaries?: boolean, allowOverHosts?: boolean): T[];
+declare const MixDOMContent: MixDOMDefTarget;
+declare const MixDOMContentCopy: MixDOMDefTarget;
 
-declare function getDictionaryDiffs<T extends Record<string, any>>(orig: Partial<T>, update: Partial<T>): Partial<T> | null;
-/** Helper to compare a dictionary against another by a dictionary of update modes (only compares the propeties of this dictionary).
- * - Returns false if had differences. Note that in "always" mode even identical values are considered different, so returns true for any.
- * - -2 always, -1 deep, 0 changed, 1 shallow, 2 double, ... See the MixDOMUpdateCompareMode type for details. */
-declare function equalDictionariesBy(from: Record<string, any> | null | undefined, to: Record<string, any> | null | undefined, compareBy: Record<string, MixDOMUpdateCompareMode | number | any>): boolean;
-/** Inlined comparison method specialized into domProps (attributes of a dom element). */
-declare function equalDOMProps(a: MixDOMProcessedDOMProps, b: MixDOMProcessedDOMProps): boolean;
-declare function cleanDOMProps<Props extends Record<string, any> & Pick<MixDOMCommonDOMProps, "class" | "className" | "style"> = {}>(origProps: Props, copy?: boolean): MixDOMProcessedDOMProps & Props;
-declare function cleanDOMStyle(cssText: string): CSSProperties;
+declare function parseStyle(cssText: string): CSSProperties;
 /** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
  * - Each item in the classNames can be:
  *     1. ValidName (single className string),
@@ -2420,17 +2437,7 @@ declare function cleanDOMStyle(cssText: string): CSSProperties;
  *     1. Declare a validator by: `const classNames: ValidateNames<ValidName> = MixDOM.classNames;`
  *     2. Then use it like this: `const okName = classNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
  */
-declare function cleanDOMClass<ValidNames extends string = string, SingleName extends string = ValidNames>(...classNames: Array<MixDOMPreClassName<ValidNames, SingleName> | "" | false | 0 | null | undefined>): string;
-/** Collects unique names as dictionary keys with value `true` for each found.
- * The names are assumed to be:
- * 1. String (use stringSplitter),
- * 2. Iterable of string names, or an iterable of this type itself (recursively).
- * 3. Record where names are keys, values tells whether to include or not.
- */
-declare function collectNamesTo(names: MixDOMPreClassName, record: Record<string, true>, stringSplitter?: string): void;
-/** Get diffs in class names in the form of: Record<string, boolean>, where true means added, false removed, otherwise not included.
- * - Note. This process only checks for changes - it ignores changes in order completely. */
-declare function getClassNameDiffs(origName?: string, newName?: string): Record<string, boolean> | null;
+declare function classNames<ValidNames extends string = string, SingleName extends string = ValidNames>(...classNames: Array<MixDOMPreClassName<ValidNames, SingleName> | "" | false | 0 | null | undefined>): string;
 
 /** Create a rendering definition. Supports receive direct JSX compiled output. */
 declare function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDOMPreDOMTagProps<DOMTag> | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
@@ -2439,35 +2446,15 @@ declare function newDef<Props extends MixDOMPreDOMTagProps | MixDOMPreComponentP
 /** Create a new def from a html string. Returns a def for a single html element
  * - If a wrapInTag given will use it as a container.
  * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
- * - Normally uses a container only as a fallback if has many children. */
-declare const newDefHTML: (innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any) => MixDOMDefTarget;
-/** The method to call and unfold spread func's render defs. (This functionality is paired with other parts in _Apply.)
- * - The returned defs are wrapped in a fragment that provides scoping detection - unless returned null, then also returns null.
- * - The children fed here are the cleaned childDefs that should replace any content pass.
- * - Note that this renders the spread func and then goes over its targetDefs while also copying the new structure and modifying it. */
-declare function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: SpreadFunc, origProps: ComponentSpreadProps & Props, children: MixDOMDefTarget[]): MixDOMDefTarget | null;
-declare function newDefFrom(renderContent: MixDOMRenderOutput): MixDOMDefTarget | null;
-/** Copies everything from targetDef that defines its type, but not any "updatable" properties (except key). */
-declare function newAppliedDef(targetDef: MixDOMDefTarget, contentClosure: ContentClosure | null): MixDOMDefApplied;
-declare function newContentPassDef(key?: any, isCopy?: boolean): MixDOMDefTarget;
-declare function newContentCopyDef(key?: any): MixDOMDefTarget;
-/** Note that "content" and "host" defs are created from the ...contents[], while "pass" type comes already as a def.
- * .. This gives any other type. If there's no valid type, returns "". */
-declare function getMixDOMDefType(tag: MixDOMPreTag): MixDOMDefType | "spread" | "";
-/** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
- * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
- * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
- * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
+ * - Normally uses a container only as a fallback if has many children.
  */
-declare function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget>(childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean): boolean | "maybe";
-
-declare const MixDOMContent: MixDOMDefTarget;
-declare const MixDOMContentCopy: MixDOMDefTarget;
+declare function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any): MixDOMDefTarget;
+declare function newContentCopyDef(key?: any): MixDOMDefTarget;
 
 /** Create a new context. */
-declare const newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, Settings extends ContextSettings = ContextSettings>(data?: Data | undefined, settings?: Partial<Settings> | undefined) => Context<Data, Signals, Settings>;
+declare const newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord>(data?: Data | undefined, settings?: Partial<ContextSettings>) => Context<Data, Signals>;
 /** Create multiple named contexts by giving data. */
-declare const newContexts: <Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name], {}, ContextSettings>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts & string]: Contexts[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts;
+declare const newContexts: <Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts & string]: Contexts[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts;
 declare const MixDOM: {
     /** Create a new render definition. Can feed JSX input. (It's like `React.createElement` but `MixDOM.def`). */
     def: typeof newDef;
@@ -2475,7 +2462,7 @@ declare const MixDOM: {
      * - If a wrapInTag given will use it as a container.
      * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
      * - Normally uses a container only as a fallback if has many children. */
-    defHTML: (innerHTML: string, wrapInTag?: DOMTags | undefined, props?: MixDOMPreDOMTagProps<DOMTags> | undefined, key?: any) => MixDOMDefTarget;
+    defHTML: typeof newDefHTML;
     /** Generic def for passing content.
      * - Use this to include content (~ React's props.children) from the parent component.
      * - Note that in the case of multiple contentPasses the first one in tree order is the real one.
@@ -2502,7 +2489,7 @@ declare const MixDOM: {
      *   this allows to distinguish from the real content pass: `{ MixDOM.Content }` vs. `{ MixDOM.copyContent("some-key") }` */
     copyContent: typeof newContentCopyDef;
     Component: typeof Component;
-    ComponentMixin: data_signals.ClassMixer<ComponentType<{}>>;
+    ComponentMixin: mixin_types.AsMixin<ComponentType<{}>, any[]>;
     Host: typeof Host;
     Ref: typeof Ref;
     /** Fragment represent a list of render output instead of stuff under one root.
@@ -2535,9 +2522,9 @@ declare const MixDOM: {
     /** Create a Ref instance. */
     newRef: <Type extends Node | ComponentTypeEither<{}> = Node | ComponentTypeEither<{}>>() => Ref<Type>;
     /** Create a Context instance. */
-    newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, Settings extends ContextSettings = ContextSettings>(data?: Data | undefined, settings?: Partial<Settings> | undefined) => Context<Data, Signals, Settings>;
+    newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord>(data?: Data | undefined, settings?: Partial<ContextSettings>) => Context<Data, Signals>;
     /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI - and for getting the combined type for TypeScript purposes. */
-    newContexts: <Contexts_1 extends { [Name in keyof AllData & string]: Context<AllData[Name], {}, ContextSettings>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts_1 & string]: Contexts_1[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts_1;
+    newContexts: <Contexts_1 extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts_1 & string]: Contexts_1[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts_1;
     /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
     component: typeof createComponent;
     /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
@@ -2647,7 +2634,7 @@ declare const MixDOM: {
      * - Consider using mixFuncs or mixMixins concepts instead. They are like HOCs merged into one component with a dynamic base.
      */
     mixHOCs: typeof mixHOCs;
-    findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: RecordableType<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => MixDOMTreeNode[];
+    findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => MixDOMTreeNode[];
     findComponentsIn: <Comp extends ComponentTypeAny<{}> = ComponentTypeAny<{}>>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => Comp[];
     findElementsIn: <T extends Node = Node>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => T[];
     queryElementIn: <T_1 extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, inNested?: boolean, overHosts?: boolean) => T_1 | null;
@@ -2666,12 +2653,12 @@ declare const MixDOM: {
      *     1. Declare a validator by: `const cleanNames: ValidateNames<ValidName> = MixDOM.classNames;`
      *     2. Then use it like this: `const okName = cleanNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
      */
-    classNames: typeof cleanDOMClass;
+    classNames: typeof classNames;
     /** Convert a style cssText string into a dictionary with capitalized keys.
      * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
      * - The dictionary format is used for easy detection of changes.
      *   .. As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.) */
-    parseStyle: typeof cleanDOMStyle;
+    parseStyle: typeof parseStyle;
 };
 
-export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFor, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, allDefsIn, cleanDOMClass, cleanDOMProps, cleanDOMStyle, collectNamesTo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, domElementByQuery, domElementsByQuery, equalDOMProps, equalDictionariesBy, getClassNameDiffs, getDictionaryDiffs, getMixDOMDefType, hasContentInDefs, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newAppliedDef, newContentCopyDef, newContentPassDef, newContext, newContexts, newDef, newDefFrom, newDefHTML, newRef, rootDOMTreeNodes, treeNodesWithin, unfoldSpread };
+export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFor, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };

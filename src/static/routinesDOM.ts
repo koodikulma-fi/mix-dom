@@ -9,7 +9,7 @@ import { CSSProperties, MixDOMProcessedDOMProps, MixDOMPreClassName, MixDOMUpdat
 
 // - Local constants - //
 
-const complexDOMProps = {
+const complexDomProps = {
     style: true,
     data: true
 } as const;
@@ -79,7 +79,7 @@ export function equalDictionariesBy(from: Record<string, any> | null | undefined
 /** Inlined comparison method specialized into domProps (attributes of a dom element). */
 export function equalDOMProps(a: MixDOMProcessedDOMProps, b: MixDOMProcessedDOMProps): boolean {
     // Handle complex properties.
-    for (const prop in complexDOMProps) {
+    for (const prop in complexDomProps) {
         // .. At least a has the complex prop.
         if (a[prop]) {
             // But b has no the complex prop.
@@ -108,12 +108,12 @@ export function equalDOMProps(a: MixDOMProcessedDOMProps, b: MixDOMProcessedDOMP
     // All else.
     // .. Added or changed.
     for (const prop in b) {
-        if (a[prop] !== b[prop] && !complexDOMProps[prop])
+        if (a[prop] !== b[prop] && !complexDomProps[prop])
             return false;
     }
     // .. Deleted.
     for (const prop in a) {
-        if (b[prop] === undefined && a[prop] !== undefined && !complexDOMProps[prop])
+        if (b[prop] === undefined && a[prop] !== undefined && !complexDomProps[prop])
             return false;
     }
     return true;
@@ -131,13 +131,13 @@ export function cleanDOMProps<Props extends Record<string, any> & Pick<MixDOMCom
     delete props.class;
     // Style.
     if (typeof props.style === "string")
-        props.style = cleanDOMStyle(props.style);
+        props.style = parseStyle(props.style);
     // Return cleaned.
     return props as MixDOMProcessedDOMProps & Props;
 }
 
 // Help from: https://stackoverflow.com/questions/8987550/convert-css-text-to-javascript-object
-export function cleanDOMStyle(cssText: string): CSSProperties {
+export function parseStyle(cssText: string): CSSProperties {
     const text = cssText.replace(/\/\*(.|\s)*?\*\//g, " ").replace(/\s+/g, " ").trim();
     if (!text)
         return {};
@@ -160,7 +160,7 @@ export function cleanDOMStyle(cssText: string): CSSProperties {
  *     1. Declare a validator by: `const classNames: ValidateNames<ValidName> = MixDOM.classNames;`
  *     2. Then use it like this: `const okName = classNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
  */
-export function cleanDOMClass<ValidNames extends string = string, SingleName extends string = ValidNames>(...classNames: Array<MixDOMPreClassName<ValidNames, SingleName> | "" | false | 0 | null | undefined>): string {
+export function classNames<ValidNames extends string = string, SingleName extends string = ValidNames>(...classNames: Array<MixDOMPreClassName<ValidNames, SingleName> | "" | false | 0 | null | undefined>): string {
     // Collect all to a dictionary.
     const record: Record<string, true> = {};
     for (const name of classNames)

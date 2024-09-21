@@ -9,6 +9,11 @@
   - MIX_DOM_CLASS ... especially.. that Context use to have such...
   - compiling
 
+VERIFY:
+
+- THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
+  - Is teh idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
+
 ### Main changes
 - Externalized `data-signals` out of `mix-dom` to its own npm package and added as dependency for MixDOM.
   * All the data related features now come from data-signals.

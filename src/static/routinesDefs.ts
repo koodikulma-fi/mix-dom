@@ -29,7 +29,7 @@ import { SpreadFunc, ComponentSpreadProps } from "../components/ComponentSpread"
 // - Constant - //
 
 /** A unique but common to all key for MixDOM.Content defs - used unless specifically given a key. */
-const ContentKey: {} = {};
+const contentKey: {} = {};
 
 
 // - Shortcuts - //
@@ -78,11 +78,11 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
 
     // Create the basis for the def.
     const tag = defType === "dom" && tagOrClass as DOMTags || defType === "boundary" && tagOrClass as MixDOMComponentTag || defType === "element" && "_" || (defType === "content" ? "" : null);
-	const targetDef = {
+    const targetDef = {
         MIX_DOM_DEF: defType,
         tag,
         childDefs
-	} as MixDOMDefTarget;
+    } as MixDOMDefTarget;
 
     // Props.
     const needsProps = !!tag;
@@ -137,8 +137,9 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
 /** Create a new def from a html string. Returns a def for a single html element
  * - If a wrapInTag given will use it as a container.
  * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
- * - Normally uses a container only as a fallback if has many children. */
-export const newDefHTML = (innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any): MixDOMDefTarget => {
+ * - Normally uses a container only as a fallback if has many children.
+ */
+export function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any): MixDOMDefTarget {
     // Create def.
     const def: MixDOMDefTarget = {
         MIX_DOM_DEF: "content",
@@ -175,7 +176,7 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
         scopeType: "spread",
         spreadLinks,
         tag: null
-     };
+    };
     if (_key != null)
         baseDef.key = _key;
     if (_disable != null)
@@ -389,7 +390,7 @@ export function newContentPassDef(key?: any, isCopy? : boolean): MixDOMDefTarget
     // We always need to have a key for true content pass.
     // .. and it should be unique and common to all MixDOM.Content defs unless specifically given a key.
     else if (!isCopy)
-        def.key = ContentKey;
+        def.key = contentKey;
     // Return def.
     return def;
 }

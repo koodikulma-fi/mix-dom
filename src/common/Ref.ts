@@ -45,7 +45,6 @@ export type RefSignals<Type extends Node | ComponentTypeEither = Node | Componen
 export interface RefBase {
     signals: Record<string, SignalListener[]>;
     treeNodes: Set<MixDOMTreeNode>;
-    onListener(name: string, index: number, wasAdded: boolean): void;
     getTreeNode(): MixDOMTreeNode | null;
     getTreeNodes(): MixDOMTreeNode[];
     getElement(onlyForDOMRefs?: boolean): Node | null;
@@ -56,6 +55,8 @@ export interface RefBase {
 export interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalManType<RefSignals<Type>> {
     new (): Ref<Type>;
     MIX_DOM_CLASS: string; // "Ref";
+    /** Internal call tracker. */
+    onListener(instance: RefBase & SignalMan<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
     /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
     didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
     /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
@@ -84,28 +85,6 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
         super(...args);
         // Init.
         this.treeNodes = new Set();
-    }
-
-
-    // - Auto pass listeners to components - //
-    
-    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
-    public onListener(name: string & keyof RefSignals<Type>, index: number, wasAdded: boolean): void {
-        // Middleware.
-        super.onListener(name, index, wasAdded);
-        // Add our only listener, using the callback as the key.
-        if (this.treeNodes.size) {
-            const listener: SignalListener = this.signals[name][index];
-            const callback = listener[0];
-            // Add our only listener, using the callback as the key.
-            if (wasAdded)
-                for (const component of this.getComponents())
-                    (component as Component).listenTo(name as any, (...args: any[]) => listener[1] ? callback(component, ...args, ...listener[1]) : callback(component, ...args), null, listener[2], callback);
-            // Remove our listener, using the callback as the groupId.
-            else
-                for (const component of this.getComponents())
-                    component.unlistenTo(name as any, callback);
-        }
     }
 
 
@@ -162,6 +141,26 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
             if (treeNode.type === "boundary" && treeNode.boundary?.component)
                 components.push(treeNode.boundary.component);
         return components as any[];
+    }
+
+
+    // - Static extension (pass listeners to components) - //
+    
+    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
+    public static onListener(ref: RefBase & SignalMan<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void {
+        // Add our only listener, using the callback as the key.
+        if (ref.treeNodes.size) {
+            const listener: SignalListener = ref.signals[name][index];
+            const callback = listener[0];
+            // Add our only listener, using the callback as the key.
+            if (wasAdded)
+                for (const component of ref.getComponents())
+                    (component as Component).listenTo(name as any, (...args: any[]) => listener[1] ? callback(component, ...args, ...listener[1]) : callback(component, ...args), null, listener[2], callback);
+            // Remove our listener, using the callback as the groupId.
+            else
+                for (const component of ref.getComponents())
+                    component.unlistenTo(name as any, callback);
+        }
     }
 
 

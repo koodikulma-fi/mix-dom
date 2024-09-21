@@ -2,7 +2,8 @@
 // - Imports - //
 
 // Library.
-import { ClassType, ContextsAllType, IterateBackwards } from "data-signals";
+import { ClassType, IterateBackwards } from "mixin-types";
+import { ContextsAllType } from "data-signals";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Only typing (local).

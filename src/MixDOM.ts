@@ -2,11 +2,11 @@
 // - Imports - //
 
 // Libraries.
-import { buildRecordable, Context, ContextSettings, RecordableType, SignalsRecord } from "data-signals";
+import { Context, ContextSettings, SetLike, SignalsRecord } from "data-signals";
 // Typing.
-import { MixDOMDefTarget, MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/index";
+import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/index";
 // Routines.
-import { cleanDOMClass, cleanDOMStyle, newContentCopyDef, newDef, newDefHTML, domElementByQuery, domElementsByQuery, treeNodesWithin } from "./static/index";
+import { classNames, parseStyle, domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDefHTML, treeNodesWithin } from "./static/index";
 // Common.
 import { MixDOMContent, MixDOMContentCopy, newRef, Ref } from "./common/index";
 // Host.
@@ -54,15 +54,14 @@ import {
 
 // Def.
 export { newDef, newDefHTML } from "./static/routinesDefs";
-// export { MixDOMContent, MixDOMContentCopy } from "./MixDOMContent";
+export { classNames, parseStyle } from "./static/routinesDOM";
 
 // Add.
 /** Create a new context. */
 export const newContext = <
     Data extends Record<string, any> = {},
-    Signals extends SignalsRecord = SignalsRecord,
-    Settings extends ContextSettings = ContextSettings
->(data?: Data, settings?: Partial<Settings>): Context<Data, Signals, Settings> => new Context<Data, Signals, Settings>(data!, settings);
+    Signals extends SignalsRecord = SignalsRecord
+>(data?: Data, settings?: Partial<ContextSettings>): Context<Data, Signals> => new Context<Data, Signals>(data!, settings);
 
 /** Create multiple named contexts by giving data. */
 export const newContexts = <
@@ -289,12 +288,14 @@ export const MixDOM = {
 
     // - Finding stuff - //
 
-    findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: RecordableType<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] =>
-        treeNodesWithin(treeNode, types && buildRecordable<MixDOMTreeNodeType>(types), maxCount, inNested, overHosts, validator),
+    findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] => {
+        const okTypes = types ? types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types)) : undefined;
+        return treeNodesWithin(treeNode, okTypes as Set<MixDOMTreeNodeType> | undefined, maxCount, inNested, overHosts, validator);
+    },
     findComponentsIn: <Comp extends ComponentTypeAny = ComponentTypeAny>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[] =>
-        treeNodesWithin(treeNode, { boundary: true }, maxCount, inNested, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp),
+        treeNodesWithin(treeNode, new Set(["boundary"]), maxCount, inNested, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp),
     findElementsIn: <T extends Node = Node>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): T[] =>
-        treeNodesWithin(treeNode, { dom: true }, maxCount, inNested, overHosts, validator).map(tNode => tNode.domNode) as T[],
+        treeNodesWithin(treeNode, new Set(["dom"]), maxCount, inNested, overHosts, validator).map(tNode => tNode.domNode) as T[],
     queryElementIn: <T extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, inNested?: boolean, overHosts?: boolean): T | null =>
         domElementByQuery<T>(treeNode, selector, inNested, overHosts),
     queryElementsIn: <T extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, maxCount?: number, inNested?: boolean, overHosts?: boolean): T[] =>
@@ -322,11 +323,11 @@ export const MixDOM = {
      *     1. Declare a validator by: `const cleanNames: ValidateNames<ValidName> = MixDOM.classNames;`
      *     2. Then use it like this: `const okName = cleanNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
      */
-    classNames: cleanDOMClass,
+    classNames: classNames,
     /** Convert a style cssText string into a dictionary with capitalized keys.
      * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
      * - The dictionary format is used for easy detection of changes.
      *   .. As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.) */
-    parseStyle: cleanDOMStyle,
+    parseStyle: parseStyle,
 
 };
