@@ -11,7 +11,7 @@ import { MixDOMTreeNode } from "./MixDOMTreeNode";
 import { RefBase } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host, MixDOMCloneNodeBehaviour } from "../host/Host";
-import { ComponentRemoteType } from "../components/ComponentRemote";
+import { ComponentRemote } from "../components/ComponentRemote";
 
 
 // - Defs - //
@@ -69,7 +69,7 @@ interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedD
     // .. Pass.
     contentPass?: ContentClosure | null;
     contentPassType?: "pass" | "copy";
-    getRemote?: () => ComponentRemoteType;
+    getRemote?: () => ComponentRemote;
     // .. Host.
     host?: Host;
     // .. Boundary.
@@ -143,8 +143,8 @@ export interface MixDOMDefPass extends MixDOMDefBase {
     tag: null;
     contentPass?: ContentClosure | null;
     contentPassType?: "pass" | "copy";
-    /** If is about a remote, this is assigned and gets the common static class part for a remote component. */
-    getRemote?: () => ComponentRemoteType;
+    /** If is about a remote source, this is assigned and gets the remote source instance. */
+    getRemote?: () => ComponentRemote;
     props?: never;
 }
 export interface MixDOMDefHost extends MixDOMDefBase {

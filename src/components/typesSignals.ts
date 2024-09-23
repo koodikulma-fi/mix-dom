@@ -53,17 +53,12 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     willUnmount: () => void;
 };
 
-// export type ComponentExternalSignalsFor<
-//     Comp extends Component = Component,
-//     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Comp["constructor"]["_Info"] & {}> & (Comp["constructor"]["_Info"] & {} & { signals: {}})["signals"]
-// > =
-//     { [SignalName in keyof CompSignals]: (comp: Comp, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
 export type ComponentExternalSignalsFrom<
     Info extends Partial<ComponentInfo> = Partial<ComponentInfo>,
-    Comp extends Component = GetComponentFrom<Info>,
+    Comp extends Component = Component<Info>,
     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]
 > =
-    { [SignalName in keyof CompSignals]: (comp: Comp, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
+    { [SignalName in keyof CompSignals]: (comp: Comp & Info["class"], ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
 
 export type ComponentExternalSignals<Comp extends Component = Component> = {
     /** Special call - called right after constructing the component instance. */

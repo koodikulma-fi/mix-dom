@@ -136,7 +136,7 @@ export function createWired(...args: any[]): ComponentWiredFunc {
     const name = nameOffset ? args[nArgs-1] : renderer.name;
     // Create a component with a custom renderer - it will always use the given renderer as a tag - can be a spread func, component func, component class. (Technically could be any tag, but for purpose and typing.)
     // const Wired = { [name]: class extends Component { render() { return newDef(renderer, { ...this.state }, MixDOMContent); } } }[name] as unknown as ComponentWiredType;
-    const Wired = { [name]: function (_initProps: Record<string, any>, wired: ComponentWired) { return newDef(renderer, { ...wired.state }, MixDOMContent); } }[name] as ComponentWiredFunc;
+    const Wired = { [name]: function (_initProps: Record<string, any>, wired: ComponentWired) { return newDef(renderer as any, { ...wired.state }, MixDOMContent); } }[name] as ComponentWiredFunc;
     // Set up.
     Wired.api = new ComponentWiredAPI();
     if (builderOrProps) {

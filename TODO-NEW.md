@@ -65,7 +65,20 @@ VERIFY:
   - TODO: `mix-dom-debug` that extends `data-signals-debug `with the viewer for the "grounded tree" (of MixDOMTreeNodes).
 
 
-
+FINISH UP NEW REMOTE:
+- The basics work very nicely..! 
+- Fix:
+  * THE REMOUNT CASES... not working fully.
+  * Triggering UPDATES.. not impelmentd.. mightsolve above..! And/or children needs passing..!
+  * In reatin to above... the WithContent ... and that maybe "renderer" should extend class.. for recognizin? no nede..?
+    - also check.. UPDATEMODe
+- Tiny:
+  * atIndex ? -1.. .! must not ... in vain.. add source to end.
+    - And ... also the ORDER prop..!
+  * REFACTOR .withContents TO BE ON THE REMOTE STATIC.... AS IT'S SAME FOR ALL.. NOT ON CLOSURE FOR REMOTE..... ?
+    - <-- Or actually.. not anymore... but anyway.... CLEAN UP AROUND THIS..!
+  * Clean up.
+- Verify specialities.
 
 ---
 

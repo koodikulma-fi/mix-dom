@@ -50,7 +50,8 @@ export class BaseBoundary {
      * - Due to content passing, it's not necessarily our .parentBoundary, who is the one who grounded us to the tree.
      * - For the rootBoundary of a host, there's no .sourceBoundary, but for all nested, there always is.
      * - Note that for source boundarries, the sourceBoundary should never change from what was given in the constructor.
-     *   .. It's passed to the source boundary's content closure, and from there further on. Swapping it on the boundary is not supported (see ComponentRemote for swapping it on the closure). */
+     *   .. It's passed to the source boundary's content closure, and from there further on. Swapping it on the boundary is not supported (see ComponentRemote for swapping it on the closure).
+     */
     public sourceBoundary: SourceBoundary | null;
     /** The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
     public parentBoundary: SourceBoundary | ContentBoundary | null;

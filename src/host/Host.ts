@@ -175,10 +175,6 @@ export interface HostSettings {
 
     /** For weird behaviour. */
     devLogWarnings: boolean;
-    /** Mostly for developing MixDOM.
-     * - This log can be useful when testing how MixDOM behaves (in very small tests, not for huge apps) - eg. to optimize using keys.
-     * - To get nice results, set preCompareDOMProps setting to `true`. */
-    devLogRenderInfos: boolean;
 
 }
 
@@ -265,7 +261,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
         // Create root component with the first content.
         const Root = this.services.createRoot(content);
         // Create base tree node for the root boundary.
-        const sourceDef = newAppliedDef({ MIX_DOM_DEF: "boundary", tag: Root, props: {}, childDefs: [] }, null) as MixDOMDefApplied & MixDOMDefBoundary;
+        const sourceDef = newAppliedDef({ MIX_DOM_DEF: "boundary", tag: Root as any, props: {}, childDefs: [] }, null) as MixDOMDefApplied & MixDOMDefBoundary;
         const treeNode: MixDOMTreeNodeBoundary = {
             type: "boundary",
             def: sourceDef,
@@ -553,7 +549,6 @@ export class Host<Contexts extends ContextsAllType = {}> {
             // - DEVLOG - //
             // Dev log.
             devLogWarnings: false,
-            devLogRenderInfos: false,
         };
         // Return combined.
         return dSettings;

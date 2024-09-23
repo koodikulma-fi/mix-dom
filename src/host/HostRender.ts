@@ -42,8 +42,7 @@ export type HostRenderSettings = Pick<HostSettings,
     "disableRendering" |
     "duplicateDOMNodeHandler" |
     "duplicateDOMNodeBehaviour" |
-    "devLogWarnings" |
-    "devLogRenderInfos"
+    "devLogWarnings"
 >;
 
 
@@ -335,9 +334,9 @@ export class HostRender {
         const settings = this.settings;
 
         // - DEVLOG - //
+        //
         // This tiny log is super useful when debugging (especially with preCompareDOMProps = true).
-        if (settings.devLogRenderInfos)
-            console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos);
+        console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos);
 
         // In disabled mode - just update bookkeeping.
         if (this.paused) {

@@ -21,11 +21,22 @@ export interface HostContextAPIType<Contexts extends ContextsAllType = {}> exten
  * - It also has the afterRefresh method assign to the host's cycles.
  */
 export interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+
+    // Type the constructor as property.
+    ["constructor"]: ContextAPIType<Contexts> & HostContextAPIType<Contexts>;
+
     /** The Host that this ContextAPI is attached to. Should be set manually after construction.
      * - It's used for two purposes: 1. Marking duplicatable contexts to the Host's shadowAPI, 2. syncing to the host refresh (with the afterRefresh method).
      * - It's assigned as a member to write HostContextAPI as a clean class.
      */
     host: Host<Contexts>;
+    /** This triggers a refresh and returns a promise that is resolved when the Host's update / render cycle is completed.
+     * - If there's nothing pending, then will resolve immediately. 
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
+    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+
+    // Extends ContextAPI methods with more args.
     /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
@@ -41,12 +52,7 @@ export interface HostContextAPI<Contexts extends ContextsAllType = {}> extends C
      *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
      *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
      */
-    setContexts(contexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
-    /** This triggers a refresh and returns a promise that is resolved when the Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately. 
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
-     */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+    setContexts(contexts: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
 }
 export class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
 
@@ -60,15 +66,15 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
         // Basis.
         return super.setContext(name as never, context as never, callDataIfChanged);
     }
-    public setContexts(namedContexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): boolean {
+    public setContexts(namedContexts: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): boolean {
         // Handle local bookkeeping.
         if (markAsDuplicatable) {
             const dContexts = this.host.shadowAPI.contexts;
             for (const ctxName in namedContexts)
-                namedContexts[ctxName] ? dContexts[ctxName] = namedContexts[ctxName] as any : delete dContexts[ctxName];
+                namedContexts[ctxName] ? (dContexts as Record<string, any>)[ctxName] = namedContexts[ctxName] as any : delete dContexts[ctxName];
         }
         // Basis.
-        return super.setContexts(namedContexts, callDataIfChanged);
+        return super.setContexts(namedContexts as any, callDataIfChanged);
     }
 
 

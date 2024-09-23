@@ -368,7 +368,7 @@ export class HostServices {
         // .. Note that due to the multi-host and micro-timing complexities, this actually doesn't return render infos but rather performs the refresh.
         // .. The infos are fed to each host synchronously using the host's own feed.
         if (isRemote)
-            (boundary.component as ComponentRemote).refreshSource();
+            (boundary.component as ComponentRemote).refreshRemote();
 
         // Return infos.
         return (renderInfos[0] || boundaryChanges[0]) ? [ renderInfos, boundaryChanges ] : null;

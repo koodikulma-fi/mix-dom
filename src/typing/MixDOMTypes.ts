@@ -122,7 +122,7 @@ export type MixDOMPseudoTag<Props extends Record<string, any> = {}> =
     | ([Props] extends [PseudoPortalProps] ? typeof PseudoPortal<Props> : never)
     | ([Props] extends [PseudoEmptyProps] ? typeof PseudoEmpty<Props> : never)
 ;
-export type MixDOMComponentTag<Props extends Record<string, any> = {}> = ComponentTypeAny<Props> | MixDOMPseudoTag<Props>;
+export type MixDOMComponentTag<Props extends Record<string, any> = {}> = ComponentTypeAny<{ props: Props; }> | MixDOMPseudoTag<Props>;
 // export type MixDOMPreTag = DOMTags | MixDOMPseudoTag | typeof PseudoEmpty | MixDOMComponentTag;
 export type MixDOMPreTag = DOMTags | MixDOMPseudoTag | MixDOMComponentTag;
 export type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;

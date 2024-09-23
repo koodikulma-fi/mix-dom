@@ -2,7 +2,7 @@
 // - Import - //
 
 // Libraries.
-import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context } from "data-signals";
+import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context, ContextAPIType } from "data-signals";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Host.
@@ -28,12 +28,25 @@ export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> =
 
 // - ComponentContextAPI class - //
 
+/** Class type for ComponentContextAPI. */
+export interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends ContextAPIType<Contexts> { }
 export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+
+    /** Constructor as a typed property. */
+    ["constructor"]: ComponentContextApiType<Contexts>;
+
     /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
      * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).
      * - It's assigned as a member to write ComponentContextAPI as a clean class.
      */
     host: Host<Contexts>;
+    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
+     * - If there's nothing pending, then will resolve immediately. 
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
+    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+
+    // Extends ContextAPI methods with more args.
     /** Get the named context for the component.
      * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
      * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
@@ -44,11 +57,6 @@ export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> exte
      * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
      */
     getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
-    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately. 
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
-     */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
 }
 /** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
 export class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {

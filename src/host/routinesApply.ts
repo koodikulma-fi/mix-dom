@@ -379,31 +379,22 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
                 continue;
 
             // Remote.
-            let contentPass = aDef.contentPass;
             let contentKey = MixDOMContent.key;
             if (aDef.getRemote) {
                 // Get fresh remote.
-                const Remote = aDef.getRemote() as ComponentRemoteType;
+                const remote = aDef.getRemote() as ComponentRemote;
                 // Update key - it's used to detect true pass.
-                contentKey = Remote.Content?.key;
-                // Changed - only happens for contextual components, except for initial assigning (without the unground part).
-                const newClosure: ContentClosure | null = Remote.closure || null;
-                if (contentPass !== newClosure) {
-                    // Unground.
-                    if (contentPass)
-                        mergeChanges( allChanges, ungroundClosureContent(contentPass, aDef) );
-                    // Assign new - will be grounded below.
-                    aDef.contentPass = newClosure;
-                    contentPass = newClosure;
-                }
+                contentKey = remote.Content?.key;
+                // Ground and collect changes.
+                allChanges = mergeChanges(allChanges, groundClosureContent(remote.closure, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null));
             }
 
             // Ground and collect changes.
             // .. Note that we always have contentPass here, but for typescript put an if clause.
             // .... The reason for this is that targetDef's have .contentPassType and appliedDef's have .contentPass.
             // .... In the typing, it's just defined commonly for both, so both are optional types.
-            if (contentPass)
-                mergeChanges( allChanges, groundClosureContent(contentPass, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null) );
+            else if (aDef.contentPass)
+                mergeChanges( allChanges, groundClosureContent(aDef.contentPass, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null) );
 
             // Add content boundary to collection.
             if (treeNode.boundary)
@@ -617,6 +608,20 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             if (mountRun) {
                 if (aDef.tag && aDef.tag["_WithContent"]) { 
                     const withDef = aDef.tag["_WithContent"] as MixDOMDefTarget;
+
+                    // if (withDef.getRemote)
+                    //     withDef.getRemote().withContents.add(boundary); // .forEach(s => (s.closure.withContents || (s.closure.withContents = new Set()).add(boundary)));
+                    // else
+                    //     (sourceBoundary.closure.withContents || (sourceBoundary.closure.withContents = new Set())).add(boundary);
+
+                    // if (withDef.getRemote)
+                    //     withDef.getRemote().sources.forEach(s => (s.closure.withContents || (s.closure.withContents = new Set()).add(boundary)));
+                    // else
+                    //     (sourceBoundary.closure.withContents || (sourceBoundary.closure.withContents = new Set())).add(boundary);
+
+
+                    // <- this might need more.... now...
+
                     const sClosure: ContentClosure = withDef.getRemote ? withDef.getRemote().closure : sourceBoundary.closure;
                     (sClosure.withContents || (sClosure.withContents = new Set())).add(boundary);
                 }
@@ -682,13 +687,13 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
                 }
             }
 
-            // Refresh source connection and collect infos from it.
-            if (component.constructor.MIX_DOM_CLASS === "Remote")
-                allChanges = mergeChanges( allChanges, (component as ComponentRemote).reattachSource() );
-                //
-                // <-- Do we strictly speaking need this? Doesn't host.services.updateBoundary's refreshRemote do the trick more fully?
-                // ... However, this does work with direct infos (unlike .refreshRemote), which is preferable. But this does not include selecting best source, so we can't only have this.
-                // ... Let's just keep it as it is. Maybe it's important for cases where would simultaneously put higher importance and move an element in to that remote.
+            // // Refresh source connection and collect infos from it.
+            // if (component.constructor.MIX_DOM_CLASS === "Remote")
+            //     allChanges = mergeChanges( allChanges, (component as ComponentRemote).reattachSource() );
+            //     //
+            //     // <-- Do we strictly speaking need this? Doesn't host.services.updateBoundary's refreshRemote do the trick more fully?
+            //     // ... However, this does work with direct infos (unlike .refreshRemote), which is preferable. But this does not include selecting best source, so we can't only have this.
+            //     // ... Let's just keep it as it is. Maybe it's important for cases where would simultaneously put higher importance and move an element in to that remote.
 
 
             // Pre-refresh and collect interested.
@@ -763,10 +768,9 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
 
 export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs: boolean = true, destroyAllDOM: boolean = true): MixDOMChangeInfos {
     
-    // // - DEVLOG - //
-    // // Log.
-    // if (devLog)
-    //     console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs]);
+    // - DEVLOG - //
+    //
+    // console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs]);
 
     // Loop each and destroy accordingly.
     let allChanges: MixDOMChangeInfos = [ [], [] ];
@@ -798,8 +802,9 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
 
             case "pass":
                 // Content pass - by parent chain or remote flow.
-                if (aDef.contentPass)
-                    allChanges = mergeChanges(allChanges, ungroundClosureContent(aDef.contentPass, aDef));
+                console.log(" clean up pass..!", aDef.contentPass, aDef);
+                if (aDef.contentPass || aDef.getRemote)
+                    allChanges = mergeChanges(allChanges, ungroundClosureContent(aDef.contentPass || aDef.getRemote!().closure, aDef));
 
             case "host": {
                 const host = aDef.host;
@@ -897,6 +902,15 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
         if (outerDef.tag["_WithContent"]) {
             // Parental vs. remote.
             const withDef = outerDef.tag["_WithContent"] as MixDOMDefTarget;
+
+            // for (const sClosure of withDef.getRemote ? withDef.getRemote().sources.map(s => s.closure) : sBoundary.sourceBoundary ? [sBoundary.sourceBoundary.closure] : []) {
+            //     if (sClosure.withContents) {
+            //         sClosure.withContents.delete(sBoundary);
+            //         if (!sClosure.withContents.size)
+            //             delete sClosure.withContents;
+            //     }
+            // }
+
             const sClosure = withDef.getRemote ? withDef.getRemote().closure : sBoundary.sourceBoundary?.closure;
             // Remove from bookkeeping.
             if (sClosure?.withContents) {
@@ -1179,6 +1193,7 @@ export function applyContentDefs(closure: ContentClosure, groundedDefKeys: Itera
             let isTruePass = true;
             const envelope = closure.envelope;
             // Create.
+            const hadBoundary = !!contentBoundary;
             if (!contentBoundary) {
                 // Create a new content boundary.
                 contentBoundary = new ContentBoundary(groundingDef, envelope.target, treeNode, closure.sourceBoundary);

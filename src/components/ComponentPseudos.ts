@@ -7,7 +7,9 @@ import { DOMTags, MixDOMPreDOMTagProps, MixDOMRenderOutput, MixDOMDefTarget } fr
 import { MixDOMCloneNodeBehaviour } from "../host/index";
 // Only typing (local).
 import { ComponentTypeEither } from "./typesVariants";
-import { ComponentRemoteProps, ComponentRemoteType } from "./ComponentRemote";
+import { ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ContentPasserProps } from "./ComponentRemote";
+import { ContentClosure } from "../boundaries";
+import { Component, ComponentFunc } from "./Component";
 
 
 // - Export pseudo classes - //
@@ -91,14 +93,12 @@ export class PseudoEmpty<Props extends PseudoEmptyProps = PseudoEmptyProps> {
  *     * And it only adds the 2 public members (Content and ContentCopy) and 2 public methods (copycontent and withContent).
  *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
  * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
- *     * For example, to set specific content listening needs, you can use a memo - run it on render or .onBeforeUpdate callback.
- *     * Memo onMount: `(NewRemote: ComponentRemoteType) => NewRemote.isRemote() && component.contentAPI.needsFor(NewRemote, true);`
- *     * Memo onUnmount: `(OldRemote: ComponentRemoteType) => OldRemote.isRemote() && component.contentAPI.needsFor(OldRemote, null);`
  */
-export const PseudoEmptyRemote = class extends PseudoEmpty<ComponentRemoteProps> {
+export const PseudoEmptyRemote = class PseudoEmptyRemote<CustomProps extends Record<string, any> = {}> extends PseudoEmpty<ComponentRemoteProps & CustomProps> {
     public static Content: MixDOMDefTarget | null = null;
     public static ContentCopy: MixDOMDefTarget | null = null;
     public static copyContent = (_key?: any): MixDOMDefTarget | null => null;
+    public static filterContent = (_filterer: (remote: ComponentRemote, i: number) => boolean, _copyKey?: any): MixDOMDefTarget | null => null;
     public static WithContent: ComponentTypeEither<{props: { hasContent?: boolean; }}> = (_initProps, _comp) => null;
     public static isRemote(): boolean { return false; }
 } as unknown as ComponentRemoteType;

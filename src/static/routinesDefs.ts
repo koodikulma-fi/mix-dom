@@ -32,7 +32,7 @@ import { SpreadFunc, ComponentSpreadProps } from "../components/ComponentSpread"
 const contentKey: {} = {};
 
 
-// - Shortcuts - //
+// - Create def helpers - //
 
 /** Create a rendering definition. Supports receive direct JSX compiled output. */
 export function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDOMPreDOMTagProps<DOMTag> | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
@@ -158,6 +158,125 @@ export function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDO
     return def;
 };
 
+// Create a def out of the content.
+export function newDefFrom(renderContent: MixDOMRenderOutput): MixDOMDefTarget | null {
+
+    // Object type.
+    if (renderContent && (typeof renderContent === "object")) {
+        // Def - we check it first, because it's the most common. (Although typescript would prefer it below by neglating other options.)
+        if (typeof renderContent["MIX_DOM_DEF"] === "string") {
+            // We pass defs directly, as they contents have been cleaned already.
+            // .. At least for practical performance reasons, we assume that - let's not account for external def hacks.
+            return renderContent as MixDOMDefTarget;
+        }
+        // Dom node.
+        if (renderContent instanceof Node) {
+            return {
+                MIX_DOM_DEF: "content",
+                tag: "",
+                childDefs: [],
+                domContent: renderContent
+            };
+        }
+        // Host.
+        if (renderContent.constructor["MIX_DOM_CLASS"] === "Host") {
+            return {
+                MIX_DOM_DEF: "host",
+                tag: null,
+                host: renderContent as Host,
+                key: renderContent, // Unique key, so does wide.
+                childDefs: [],
+            };
+        }
+        // Is an array or array like.
+        if (Array.isArray(renderContent) || renderContent instanceof HTMLCollection || renderContent instanceof NodeList) {
+            // Process array with localKeys support.
+            const childDefs = [...renderContent].map(item => newDefFrom(item)).filter(def => def) as MixDOMDefTarget[];
+            if (!childDefs.length)
+                return null;
+            // Create a single fragment item to hold the array and mark as array.
+            return {
+                MIX_DOM_DEF: "fragment",
+                tag: null,
+                isArray: true,
+                childDefs
+            };
+        }
+        // Otherwise it's unknown data, stringify it.
+        renderContent = String(renderContent) as MixDOMContentValue;
+    }
+    // Is simple content as a string or number.
+    if (renderContent != null)
+        return {
+            MIX_DOM_DEF: "content",
+            tag: "",
+            domContent: renderContent,
+            childDefs: [],
+        };
+    // Is empty.
+    return null;
+}
+
+/** Copies everything from targetDef that defines its type, but not any "updatable" properties (except key). */
+export function newAppliedDef(targetDef: MixDOMDefTarget, contentClosure: ContentClosure | null): MixDOMDefApplied {
+    // Basics.
+    const aDef = {
+        MIX_DOM_DEF: targetDef.MIX_DOM_DEF,
+        tag: targetDef.tag,
+        childDefs: [],
+        action: "mounted"
+    } as MixDOMDefApplied;
+    if (targetDef.key != null)
+        aDef.key = targetDef.key;
+    // Other non-changing based on type.
+    if (aDef.MIX_DOM_DEF === "fragment") {
+        if (targetDef.isArray)
+            aDef.isArray = true;
+        if (targetDef.scopeType)
+            aDef.scopeType = targetDef.scopeType;
+    }
+    // Content pass.
+    else if (aDef.MIX_DOM_DEF === "pass") {
+        if (targetDef.getRemote) {
+            aDef.getRemote = targetDef.getRemote;
+            aDef.contentPass = targetDef.contentPass || null;
+        }
+        else
+            aDef.contentPass = targetDef.contentPass || contentClosure || null;
+    }
+    // Host.
+    else if (targetDef.host)
+        aDef.host = targetDef.host;
+    // Return applied def ready to go.
+    return aDef;
+}
+
+export function newContentPassDef(key?: any, isCopy? : boolean): MixDOMDefTarget {
+    // Create basis.
+    const def: MixDOMDefTarget = {
+        MIX_DOM_DEF: "pass",
+        tag: null,
+        childDefs: [],
+        contentPassType: isCopy ? "copy" : "pass",
+    };
+    // Apply key.
+    if (key != null)
+        def.key = key;
+    // We always need to have a key for true content pass.
+    // .. and it should be unique and common to all MixDOM.Content defs unless specifically given a key.
+    else if (!isCopy)
+        def.key = contentKey;
+    // Return def.
+    return def;
+}
+
+export function newContentCopyDef(key?: any): MixDOMDefTarget {
+    return newContentPassDef(key, true);
+}
+
+
+// - Helpers - //
+
 /** The method to call and unfold spread func's render defs. (This functionality is paired with other parts in _Apply.)
  * - The returned defs are wrapped in a fragment that provides scoping detection - unless returned null, then also returns null.
  * - The children fed here are the cleaned childDefs that should replace any content pass.
@@ -279,128 +398,6 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
     // Return target - we might have modified it.
     return baseDef;
 }
-
-
-// - Create def helpers - //
-
-// Create a def out of the content.
-export function newDefFrom(renderContent: MixDOMRenderOutput): MixDOMDefTarget | null {
-
-    // Object type.
-    if (renderContent && (typeof renderContent === "object")) {
-        // Def - we check it first, because it's the most common. (Although typescript would prefer it below by neglating other options.)
-        if (typeof renderContent["MIX_DOM_DEF"] === "string") {
-            // We pass defs directly, as they contents have been cleaned already.
-            // .. At least for practical performance reasons, we assume that - let's not account for external def hacks.
-            return renderContent as MixDOMDefTarget;
-        }
-        // Dom node.
-        if (renderContent instanceof Node) {
-            return {
-                MIX_DOM_DEF: "content",
-                tag: "",
-                childDefs: [],
-                domContent: renderContent
-            };
-        }
-        // Host.
-        if (renderContent.constructor["MIX_DOM_CLASS"] === "Host") {
-            return {
-                MIX_DOM_DEF: "host",
-                tag: null,
-                host: renderContent as Host,
-                key: renderContent, // Unique key, so does wide.
-                childDefs: [],
-            };
-        }
-        // Is an array or array like.
-        if (Array.isArray(renderContent) || renderContent instanceof HTMLCollection || renderContent instanceof NodeList) {
-            // Process array with localKeys support.
-            const childDefs = [...renderContent].map(item => newDefFrom(item)).filter(def => def) as MixDOMDefTarget[];
-            if (!childDefs.length)
-                return null;
-            // Create a single fragment item to hold the array and mark as array.
-            return {
-                MIX_DOM_DEF: "fragment",
-                tag: null,
-                isArray: true,
-                childDefs
-            };
-        }
-        // Otherwise it's unknown data, stringify it.
-        renderContent = String(renderContent) as MixDOMContentValue;
-    }
-    // Is simple content as a string or number.
-    if (renderContent != null)
-        return {
-            MIX_DOM_DEF: "content",
-            tag: "",
-            domContent: renderContent,
-            childDefs: [],
-        };
-    // Is empty.
-    return null;
-}
-
-/** Copies everything from targetDef that defines its type, but not any "updatable" properties (except key). */
-export function newAppliedDef(targetDef: MixDOMDefTarget, contentClosure: ContentClosure | null): MixDOMDefApplied {
-    // Basics.
-    const aDef = {
-        MIX_DOM_DEF: targetDef.MIX_DOM_DEF,
-        tag: targetDef.tag,
-        childDefs: [],
-        action: "mounted"
-    } as MixDOMDefApplied;
-    if (targetDef.key != null)
-        aDef.key = targetDef.key;
-    // Other non-changing based on type.
-    if (aDef.MIX_DOM_DEF === "fragment") {
-        if (targetDef.isArray)
-            aDef.isArray = true;
-        if (targetDef.scopeType)
-            aDef.scopeType = targetDef.scopeType;
-    }
-    // Content pass.
-    else if (aDef.MIX_DOM_DEF === "pass") {
-        if (targetDef.getRemote) {
-            aDef.getRemote = targetDef.getRemote;
-            aDef.contentPass = targetDef.contentPass || null;
-        }
-        else
-            aDef.contentPass = targetDef.contentPass || contentClosure || null;
-    }
-    // Host.
-    else if (targetDef.host)
-        aDef.host = targetDef.host;
-    // Return applied def ready to go.
-    return aDef;
-}
-
-export function newContentPassDef(key?: any, isCopy? : boolean): MixDOMDefTarget {
-    // Create basis.
-    const def: MixDOMDefTarget = {
-        MIX_DOM_DEF: "pass",
-        tag: null,
-        childDefs: [],
-        contentPassType: isCopy ? "copy" : "pass",
-    };
-    // Apply key.
-    if (key != null)
-        def.key = key;
-    // We always need to have a key for true content pass.
-    // .. and it should be unique and common to all MixDOM.Content defs unless specifically given a key.
-    else if (!isCopy)
-        def.key = contentKey;
-    // Return def.
-    return def;
-}
-
-export function newContentCopyDef(key?: any): MixDOMDefTarget {
-    return newContentPassDef(key, true);
-}
-
-
-// - Helpers - //
 
 /** Note that "content" and "host" defs are created from the ...contents[], while "pass" type comes already as a def.
  * .. This gives any other type. If there's no valid type, returns "". */

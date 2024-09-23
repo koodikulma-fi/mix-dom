@@ -3,13 +3,15 @@
 This repo is for developing v4. Work in progress.
 
 Current state:
-- Refactored to use new "data-signals" base. Not tested at all. Not likely to work 100% correctly currently.
+- Finishing new REMOTE.
+    * Just one case with TWO DIFFERENT HOSTS:
+        - The first host won't refresh initially when the 2nd host adds to remote synchronously (on first run).
+        - Otherwise seems to work in all sorts of cases..!
+    * Verify the new special methods: filterContent, wrapContent, renderContent.
 - Note. Tried changing Routines to static classes from direct export functions but fattened the MixDOM.module.js size from 61.4KB to 64.0KB. Changed back.
 
 ## QUICK TODO
 - Refactor COMPONENT MIXIN usage base, according to "mixin-types" approach.
-- Start testing to make basic things work.
-- Make the new modifications for REMOTE components.
 - The TYPE refines and FIXES.
 
 ## MixDOM
