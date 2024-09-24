@@ -842,8 +842,15 @@ declare class HostServices {
     private rootDef;
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?;
-    /** Temporary flag to mark while update process is in progress. */
-    private _whileUpdating?;
+    /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
+     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
+     * - Currently, it's only used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
+     *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
+     *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
+     *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
+     *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     */
+    _whileUpdating?: {};
     constructor(host: Host);
     /** This creates a new boundary id in the form of "h-hostId:b-bId", where hostId and bId are strings from the id counters. For example: "h-1:b:5"  */
     createBoundaryId(): MixDOMSourceBoundaryId;
@@ -1762,13 +1769,24 @@ interface ComponentRemote<CustomProps extends Record<string, any> = {}> extends 
     Content: MixDOMDefTarget;
     ContentCopy: MixDOMDefTarget;
     copyContent: (key?: any) => MixDOMDefTarget;
-    /** Used internally. Whether can refresh the source or not. If it's not attached, cannot. */
-    canRefresh(): boolean;
+    WithContent: ComponentType<{
+        props: {
+            hasContent?: boolean;
+        };
+    }> & {
+        /** Should contain the content pass object.
+         * - For parental passing it's the MixDOM.Content object.
+         * - For remote instance it's their Content pass object with its getRemote() method.
+         * - For remote static side it's a def for a boundary.
+         */
+        _WithContent: MixDOMDefTarget;
+    };
+    /** Check whether this remote content pass has content to render (vs. null like). */
+    hasContent: () => boolean;
     /** Used internally in relation to the content passing updating process. */
     preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null;
     /** Used internally in relation to the content passing updating process. */
     applyRefresh(forceUpdate?: boolean): MixDOMChangeInfos;
-    refreshRemote(forceRenderTimeout?: number | null): void;
 }
 /** Static class side for remote output. */
 interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> extends ComponentType<{
@@ -1776,6 +1794,10 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
 }> {
     readonly MIX_DOM_CLASS: string;
     new (props: ComponentRemoteProps & CustomProps, boundary?: SourceBoundary): ComponentRemote<CustomProps>;
+    /** Check whether is the real thing or an empty pseudo remote. */
+    isRemote(): boolean;
+    /** Check whether any of the content passes has content. Optionally define a filterer for the check: only checks for those that returned `true` for. */
+    hasContent: (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean) => boolean;
     /** The Content pass for the Remote. It's actually a def to render the content pass from each active source as a fragment. */
     Content: MixDOMDefTarget | null;
     /** The ContentCopy pass for the Remote. It's actually a def to render the content copy pass from each active source as a fragment. */
@@ -1785,11 +1807,11 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
     /** Alternative way to insert contents by filtering the sources (instead of just all). Typically you would use the `remote.props` typed with CustomProps. */
     filterContent: (filterer: (remote: ComponentRemote<CustomProps>, iRemote: number) => boolean, copyKey?: any) => MixDOMDefTarget | null;
     /** Alternative way to insert contents by custom wrapping. Can also filter by simply returning null or undefined.
-     * - The Content pass for the remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent` and other such.
+     * - The Content pass for the remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
     wrapContent: (wrapper: (remote: ComponentRemote<CustomProps>, iRemote: number) => MixDOMRenderOutput, copyKey?: any) => MixDOMDefTarget | null;
     /** Alternative way to handle inserting the remote contents - all remotes together in a custom manner.
-     * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent` and other such.
+     * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
     renderContent: (handler: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
     /** A custom component (func) that can be used for remote conditional inserting. If any source is active and has content renders, otherwise not.
@@ -1803,11 +1825,15 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
             hasContent?: boolean;
         };
     }> & {
-        /** Should contain the content pass object. For parental passing it's the MixDOM.Content object. For remotes their Content pass object with its getRemote() method. */
+        /** Should contain the content pass object.
+         * - For parental passing it's the MixDOM.Content object.
+         * - For remote instance it's their Content pass object with its getRemote() method.
+         * - For remote static side it's a def for a boundary.
+         */
         _WithContent: MixDOMDefTarget;
+        /** On the static remote side we collect the source boundaries of the instanced WithContents, for getting access to interests. */
+        withContents: Set<SourceBoundary>;
     };
-    /** Check whether is the real thing or an empty pseudo remote. */
-    isRemote(): boolean;
     /** The active remote sources. */
     sources: ComponentRemote<CustomProps>[];
     /** Add a remote source - used internally. */
@@ -1846,7 +1872,8 @@ declare class ContentClosure {
     withContents?: Set<SourceBoundary>;
     /** Used to detect which closures are linked together through content passing.
      * - This is further more used for the withContents feature. (But could be used for more features.)
-     * - Note that this kind of detection is not needed for remotes: as there's only the (active) source and target - nothing in between them.
+     * - Note that this kind of detection is not needed for remotes: as there's only the sources and target - nothing in between them.
+     *      * Note that the static side of Remote's WithContent does not have its own content pass, but just checks all sources.
      */
     chainedClosures?: Set<ContentClosure>;
     /** If this closure is linked to feed a remote, assign the remote instance here. */
@@ -2145,6 +2172,14 @@ interface MixDOMDefAppliedBase extends MixDOMDefBase {
     childDefs: MixDOMDefApplied[];
     action: "mounted" | "moved" | "updated";
     treeNode?: MixDOMTreeNode;
+    /** Used internally for special case detections.
+     * - Only applied when is performing a wide move. The updateId value {} comes from hostServices and is renewed on every update cycle.
+     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediate boundary simultaneously.
+     *      * If had already paired some defs (impying they were moved out by the sourceBoundary), then shouldn't clean up those defs.
+     *      * The detection is done by: `def.updateId && def.updateId === def.treeNode?.sourceBoundary?.host.services._whileUpdating`.
+     *      * The updateId is cleaned away from def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     */
+    updateId?: {};
 }
 interface MixDOMDefTargetBase extends MixDOMDefBase {
     childDefs: MixDOMDefTarget[];

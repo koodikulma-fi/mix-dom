@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { askListeners, callListeners } from "data-signals";
+import { askListeners, callListeners, deepCopy } from "data-signals";
 // Typing.
 import {
     HTMLTags,
@@ -335,8 +335,8 @@ export class HostRender {
 
         // - DEVLOG - //
         //
-        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true).
-        console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos);
+        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting: __routinesApply.cleanUpDefs.
+        // console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos.map(info => ({ ...info, treeNode: info.create ? info.treeNode : { ...info.treeNode, def: { ...info.treeNode.def } }})));
 
         // In disabled mode - just update bookkeeping.
         if (this.paused) {

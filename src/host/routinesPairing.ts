@@ -11,7 +11,7 @@ import {
     MixDOMDefKeyTag,
 } from "../typing";
 // Routines.
-import { equalDictionariesBy, newAppliedDef } from "../static/index";
+import { allDefsIn, equalDictionariesBy, newAppliedDef } from "../static/index";
 // Boundaries.
 import { ContentBoundary, SourceBoundary } from "../boundaries/index";
 // Local.
@@ -80,7 +80,7 @@ export function pairDefs(byBoundary: SourceBoundary | ContentBoundary, preDef: M
         else {
 
             // Find correct applied defs - with null for any unfound.
-            const appliedChildDefs = findAppliedDefsFor(aDef, toDef, subDefsByTags || defsByTags, unusedDefs, sourceBoundary, wideArrKeys);
+            const appliedChildDefs = findAppliedDefsFor(aDef, toDef, subDefsByTags || defsByTags, unusedDefs, sourceBoundary, wideArrKeys, byBoundary.host.services._whileUpdating);
             // Set children.
             aDef.childDefs = appliedChildDefs;
 
@@ -296,7 +296,8 @@ export function assignTreeNodesFor(aChilds: MixDOMDefApplied[], workingTreeNode:
 /** This is a specific handler for true content pass.
  * - It needs this procedure because its defs have already been paired.
  * - In here we assign treeNodes to them if they are grounded.
- * - For those that are not used, we mark .sourceBoundary = null and collect to cleanUp (that we return). */
+ * - For those that are not used, we mark .sourceBoundary = null and collect to cleanUp (that we return).
+ */
 export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApplyPair[], MixDOMTreeNode[], MixDOMTreeNode[]] {
     // Prepare.
     const appliedDef = contentBoundary._innerDef;
@@ -390,11 +391,13 @@ export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApp
  *        .. However, for wide matching the order is non-important, but it's still consistent and reasonable: it's the tree-order for each tag.
  *    - Note. The logical outcome for the function is as described above, but it's instead organized below into a more flowing form.
  */
-export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDefAppliedPseudo | null, parentDef: MixDOMDefTarget | MixDOMDefTargetPseudo, defsByTags: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>, unusedDefs: Set<MixDOMDefApplied>, sourceBoundary?: SourceBoundary | null, wideArrKeys?: boolean): MixDOMDefApplied[] {
+export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDefAppliedPseudo | null, parentDef: MixDOMDefTarget | MixDOMDefTargetPseudo, defsByTags: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>, unusedDefs: Set<MixDOMDefApplied>, sourceBoundary?: SourceBoundary | null, wideArrKeys?: boolean, updateId?: {}): MixDOMDefApplied[] {
+    
     // Handle trivial special case - no children asked for.
     let nChildDefs = parentDef.childDefs.length;
     if (!nChildDefs)
         return [];
+
     // Not compatible - shouldn't find matches.
     const allowWide = wideArrKeys || !parentDef.isArray;
     if (!wideArrKeys && (parentDef.isArray != (parentAppliedDef && parentAppliedDef.isArray)))
@@ -429,6 +432,9 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                 // Accepted.
                 aDef = def;
                 unusedDefs.delete(def);
+                // Keep books tidy.
+                if (aDef.updateId && aDef.updateId !== updateId)
+                    delete aDef.updateId;
                 // Note. Might have still moved, but we don't mark didMove - we check for moving below.
                 break;
             }
@@ -451,6 +457,9 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                     unusedDefs.delete(def);
                     // cousinDefs.splice(ii, 1); // We shall skip splicing, can just loop again.
                     wideMove = true;
+                    // Mark update ids for smart special case content swapping.
+                    for (const d of allDefsIn(aDef))
+                        d.updateId = updateId;
                     break;
                 }
             }

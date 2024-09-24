@@ -84,7 +84,7 @@ export function rootDOMTreeNodes(rootNode: MixDOMTreeNode, inNestedBoundaries: b
 /** Get all defs (including the given one) in tree order traversing down from the given one.
  * - The search is automatically limited to inside the render scope, as defs are.
  */
-export function allDefsIn(rootDef: MixDOMDefApplied): MixDOMDefApplied[] {
+export function allDefsIn(rootDef: MixDOMDefApplied, ignoreByUpdateId: boolean = false): MixDOMDefApplied[] {
     // Prepare.
     const allDefs: MixDOMDefApplied[] = [];
     let defs: MixDOMDefApplied[] = [ rootDef ];
@@ -93,7 +93,8 @@ export function allDefsIn(rootDef: MixDOMDefApplied): MixDOMDefApplied[] {
     // Loop each.
     while (def = defs[i++]) {
         // Add.
-        allDefs.push(def);
+        if (!def.updateId || !ignoreByUpdateId || def.updateId !== def.treeNode?.sourceBoundary?.host.services._whileUpdating)
+            allDefs.push(def);
         // Add kids to the front of the queue.
         if (def.childDefs[0]) {
             defs = def.childDefs.concat(defs.slice(i));

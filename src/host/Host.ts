@@ -284,7 +284,6 @@ export class Host<Contexts extends ContextsAllType = {}> {
     }
 
 
-
     // - Root methods - //
 
     /** Clear whatever has been previously rendered - destroys all boundaries inside the rootBoundary. */

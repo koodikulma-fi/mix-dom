@@ -159,6 +159,14 @@ export interface MixDOMDefAppliedBase extends MixDOMDefBase {
     childDefs: MixDOMDefApplied[];
     action: "mounted" | "moved" | "updated";
     treeNode?: MixDOMTreeNode;
+    /** Used internally for special case detections.
+     * - Only applied when is performing a wide move. The updateId value {} comes from hostServices and is renewed on every update cycle.
+     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediate boundary simultaneously.
+     *      * If had already paired some defs (impying they were moved out by the sourceBoundary), then shouldn't clean up those defs.
+     *      * The detection is done by: `def.updateId && def.updateId === def.treeNode?.sourceBoundary?.host.services._whileUpdating`.
+     *      * The updateId is cleaned away from def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     */
+    updateId?: {};
 }
 export interface MixDOMDefTargetBase extends MixDOMDefBase {
     childDefs: MixDOMDefTarget[];

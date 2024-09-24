@@ -24,6 +24,7 @@ import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host } from "../host/Host";
 import { PseudoPortalProps, PseudoElementProps } from "../components/ComponentPseudos";
 import { SpreadFunc, ComponentSpreadProps } from "../components/ComponentSpread";
+import { ComponentRemoteType } from "../components/ComponentRemote";
 
 
 // - Constant - //
@@ -374,8 +375,9 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
                 newDef = { ...thisDef };
                 // Only add to the loop if is not a content pass.
                 newLoop.push(newDef);
-                // Handle conditional - however ignore remotes, as we don't know anything about their kids.
-                if (thisDef.MIX_DOM_DEF === "boundary" && thisDef.tag["_WithContent"] && !thisDef.tag["_WithContent"].getRemote) {
+                // Handle conditional - however ignore remote instances, as we don't know anything about their kids.
+                // .. To ignore on instance side we use .getRemote, for the static side .withContents on the tag.
+                if (thisDef.MIX_DOM_DEF === "boundary" && thisDef.tag["_WithContent"] && !thisDef.tag["_WithContent"].getRemote && !(thisDef.tag as ComponentRemoteType["WithContent"]).withContents) {
                     // Skip if had been specifically set by the user.
                     // .. Note that in that case any parenting spreads won't recognize this either - see the skip-spreads optimization above.
                     if (newDef.props?.hasContent == null) {

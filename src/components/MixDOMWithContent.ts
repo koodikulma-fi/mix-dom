@@ -35,7 +35,7 @@ export type WithContentInfo = {
     };
 }
 export const MixDOMWithContent = class WithContent extends Component<WithContentInfo> {
-    /** Technical marker. Simply used to differentiate us from the Remote. */
+    /** Technical marker. Simply used to differentiate us from the passes of the Remote instances. Note that the _static_ WithContent of Remote does not actual have its own pass. */
     public static _WithContent = MixDOMContent;
     /** Internal method to check whether has content through the chain recursively. */
     public hasContent(): boolean {

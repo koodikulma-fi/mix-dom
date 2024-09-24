@@ -46,7 +46,8 @@ export class ContentClosure {
     public withContents?: Set<SourceBoundary>;
     /** Used to detect which closures are linked together through content passing.
      * - This is further more used for the withContents feature. (But could be used for more features.)
-     * - Note that this kind of detection is not needed for remotes: as there's only the (active) source and target - nothing in between them.
+     * - Note that this kind of detection is not needed for remotes: as there's only the sources and target - nothing in between them.
+     *      * Note that the static side of Remote's WithContent does not have its own content pass, but just checks all sources.
      */
     public chainedClosures?: Set<ContentClosure>;
     /** If this closure is linked to feed a remote, assign the remote instance here. */
@@ -68,6 +69,11 @@ export class ContentClosure {
     public hasContent(): boolean {
         const aDef = this.envelope?.applied;
         return !(!aDef || aDef.disabled || (aDef.MIX_DOM_DEF === "fragment" && (!aDef.childDefs.length || aDef.childDefs[0].disabled && aDef.childDefs.length === 1)));
+
+        //
+        // return this.envelope && hasContentInDefs(this.envelope.applied.childDefs, checkRecursively) as boolean || false;
+        //
+        // <-- Should we be using this line instead..?
     }
 
     /** Get the content that we pass. */

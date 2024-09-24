@@ -119,6 +119,7 @@ export class SourceBoundary extends BaseBoundary {
                     }
                 }
             }
+            
             // Handle Remote.
             if (tag["MIX_DOM_CLASS"] === "Remote") {
                 // Get remote and assign the remote source to the closure for passing refreshes further.
@@ -126,9 +127,11 @@ export class SourceBoundary extends BaseBoundary {
                 // Add source - they are always available after being born (until dying).
                 (tag as ComponentRemoteType).addSource(component as ComponentRemote);
             }
+            
             // Add and call preMount.
             if (component.signals.preMount)
                 callListeners(component.signals.preMount);
+
         }
         // Fallback to empty Component - shouldn't happen.
         else

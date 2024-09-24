@@ -223,6 +223,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
         // .. Note that we can't rely on that it's still the appliedDef - due to that root might have been swapped.
         byBoundary._innerDef = toApplyPairs[0][1];
 
+
         // - 4. Apply the target defs recursively until each boundary starts (automatically limited by our toApplyPairs). - //
         //
         // .. We update each def collecting render infos, and on boundaries create/update content closure and call mount/update.
@@ -592,6 +593,7 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
         // .... Note. Kids will not be in the loop - we need not go any further here. (This is pre-handled in toApplyPairs.)
         // .... Note that this will prevent from any MixDOM.Content within from being detected in our scope - note that they were already converted to closures above.
         // ...... This is how it should be, because these closures will not be grounded by us - maybe by the nested boundary, maybe not.
+        //
         if (treeNode.boundary) {
 
             // - Before updating - //
@@ -603,28 +605,19 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             // Add source or content boundary to collection.
             byBoundary.innerBoundaries.push(boundary);
 
-            // Finish the constructing only now.
+            // Finish the constructing only now (on the mount run).
             // .. This way the process is similar to functional and class, and we need no special handling.
+            // .. So we've essentially delayed the constructing for the class, since the function has no constructor: just the first render with double renderer support.
             if (mountRun) {
+                // Special case - add the new boundary to WithContent interests.
                 if (aDef.tag && aDef.tag["_WithContent"]) { 
+                    // Note. The only the instance side Remote WithContent has `getRemote()`, the static side has `withContents` on the class.
+                    // .. However, it's totally fine to refer to the sourceBoundary.closure of the static side, as it's taken into account upon collecting interests.
                     const withDef = aDef.tag["_WithContent"] as MixDOMDefTarget;
-
-                    // if (withDef.getRemote)
-                    //     withDef.getRemote().withContents.add(boundary); // .forEach(s => (s.closure.withContents || (s.closure.withContents = new Set()).add(boundary)));
-                    // else
-                    //     (sourceBoundary.closure.withContents || (sourceBoundary.closure.withContents = new Set())).add(boundary);
-
-                    // if (withDef.getRemote)
-                    //     withDef.getRemote().sources.forEach(s => (s.closure.withContents || (s.closure.withContents = new Set()).add(boundary)));
-                    // else
-                    //     (sourceBoundary.closure.withContents || (sourceBoundary.closure.withContents = new Set())).add(boundary);
-
-
-                    // <- this might need more.... now...
-
                     const sClosure: ContentClosure = withDef.getRemote ? withDef.getRemote().closure : sourceBoundary.closure;
                     (sClosure.withContents || (sClosure.withContents = new Set())).add(boundary);
                 }
+                // Finish constructing.
                 boundary.reattach();
             }
 
@@ -687,19 +680,11 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
                 }
             }
 
-            // // Refresh source connection and collect infos from it.
-            // if (component.constructor.MIX_DOM_CLASS === "Remote")
-            //     allChanges = mergeChanges( allChanges, (component as ComponentRemote).reattachSource() );
-            //     //
-            //     // <-- Do we strictly speaking need this? Doesn't host.services.updateBoundary's refreshRemote do the trick more fully?
-            //     // ... However, this does work with direct infos (unlike .refreshRemote), which is preferable. But this does not include selecting best source, so we can't only have this.
-            //     // ... Let's just keep it as it is. Maybe it's important for cases where would simultaneously put higher importance and move an element in to that remote.
-
-
             // Pre-refresh and collect interested.
             /** The closure of this boundary.
              * - If `null`, then there's no need to use it because content was empty and will be empty. 
-             * - We use this simply to skip having a skipContent variable and for better minified shortcutting. */
+             * - We use this simply to skip having a skipContent variable and for better minified shortcutting.
+             */
             const bClosure = oldEnvelope || newEnvelope ? boundary.closure : null;
             let bInterested: Set<SourceBoundary> | null = null;
             if (bClosure) {
@@ -770,7 +755,7 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
     
     // - DEVLOG - //
     //
-    // console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs]);
+    // console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs].map(def => ({...def, treeNode: def.treeNode ? { ...def.treeNode } : undefined })));
 
     // Loop each and destroy accordingly.
     let allChanges: MixDOMChangeInfos = [ [], [] ];
@@ -802,7 +787,6 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
 
             case "pass":
                 // Content pass - by parent chain or remote flow.
-                console.log(" clean up pass..!", aDef.contentPass, aDef);
                 if (aDef.contentPass || aDef.getRemote)
                     allChanges = mergeChanges(allChanges, ungroundClosureContent(aDef.contentPass || aDef.getRemote!().closure, aDef));
 
@@ -831,13 +815,21 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
         }
         // Nullify.
         if (nullifyDefs) {
+            // For remotes, we must do a special parental "emptyMove", in case their content turned to null-like (while remote instance is still there).
+            if (treeNode.parent?.type === "pass" && treeNode.parent.def.getRemote)
+                // Note on v4:
+                // .. Tested in various cases that this is the correct solution to the "Remote null vs. content" case (where bookkeeping is not updated correctly).
+                // .. If were instead here to say eg. `continue` here, it would work for that case, but is not correct otherwise: can't remount in all cases.
+                // .. So in this flow, we support smooth swapping, while handling correctly the "null vs. content" swap case.
+                allChanges[0].push({ emptyMove: true, treeNode: treeNode.parent });
+            // Nullify.
             treeNode.parent = null;
             treeNode.sourceBoundary = null;
             delete aDef.treeNode;
         }
         //
         //
-        // <-- Verify here that still works in all cases. Was before behind a check that verified that is within content boundary.
+        // <-- [v3.2]: Verify here that still works in all cases. Was before behind a check that verified that is within content boundary.
 
     }
     return allChanges;
@@ -902,15 +894,8 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
         if (outerDef.tag["_WithContent"]) {
             // Parental vs. remote.
             const withDef = outerDef.tag["_WithContent"] as MixDOMDefTarget;
-
-            // for (const sClosure of withDef.getRemote ? withDef.getRemote().sources.map(s => s.closure) : sBoundary.sourceBoundary ? [sBoundary.sourceBoundary.closure] : []) {
-            //     if (sClosure.withContents) {
-            //         sClosure.withContents.delete(sBoundary);
-            //         if (!sClosure.withContents.size)
-            //             delete sClosure.withContents;
-            //     }
-            // }
-
+            // Note. The only the instance side Remote WithContent has `getRemote()`, the static side has `withContents` on the class.
+            // .. However, it's totally fine to refer to the sourceBoundary.closure of the static side, as it's taken into account upon collecting interests.
             const sClosure = withDef.getRemote ? withDef.getRemote().closure : sBoundary.sourceBoundary?.closure;
             // Remove from bookkeeping.
             if (sClosure?.withContents) {
@@ -938,9 +923,8 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
     // Get all defs and send to cleanUpDefs - we also pass the nullifyDefs down, but do not pass destroyAllDOM as we already captured the root nodes above recursively.
     // .. Note that if our inner def contains boundaries within (or is a boundary def itself), it will call here recursively down the structure (with destroyAllDOM set to false).
     if (boundary._innerDef)
-        allChanges = mergeChanges(allChanges,
-            cleanUpDefs(allDefsIn(boundary._innerDef), nullifyDefs, false)
-        );
+        // Get all defs but skip the ones that were already updated due to source swapping content in the pass.
+        allChanges = mergeChanges(allChanges, cleanUpDefs(allDefsIn(boundary._innerDef, true), nullifyDefs, false));
 
     // Remove from updates, if was there.
     if (sBoundary)
@@ -974,7 +958,7 @@ export function groundClosureContent(closure: ContentClosure, groundingDef: MixD
         if (groundingDef.action === "moved" && treeNode.boundary) {
             // If so, it's just a simple move by collecting all root nodes inside.
             return [
-                rootDOMTreeNodes(treeNode.boundary.treeNode, true, true).map( // <-- We use includeEmpty because maybe not all domNodes are not mounted yet. Similarly as in applyDefPairs.
+                rootDOMTreeNodes(treeNode.boundary.treeNode, true, true).map( // <-- We use includeEmpty because maybe not all domNodes are mounted yet. Similarly as in applyDefPairs.
                     treeNode => ({ treeNode, move: true }) as MixDOMRenderInfo ),
                 []
             ];
@@ -985,7 +969,6 @@ export function groundClosureContent(closure: ContentClosure, groundingDef: MixD
 
     // Update mapping.
     closure.groundedDefs.set(groundingDef, [gBoundary, treeNode, copyKey]);
-
     // Update now and return the infos to the flow - we do this only upon grounding for the first time.
     // .. Otherwise, our content is updated on .applyRefresh(), which will be called after.
     return applyContentDefs(closure, [groundingDef]);
@@ -998,12 +981,12 @@ export function ungroundClosureContent(closure: ContentClosure, groundingDef: Mi
     const info = closure.groundedDefs.get(groundingDef);
     if (!info)
         return [[], []];
-    // Was the real pass - free it up.
-    if (closure.truePassDef === groundingDef)
-        closure.truePassDef = null;
     // Remove from groundDefs and put its childDefs back to empty.
     closure.groundedDefs.delete(groundingDef);
     closure.pendingDefs.delete(groundingDef);
+    // Was the real pass - free it up.
+    if (closure.truePassDef === groundingDef)
+        closure.truePassDef = null;
     // Destroy the content boundary (attached to the treeNode in our info).
     // .. We must nullify the defs too.
     const boundary = info[1].boundary;
@@ -1013,7 +996,7 @@ export function ungroundClosureContent(closure: ContentClosure, groundingDef: Mi
 
 // - Refresh content closures - //
 
-/** Internal helper to apply a new envelope and update any interested inside, returning the infos. */
+/** Internal helper to apply a new envelope and update any interested inside, returning the infos. Only used by the Remote flow. */
 export function applyClosureEnvelope(closure: ContentClosure, newEnvelope: MixDOMContentEnvelope | null): MixDOMChangeInfos {
     // Update interested.
     const interested = preRefreshClosure(closure, newEnvelope);
@@ -1034,7 +1017,7 @@ export function preRefreshClosure(closure: ContentClosure, newEnvelope: MixDOMCo
     // 5. And then the part below with collectInterestedInClosure(closure, byRemote) is triggered using the byRemote gotten from step 3.
 
     // If part of remote, our grounders are in the remote closure.
-    if (closure.remote && closure.remote.canRefresh()) {
+    if (closure.remote) {
         closure.envelope = newEnvelope;
         return closure.remote.preRefresh(newEnvelope);
     }
@@ -1089,7 +1072,7 @@ export function preRefreshClosure(closure: ContentClosure, newEnvelope: MixDOMCo
 export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolean = false): MixDOMChangeInfos {
 
     // If part of remote, our grounders are in the remote closure.
-    if (closure.remote && closure.remote.canRefresh())
+    if (closure.remote)
         return closure.remote.applyRefresh(forceUpdate);
 
     // Prepare outcome.
@@ -1104,7 +1087,6 @@ export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolea
 
     // // There's no true pass def at all - clean up all inside in relation to original defs.
     // if (!closure.truePassDef && closure.envelope) {
-    //     const devLog = closure.sourceBoundary && closure.sourceBoundary.host.settings.devLogCleanUp || false;
     //     for (const def of closure.envelope.applied.childDefs) {
     //         // Nothing to clean up.
     //         const treeNode = def.treeNode;
@@ -1112,8 +1094,7 @@ export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolea
     //             continue;
     //         // - DEVLOG - //
     //         // Log.
-    //         if (devLog)
-    //             console.log("__ContentClosure.applyRefresh dev-log - clean up treeNode (no true pass): ", treeNode);
+    //         console.log("__ContentClosure.applyRefresh dev-log - clean up treeNode (no true pass): ", treeNode);
     //         // Dom node.
     //         if (treeNode.type === "dom")
     //             renderInfos.push({treeNode, remove: true });
@@ -1129,10 +1110,11 @@ export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolea
     //         delete def.treeNode;
     //     }
     // }
-    // //
-    // // <-- While this here works (and does get triggered correctly), don't think it's actually needed.
-    // // ... This is because - for true pass - the situation captured here is essentially the same as having no grounding defs.
-    // // ... So, they'll get cleaned up anyway.
+    //
+    //
+    // <-- While this here works (and does get triggered correctly), but don't think it's actually needed.
+    // ... This is because - for true pass - the situation captured here is essentially the same as having no grounding defs.
+    // ... So, they'll get cleaned up anyway.
 
 
     // All had been updated already.
@@ -1141,20 +1123,15 @@ export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolea
 
 /** This is the method that makes stuff inside content closures concrete.
  * - For true ContentPass (see copies below), the situation is very distinguished:
- *   1. Because we are in a closure, our target defs have already been mapped to applied defs and new defs created when needed.
- *   2. However, the treeNode part of the process was not handled for us. So we must do it now.
- *   3. After having updated treeNodes and got our organized toApplyPairs, we can just feed them to applyDefPairs to get renderInfos and boundaryUpdates.
+ *      1. Because we are in a closure, our target defs have already been mapped to applied defs and new defs created when needed.
+ *      2. However, the treeNode part of the process was not handled for us. So we must do it now.
+ *      3. After having updated treeNodes and got our organized toApplyPairs, we can just feed them to applyDefPairs to get renderInfos and boundaryUpdates.
  * - Behaviour on MixDOM.ContentCopy (and multi MixDOM.ContentPass).
- *   1. The situation is very different from ContentPass, because we don't have a set of pre-mangled applied defs.
- *   2. Instead we do actually do a very similar process to runBoundaryUpdate, but without boundary and without rendering.
- *   3. For future updates, we can reuse the appliedDef for each copy - the copies can also be keyed.
+ *      1. The situation is very different from ContentPass, because we don't have a set of pre-mangled applied defs.
+ *      2. Instead we do actually do a very similar process to runBoundaryUpdate, but without boundary and without rendering.
+ *      3. For future updates, we can reuse the appliedDef for each copy - the copies can also be keyed.
  */
 export function applyContentDefs(closure: ContentClosure, groundedDefKeys: Iterable<MixDOMDefApplied>, forceUpdate: boolean = false): MixDOMChangeInfos {
-
-    // Collect rendering infos basis once.
-    // .. They are the same for all copies, except that the appliedDef is different for each.
-    if (!groundedDefKeys)
-        groundedDefKeys = closure.groundedDefs.keys();
 
     // Loop each given groundedDef.
     let renderInfos: MixDOMRenderInfo[] = [];
@@ -1193,7 +1170,6 @@ export function applyContentDefs(closure: ContentClosure, groundedDefKeys: Itera
             let isTruePass = true;
             const envelope = closure.envelope;
             // Create.
-            const hadBoundary = !!contentBoundary;
             if (!contentBoundary) {
                 // Create a new content boundary.
                 contentBoundary = new ContentBoundary(groundingDef, envelope.target, treeNode, closure.sourceBoundary);

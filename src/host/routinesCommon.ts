@@ -139,19 +139,18 @@ export function updatedInterestedInClosure(bInterested: Set<SourceBoundary>, sor
 export function collectInterestedInClosure(closure: ContentClosure, byRemote?: ComponentRemote | null): Set<SourceBoundary> | null {
     // From Remote.
     if (byRemote) {
-        // return byRemote.constructor.closure?.withContents ? new Set(byRemote.constructor.closure.withContents) : null;
+        // Collect direct.
         const boundaries: Set<SourceBoundary> = new Set();
-        for (const remote of byRemote.constructor.sources) {
-            if (remote.closure.withContents) {
-                for (const s of remote.closure.withContents)
-                    boundaries.add(s);
-            }
-            //
-            // <-- THEY ARE THE SAME FOR ALL.. ALWYS..
+        if (byRemote.closure.withContents) {
+            for (const b of byRemote.closure.withContents)
+                boundaries.add(b);
         }
+        // Collect from the static side.
+        for (const b of byRemote.constructor.WithContent.withContents)
+            boundaries.add(b);
+        // If didn't have any, return null.
         return boundaries.size ? boundaries : null;
     }
-
     // Doesn't have any direct interests, nor any child closures that we're feeding to.
     if (!closure.withContents && !closure.chainedClosures)
         return null;

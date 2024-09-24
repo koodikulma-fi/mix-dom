@@ -4,17 +4,6 @@
 
 ## v4
 
-### TODOING
-- data-signals depency:
-  - MIX_DOM_CLASS ... especially.. that Context use to have such...
-  - compiling
-
-
-VERIFY:
-
-- THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
-  - Is teh idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
-
 ### Main changes
 - Externalized `data-signals` out of `mix-dom` to its own npm package and added as dependency for MixDOM.
   * All the data related features now come from data-signals.
@@ -54,31 +43,25 @@ VERIFY:
       * Only once the source disconnects, that particular remote stream ends. (Or the inserter unmounts the stream insertion point.)
     - The reason is that the feature is simply so much more useful in practice this way.
       * As you rarely want to "cut" the other stream, and if you do, you can do it by external state managing.
-  
 - Cleanups and refines:
   * Simplified component timers methods (from 5 methods to 3 methods).
-
-- REMOVE THE DEV LOGS... Simply leave them as comments.. can just uncomment...
-
-- Coming soon:
+- Coming later:
   - TODO: `data-signals-debug` to allow viewing Context signals & data changes in a UI in another window. (Rendered with MixDOM.)
   - TODO: `mix-dom-debug` that extends `data-signals-debug `with the viewer for the "grounded tree" (of MixDOMTreeNodes).
+- Note. Tried changing Routines to static classes from direct export functions but fattened the MixDOM.module.js size from 61.4KB to 64.0KB. Changed back.
 
+### TODO  
 
-FINISH UP NEW REMOTE:
-- The basics work very nicely..! 
-- Fix:
-  * THE REMOUNT CASES... not working fully.
-  * Triggering UPDATES.. not impelmentd.. mightsolve above..! And/or children needs passing..!
-  * In reatin to above... the WithContent ... and that maybe "renderer" should extend class.. for recognizin? no nede..?
-    - also check.. UPDATEMODe
-- Tiny:
-  * atIndex ? -1.. .! must not ... in vain.. add source to end.
-    - And ... also the ORDER prop..!
-  * REFACTOR .withContents TO BE ON THE REMOTE STATIC.... AS IT'S SAME FOR ALL.. NOT ON CLOSURE FOR REMOTE..... ?
-    - <-- Or actually.. not anymore... but anyway.... CLEAN UP AROUND THIS..!
-  * Clean up.
-- Verify specialities.
+- Finishing new REMOTE.
+  * VERIFY WITHCONTENT WITH SPREAD. (Should be fine, but just in case.)
+  * Verify the new special methods: filterContent, wrapContent, renderContent (ok!).
+- The TYPE refines and FIXES above.
+- Refactor COMPONENT MIXIN usage base, according to "mixin-types" approach.
+- REMOVE THE DEV LOGS... Simply leave them as comments.. can just uncomment...
+- VERIFY THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
+  - Is teh idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
+- compiling .. now has dependencies....  ... seems fine..?
+
 
 ---
 

@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Library.
-import { cleanIndex, orderedIndex } from "data-signals";
+import { orderedIndex } from "data-signals";
 // Typing.
 import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Routines.
@@ -12,7 +12,7 @@ import { MixDOMContent } from "../common/index";
 // Boundaries.
 import { SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
 // Host.
-import { applyClosureEnvelope, applyClosureRefresh, collectInterestedInClosure, Host, mergeChanges, preRefreshClosure } from "../host/index";
+import { applyClosureEnvelope, applyClosureRefresh, collectInterestedInClosure, preRefreshClosure } from "../host/index";
 // Local.
 import { Component, ComponentFunc, ComponentType } from "./Component";
 
@@ -75,15 +75,22 @@ export interface ComponentRemote<CustomProps extends Record<string, any> = {}> e
     Content: MixDOMDefTarget;
     ContentCopy: MixDOMDefTarget;
     copyContent: (key?: any) => MixDOMDefTarget;
+    WithContent: ComponentType<{props: { hasContent?: boolean; }; }> & {
+        /** Should contain the content pass object.
+         * - For parental passing it's the MixDOM.Content object.
+         * - For remote instance it's their Content pass object with its getRemote() method.
+         * - For remote static side it's a def for a boundary.
+         */
+        _WithContent: MixDOMDefTarget;
+    }
+    /** Check whether this remote content pass has content to render (vs. null like). */
+    hasContent: () => boolean;
 
     // Refreshing.
-    /** Used internally. Whether can refresh the source or not. If it's not attached, cannot. */
-    canRefresh(): boolean;
     /** Used internally in relation to the content passing updating process. */
     preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null;
     /** Used internally in relation to the content passing updating process. */
     applyRefresh(forceUpdate?: boolean): MixDOMChangeInfos;
-    refreshRemote(forceRenderTimeout?: number | null): void;
 }
 
 // Remote class type.
@@ -95,6 +102,12 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
     // We are a static class, and when instanced output a remote source.
     new (props: ComponentRemoteProps & CustomProps, boundary?: SourceBoundary): ComponentRemote<CustomProps>;
 
+    // Remote vs. pseudo.
+    /** Check whether is the real thing or an empty pseudo remote. */
+    isRemote(): boolean;
+    /** Check whether any of the content passes has content. Optionally define a filterer for the check: only checks for those that returned `true` for. */
+    hasContent: (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean) => boolean;
+
     // Public members - for usage inside the render output.
     /** The Content pass for the Remote. It's actually a def to render the content pass from each active source as a fragment. */
     Content: MixDOMDefTarget | null;
@@ -105,11 +118,11 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
     /** Alternative way to insert contents by filtering the sources (instead of just all). Typically you would use the `remote.props` typed with CustomProps. */
     filterContent: (filterer: (remote: ComponentRemote<CustomProps>, iRemote: number) => boolean, copyKey?: any) => MixDOMDefTarget | null;
     /** Alternative way to insert contents by custom wrapping. Can also filter by simply returning null or undefined.
-     * - The Content pass for the remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent` and other such.
+     * - The Content pass for the remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
     wrapContent: (wrapper: (remote: ComponentRemote<CustomProps>, iRemote: number) => MixDOMRenderOutput, copyKey?: any) => MixDOMDefTarget | null;
     /** Alternative way to handle inserting the remote contents - all remotes together in a custom manner.
-     * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent` and other such.
+     * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
     renderContent: (handler: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
 
@@ -120,11 +133,15 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
      * - This is very typically used for adding some wired elements to a popup remote, like in the above example.
      */
     WithContent: ComponentType<{props: { hasContent?: boolean; }; }> & {
-        /** Should contain the content pass object. For parental passing it's the MixDOM.Content object. For remotes their Content pass object with its getRemote() method. */
+        /** Should contain the content pass object.
+         * - For parental passing it's the MixDOM.Content object.
+         * - For remote instance it's their Content pass object with its getRemote() method.
+         * - For remote static side it's a def for a boundary.
+         */
         _WithContent: MixDOMDefTarget;
+        /** On the static remote side we collect the source boundaries of the instanced WithContents, for getting access to interests. */
+        withContents: Set<SourceBoundary>;
     };
-    /** Check whether is the real thing or an empty pseudo remote. */
-    isRemote(): boolean;
 
     // Sources - used internally.
     /** The active remote sources. */
@@ -136,7 +153,7 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
      */
     removeSource(remote: ComponentRemote<CustomProps>): MixDOMChangeInfos | null;
 
-    // // Private.
+    // Private.
     // /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
     // ContentPasser: ComponentFunc<{ props: ContentPasserProps; }>;
     // /** The active ContentPasser instances: one for each insertion point. */
@@ -153,7 +170,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
     class _Remote extends Component<{ props: ComponentRemoteProps & CustomProps; }> {
 
 
-        // - Members - //
+        // - Members & property funcs - //
 
         /** The constructor is typed as ComponentRemoteType. */
         ["constructor"]: ComponentRemoteType<CustomProps>;
@@ -162,13 +179,19 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
         public Content: MixDOMDefTarget = { ...newContentPassDef(this), contentPass: null, getRemote: () => this as ComponentRemote };
         public ContentCopy: MixDOMDefTarget = { ...newContentPassDef(this, true), contentPass: null, getRemote: () => this as ComponentRemote };
         public copyContent = (key?: any): MixDOMDefTarget => ({ ...newContentPassDef(key ?? _Remote, true), contentPass: null, getRemote: () => this as ComponentRemote });
+        public hasContent = (): boolean => this.closure.hasContent();
+        public WithContent = (() => {
+            const remote = this as ComponentRemote<CustomProps>;
+            return class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
+                public static _WithContent = remote.Content;
+                public render() {
+                    return (this.props.hasContent != null ? this.props.hasContent : remote.closure.hasContent()) ? MixDOMContent : null;
+                }
+            };
+        })();
 
 
         // - Instanced - //
-
-        public canRefresh(): boolean {
-            return true; // _Remote.source === this;
-        }
 
         public preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null {
             // Pass the preRefresh (part 1/2) from closure to closure.
@@ -180,49 +203,16 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             return applyClosureRefresh(this.closure, forceUpdate) || [ [], [] ];
         }
 
-        /** This doesn't return the infos as they can belong to two different hosts.
-         * - Instead it absorbs the changes to each host and makes sure micro-timing is correct.
-         */
-        public refreshRemote(forceRenderTimeout?: number | null): void {
-            // Cancel, if already been applied - or if the remove process had run and source is different (it pre-assigns us).
-            const closure = this.closure;
-            const boundary = this.boundary;
-            console.log(" REFRESH REMOTE ", boundary.closure.envelope === closure.envelope ? "same envelope" : boundary.closure.envelope, closure.sourceBoundary === boundary ? "same source" : closure.sourceBoundary, this.isMounted() ? " is mounted" : "unmounted");
-
-            if (boundary.closure.envelope === closure.envelope)
-                return;
-
-            // Assign source.
-            
-
-            closure.sourceBoundary = boundary;
-            // Refresh envelope.
-            const [rInfos, bCalls ]= applyClosureEnvelope(closure, boundary.closure.envelope);
-            // Absorb changes - immediately if also removed old.
-            if (rInfos[0] || bCalls[0])
-                boundary.host.services.absorbChanges(rInfos, bCalls, forceRenderTimeout);
-
-            console.log(" DOES THIS HAPPEN..???", this.isMounted(), rInfos, bCalls);
-
-            
-            //
-            // <-- IT HAPPENS WHEN _UNMOUNTS A SOURCE_.. 
-            // .. Then... SHOULD UNMOUNT IT CORRECTLY HERE.
-
-            // It is not triggered when a source is added..
-            //
-            // <
-        }
-
         // Make sure renders null.
         public render() {
             return null;
         }
 
 
-        // - Static - //
+        // - Static private - //
 
-        public static MIX_DOM_CLASS = "Remote";
+        /** The active ContentPasser instances: one for each insertion point. */
+        private static passers: Set<Component> = new Set();
         /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
         private static ContentPasser: ComponentFunc<{ props: ContentPasserProps<CustomProps>; }> = (_initProps, component) => {
             // Bookkeeping.
@@ -250,29 +240,38 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             };
         };
 
-        /** The active ContentPasser instances: one for each insertion point. */
-        private static passers: Set<Component> = new Set();
-        /** The active remote source instances. */
-        public static sources: ComponentRemote<CustomProps>[] = [];
-
 
         // - Static public usage - //
 
+        public static MIX_DOM_CLASS = "Remote";
+        public static isRemote(): boolean { return true; }
+        // Note that in all below, we don't have `getRemote()` in the def. It's because we don't have an actual pass here.
         public static Content: MixDOMDefTarget | null = newDef(_Remote.ContentPasser);
         public static ContentCopy: MixDOMDefTarget | null = newDef(_Remote.ContentPasser, { copy: true });
         public static copyContent = (key?: any): MixDOMDefTarget | null => newDef(_Remote.ContentPasser, { copy: true, copyKey: key });
+        public static hasContent = (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean): boolean =>
+            filterer ? _Remote.sources.some((source, i) => filterer(source, i) && source.closure.hasContent()) : _Remote.sources.some(source => source.closure.hasContent());
         public static filterContent = (filterer, copyKey?): MixDOMDefTarget | null => newDef(_Remote.ContentPasser, { copyKey, filterer });
         public static wrapContent = (wrapper, copyKey?): MixDOMDefTarget | null => newDef(_Remote.ContentPasser, { copyKey, wrapper });
         public static renderContent = (renderer) => newDef(_Remote.ContentPasser, { renderer });
-
         public static WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
+            // Instance side.
+            constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary, ...passArgs: any[]) {
+                super(props, boundary, ...passArgs);
+                WithContent.withContents.add(this.boundary);
+                this.listenTo("willUnmount", () => WithContent.withContents.delete(this.boundary))
+            }
+            // For detection.
             public static _WithContent = _Remote.Content as MixDOMDefTarget;
+            public static withContents: Set<SourceBoundary> = new Set();
+            // Render.
             public render() {
-                return (this.props.hasContent != null ? this.props.hasContent : _Remote.sources && _Remote.sources.some(source => source.closure.hasContent())) ? MixDOMContent : null;
+                return (this.props.hasContent != null ? this.props.hasContent : _Remote.hasContent()) ? MixDOMContent : null;
             }
         };
-        
-        public static isRemote(): boolean { return true; }
+
+        /** The active remote source instances. */
+        public static sources: ComponentRemote<CustomProps>[] = [];
 
 
         // - Static helpers - //
@@ -295,7 +294,10 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             atIndex === -1 ? _Remote.sources.push(remote) : _Remote.sources.splice(atIndex, 0, remote);
             // Trigger a forced update for the content passing boundaries.
             for (const passer of _Remote.passers)
-                passer.boundary.update(true);
+                // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
+                // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
+                // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
+                passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
         }
 
         /** Remove a remote source - used internally.
@@ -306,42 +308,35 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             const iRemote = _Remote.sources.indexOf(remote);
             if (iRemote === -1)
                 return null;
+            
             // Remove from local bookkeeping.
             _Remote.sources.splice(iRemote, 1);
             // Collect interested. We won't mark anything, just collect them.
             let infos: MixDOMChangeInfos | null = null;
             const interested: Set<SourceBoundary> | null = collectInterestedInClosure(remote.closure, remote as ComponentRemote);
+
             // Apply null to the envelope to destroy the content.
             infos = applyClosureEnvelope(remote.closure, null);
             // Nullify the references, to mark that we have no active source now.
             remote.closure.sourceBoundary = null;
-            // Finally, add a listener to the remote's host. We'll use it to refresh a better source and also to update the interested boundaries.
+
+            // Trigger a forced update for the content passing boundaries.
+            for (const passer of _Remote.passers)
+                // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
+                // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
+                // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
+                passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
+
+            // Finally, add a listener to the remote's host. We'll use it to update the interested boundaries.
             // .. Importantly, we must use "render" flush. The "update" flush is too early (with case 1 below) as it's going on already (we're called from routinesApply.destroyBoundary).
             // .. Note. To do practical tests, see these two important special cases:
             // .... 1. Try having one source and remove it (-> null). If the inserter has withContent, then uses the interested ones, while refreshRemote wouldn't run (= already removed source).
-            // .... 2. Try having two sources and remove the active one (-> refresh). The refreshRemote should run to update the content.
-
-            // HMM...
-            // ..... NO LONGER BETTER SOURCE ... BUT UPDATE INTERESTED BOUNDARIES....
-
-            const withSourceRefresh = true;
-
-            if (withSourceRefresh || interested)
+            // .... 2. Try having two sources and remove one (-> refresh).
+            if (interested)
                 remote.boundary.host.addRefreshCall(() => {
-                    // Before we refresh the remote connections, let's premark all our interested boundaries to have no remote content (childDefs: []).
-                    // .. If the refreshing finds a new remote, it will update the content then again, before the actual update is run.
-                    if (interested) {
-                        for (const b of interested)
-                            b.host.services.absorbUpdates(b, { force: true });
-                    }
-                    // Refresh the remote.
-                    if (withSourceRefresh)
-                        remote.refreshRemote();
+                    for (const b of interested)
+                        b.update(true, null, null); // Force an immediate.
                 }, true); // On the render side.
-
-            // Trigger a forced update for the insertion boundaries.
-            for (const passer of _Remote.passers)
-                passer.boundary.update(true);
 
             // Return infos.
             return infos;

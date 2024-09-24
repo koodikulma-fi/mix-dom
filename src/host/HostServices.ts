@@ -30,7 +30,6 @@ import { ComponentTypeAny } from "../components/typesVariants"
 import { ComponentFunc } from "../components/Component";
 import { ComponentShadowAPI } from "../components/ComponentShadowAPI";
 import { ComponentWiredAPI } from "../components/ComponentWiredAPI";
-import { ComponentRemote } from "../components/ComponentRemote";
 
 
 // - HostServices (the technical part) for Host  - //
@@ -62,8 +61,15 @@ export class HostServices {
     // Temporary flags.
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?: true;
-    /** Temporary flag to mark while update process is in progress. */
-    private _whileUpdating?: true;
+    /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
+     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
+     * - Currently, it's only used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
+     *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
+     *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
+     *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
+     *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     */
+    public _whileUpdating?: {};
 
     constructor(host: Host) {
         this.host = host;
@@ -357,22 +363,14 @@ export class HostServices {
         // Update interested boundaries.
         // .. Each is a child boundary of ours (sometimes nested deep inside).
         // .. We have them from 2 sources: 1. interested in our content (parent-chain or remote flow), 2. wired components.
-        const isRemote = boundary.component.constructor["MIX_DOM_CLASS"] === "Remote";
         if (bInterested && bInterested.size) {
             const uInfos = updatedInterestedInClosure(bInterested, true);
             renderInfos = renderInfos.concat(uInfos[0]);
             boundaryChanges = boundaryChanges.concat(uInfos[1]);
         }
 
-        // Trigger refresh for remote source - presumably the importance has changed if ever is updated (or was just mounted).
-        // .. Note that due to the multi-host and micro-timing complexities, this actually doesn't return render infos but rather performs the refresh.
-        // .. The infos are fed to each host synchronously using the host's own feed.
-        if (isRemote)
-            (boundary.component as ComponentRemote).refreshRemote();
-
         // Return infos.
         return (renderInfos[0] || boundaryChanges[0]) ? [ renderInfos, boundaryChanges ] : null;
-
     }
 
 
@@ -428,10 +426,12 @@ export class HostServices {
         // Prevent multi-running during.
         if (services._whileUpdating)
             return;
-        services._whileUpdating = true;
 
         // Update again immediately, if new ones collected. We'll reassign pending variable below.
         while (pending.updates.size) {
+            
+            // Renew id and marker.
+            services._whileUpdating = {};
 
             // Collect output.
             let renderInfos: MixDOMRenderInfo[] = [];
@@ -457,7 +457,7 @@ export class HostServices {
                     services.renderCycle.pending.rCalls.push(bChanges);
             }
 
-            // Reassign.
+            // Reassign pending (for another loop).
             pending = services.updateCycle.resetPending();
         }
 
