@@ -25,7 +25,7 @@ import { Ref, MixDOMContent } from "../common/index";
 // Boundaries.
 import { ContentBoundary, SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
 // Local.
-import { mergeChanges, collectInterestedInClosure, updatedInterestedInClosure } from "./routinesCommon";
+import { mergeChangesTo, collectInterestedInClosure, updatedInterestedInClosure } from "./routinesCommon";
 import { pairDefs, buildDefMaps, assignTreeNodesForPass, ToApplyPair } from "./routinesPairing";
 // Only typing (local).
 import { Host } from "./Host";
@@ -210,6 +210,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
     // Normal case.
     if (preDef) {
 
+
         // - 3. Go over the preDef tree and assign appliedDef to each targetDef (including smart assigning for multiple MixDOM.Contentes). - //
         //
         // .. We collect the new appliedDef tree as we go - as a separate copy from the original.
@@ -265,6 +266,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
         byBoundary._innerDef = null;
     }
 
+
     // - 5b. Main clean up - handle removing unused applied defs. - //
     // .. Note, we put here all the render infos for destruction at the start of the array.
 
@@ -296,9 +298,9 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
 
 /** This is the core method for actually applying the meaning of defs into reality.
  * - The process includes applying dom tags into dom elements (not rendering yet) and instancing/updating sub boundaries.
- * - The array of toApplyPairs to be fed here should only include the "groundable" ones and in tree order (use .pairDefs method).
- *   .. All the other content (= not included in toApplyPairs) gets passed on as a closure by creating/updating it from .childDefs.
- * - Each item in the toApplyPairs is [toDef, aDef, treeNode ]
+ * - The array of toApplyPairs to be fed here should only include the "groundable" ones and in tree order (use .pairDefs method from routinesPairing).
+ *      * All the other content (= not included in toApplyPairs) gets passed on as a closure by creating/updating it from .childDefs.
+ * - Each item in the toApplyPairs is `[toDef, aDef, treeNode]`.
  * - Importantly this collects and returns ordered renderInfos and boundaryCalls, which can be later executed.
  */
 export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toApplyPairs: ToApplyPair[], forceUpdate: boolean = false): MixDOMChangeInfos {
@@ -387,7 +389,7 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
                 // Update key - it's used to detect true pass.
                 contentKey = remote.Content?.key;
                 // Ground and collect changes.
-                allChanges = mergeChanges(allChanges, groundClosureContent(remote.closure, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null));
+                mergeChangesTo(allChanges, groundClosureContent(remote.closure, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null));
             }
 
             // Ground and collect changes.
@@ -395,7 +397,7 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             // .... The reason for this is that targetDef's have .contentPassType and appliedDef's have .contentPass.
             // .... In the typing, it's just defined commonly for both, so both are optional types.
             else if (aDef.contentPass)
-                mergeChanges( allChanges, groundClosureContent(aDef.contentPass, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null) );
+                mergeChangesTo(allChanges, groundClosureContent(aDef.contentPass, aDef, byBoundary, treeNode, aDef.key !== contentKey ? aDef.key : null) );
 
             // Add content boundary to collection.
             if (treeNode.boundary)
@@ -704,7 +706,7 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             // .. Actually no: they are not ordered - the sub branches are, but the insertion points might not be (they might move).
 
             // Run.
-            allChanges = mergeChanges( allChanges, byBoundary.host.services.updateBoundary(boundary, forceUpdate, movedNodes, bInterested) );
+            mergeChangesTo(allChanges, byBoundary.host.services.updateBoundary(boundary, forceUpdate, movedNodes, bInterested) );
 
             
             // - After updating - //
@@ -715,7 +717,7 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             // .... So that if any grounds, they can ground immediately.
             // .. But now is time to apply to any "still existing oldies" (excluding dead and newly grounded).
             if (bClosure)
-                allChanges = mergeChanges( allChanges, applyClosureRefresh(bClosure, forceUpdate) );
+                mergeChangesTo(allChanges, applyClosureRefresh(bClosure, forceUpdate) );
 
         }
 
@@ -755,6 +757,7 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
     
     // - DEVLOG - //
     //
+    // This tiny log can be very useful when debugging. Also consider uncommenting DEVLOG in __HostRender.applyToDOM.
     // console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs].map(def => ({...def, treeNode: def.treeNode ? { ...def.treeNode } : undefined })));
 
     // Loop each and destroy accordingly.
@@ -780,7 +783,7 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
                 // .. Otherwise, we cannot swap away stuff from the to-be-destroyed boundary's content pass (defined by us).
                 // .. Note that destroyBoundary will call back here recursively.
                 if (treeNode.boundary)
-                    allChanges = mergeChanges(allChanges, destroyBoundary(treeNode.boundary, false, destroyAllDOM));
+                    mergeChangesTo(allChanges, destroyBoundary(treeNode.boundary, false, destroyAllDOM));
                 break;
 
             // Don't break for the below one - we want to generally detach attachedRefs from all of them.
@@ -788,7 +791,7 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
             case "pass":
                 // Content pass - by parent chain or remote flow.
                 if (aDef.contentPass || aDef.getRemote)
-                    allChanges = mergeChanges(allChanges, ungroundClosureContent(aDef.contentPass || aDef.getRemote!().closure, aDef));
+                    mergeChangesTo(allChanges, ungroundClosureContent(aDef.contentPass || aDef.getRemote!().closure, aDef));
 
             case "host": {
                 const host = aDef.host;
@@ -888,7 +891,7 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
         if (Comp.MIX_DOM_CLASS === "Remote")
             // Remove source, and add the destructional changes. (There's likely to be some, unless was using multiple remotes or had empty content.)
             // .. The other changes will be bound to a host listener and run after, this includes triggering any interested ones.
-            allChanges = mergeChanges(allChanges, (Comp as ComponentRemoteType).removeSource(component as ComponentRemote));
+            mergeChangesTo(allChanges, (Comp as ComponentRemoteType).removeSource(component as ComponentRemote));
 
         // Remove from content closure tracking of the parent boundary that rendered us.
         if (outerDef.tag["_WithContent"]) {
@@ -924,7 +927,7 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
     // .. Note that if our inner def contains boundaries within (or is a boundary def itself), it will call here recursively down the structure (with destroyAllDOM set to false).
     if (boundary._innerDef)
         // Get all defs but skip the ones that were already updated due to source swapping content in the pass.
-        allChanges = mergeChanges(allChanges, cleanUpDefs(allDefsIn(boundary._innerDef, true), nullifyDefs, false));
+        mergeChangesTo(allChanges, cleanUpDefs(allDefsIn(boundary._innerDef, true), nullifyDefs, false));
 
     // Remove from updates, if was there.
     if (sBoundary)
@@ -1012,15 +1015,18 @@ export function preRefreshClosure(closure: ContentClosure, newEnvelope: MixDOMCo
     // Notes about remote flow:
     // 1. The normal content passing happens for the Remote source's closure by its parent.
     // 2. Then it hits the closure.remote check below, and if active remote it goes through it - if not the flow is routed here (where it will never have grounding spots, so will die).
-    // 3. The preRefreshClosure flow for remote will then call the connected output closure for preRefreshClosure(closure, newEnvelope, remote) giving the byRemote arg.
+    // 3. The preRefreshClosure flow for remote will then call the connected output closure for preRefreshClosure(closure, newEnvelope, remote) giving the byRemote arg - actually now inlined here.
     // 4. Finally, the flow hits back here (in another closure) with byRemote provided and with there being no .remote as it's the output part of the remote.
     // 5. And then the part below with collectInterestedInClosure(closure, byRemote) is triggered using the byRemote gotten from step 3.
 
     // If part of remote, our grounders are in the remote closure.
     if (closure.remote) {
+        // Set the envelope to this closure. We'll set it to the remote's closure once the call comes back.
         closure.envelope = newEnvelope;
-        return closure.remote.preRefresh(newEnvelope);
+        // Re-direct the call back to this method using the remote's closure and byRemote.
+        return preRefreshClosure(closure.remote.closure, newEnvelope, closure.remote);
     }
+
     // Special quick exit: already at nothing.
     if (!closure.envelope && !newEnvelope)
         return null;
@@ -1060,6 +1066,7 @@ export function preRefreshClosure(closure: ContentClosure, newEnvelope: MixDOMCo
     if (interested)
         for (const b of interested)
             b._forceUpdate = b._forceUpdate || true;
+
     // Set envelope.
     closure.envelope = newEnvelope;
     // Mark all as pending.
@@ -1072,8 +1079,9 @@ export function preRefreshClosure(closure: ContentClosure, newEnvelope: MixDOMCo
 export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolean = false): MixDOMChangeInfos {
 
     // If part of remote, our grounders are in the remote closure.
+    // .. Simply re-direct the call back here with the appropriate closure.
     if (closure.remote)
-        return closure.remote.applyRefresh(forceUpdate);
+        return applyClosureRefresh(closure.remote.closure, forceUpdate);
 
     // Prepare outcome.
     let renderInfos: MixDOMRenderInfo[] = [];

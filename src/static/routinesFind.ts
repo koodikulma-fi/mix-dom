@@ -83,6 +83,8 @@ export function rootDOMTreeNodes(rootNode: MixDOMTreeNode, inNestedBoundaries: b
 
 /** Get all defs (including the given one) in tree order traversing down from the given one.
  * - The search is automatically limited to inside the render scope, as defs are.
+ * - If ignoreByUpdateId is set to true, then skips the defs that have already been updated during this cycle (useful for clean up collection).
+ *      * The detection is done by checking if def.updateId exists and is same as its source boundary's host's - if so skip.
  */
 export function allDefsIn(rootDef: MixDOMDefApplied, ignoreByUpdateId: boolean = false): MixDOMDefApplied[] {
     // Prepare.
@@ -104,7 +106,6 @@ export function allDefsIn(rootDef: MixDOMDefApplied, ignoreByUpdateId: boolean =
     // Return collected.
     return allDefs;
 }
-
 
 // /** This is a very quick way to find all boundaries within and including the given one - recursively if includeNested is true.
 //  * - Note that this stays inside the scope of the host (as .innerBoundaries never contains the root boundary of another host).

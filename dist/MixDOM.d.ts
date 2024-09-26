@@ -844,11 +844,17 @@ declare class HostServices {
     private _rootDisabled?;
     /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
      * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
-     * - Currently, it's only used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
+     * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
      *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
      *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
      *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
      *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     * - It's also used for a special case related to _simultaneous same scope remote content pass + insertion_.
+     *      * The case is similar to above in that it is related to toggling (Remote) content feed on / off, while using a stable WithContent in the same scope.
+     *          - If the WithContent is _earlier_ in the scope, there is no problem: first run will not ground it, then it's updated with new content.
+     *          - But if it's _later_, then without the special detection would actually create another instance of the WithContent, and result in treeNode confusion and partial double rendering.
+     *      * So in this case, the _whileUpdating id is assigned to each sourceBoundary's _updateId at the moment its update routine begins during HostServices.runUpdates cycle.
+     *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
      */
     _whileUpdating?: {};
     constructor(host: Host);
@@ -884,8 +890,8 @@ declare class HostServices {
     /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
      * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
      */
-    static runUpdateFor(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
-    static runRenderFor(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
+    static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
+    static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
     static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]): void;
 }
@@ -1783,10 +1789,6 @@ interface ComponentRemote<CustomProps extends Record<string, any> = {}> extends 
     };
     /** Check whether this remote content pass has content to render (vs. null like). */
     hasContent: () => boolean;
-    /** Used internally in relation to the content passing updating process. */
-    preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null;
-    /** Used internally in relation to the content passing updating process. */
-    applyRefresh(forceUpdate?: boolean): MixDOMChangeInfos;
 }
 /** Static class side for remote output. */
 interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> extends ComponentType<{
@@ -1894,6 +1896,8 @@ declare class SourceBoundary extends BaseBoundary {
     _renderState?: "active" | "re-updated";
     /** If has marked to be force updated. */
     _forceUpdate?: boolean | "all";
+    /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
+    _updateId?: {};
     /** Our host based quick id. It's mainly used for sorting, and sometimes to detect whether is content or source boundary, helps in debugging too. */
     bId: MixDOMSourceBoundaryId;
     /** Shortcut for the component. Only one can be set (and typically one is). */
@@ -2173,11 +2177,11 @@ interface MixDOMDefAppliedBase extends MixDOMDefBase {
     action: "mounted" | "moved" | "updated";
     treeNode?: MixDOMTreeNode;
     /** Used internally for special case detections.
-     * - Only applied when is performing a wide move. The updateId value {} comes from hostServices and is renewed on every update cycle.
-     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediate boundary simultaneously.
+     * - Only applied when is performing a _wide move_ - to the mover and all defs inside. The updateId value {} comes from hostServices and is renewed on every update cycle
+     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediary boundary (that holds the pass) simultaneously.
      *      * If had already paired some defs (impying they were moved out by the sourceBoundary), then shouldn't clean up those defs.
      *      * The detection is done by: `def.updateId && def.updateId === def.treeNode?.sourceBoundary?.host.services._whileUpdating`.
-     *      * The updateId is cleaned away from def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     *      * The updateId is cleaned away from the def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
      */
     updateId?: {};
 }
@@ -2464,7 +2468,7 @@ type MixDOMRenderInfo = MixDOMRenderInfoBoundary | MixDOMRenderInfoDOMLike | Mix
 /** This only includes the calls that can be made after the fact: onUnmount is called before (so not here). */
 type MixDOMSourceBoundaryChangeType = "mounted" | "updated" | "moved";
 type MixDOMSourceBoundaryChange = [boundary: SourceBoundary, changeType: MixDOMSourceBoundaryChangeType, prevProps?: Record<string, any>, prevState?: Record<string, any>];
-type MixDOMChangeInfos = [MixDOMRenderInfo[], MixDOMSourceBoundaryChange[]];
+type MixDOMChangeInfos = [renderInfos: MixDOMRenderInfo[], boundaryChanges: MixDOMSourceBoundaryChange[]];
 
 /** Include this once in your project in a file included in TS/TSX compilation:
  *

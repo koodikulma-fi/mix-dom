@@ -41,6 +41,8 @@ export class SourceBoundary extends BaseBoundary {
     public _renderState?: "active" | "re-updated";
     /** If has marked to be force updated. */
     public _forceUpdate?: boolean | "all";
+    /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
+    public _updateId?: {};
 
 
     // - Host related - //

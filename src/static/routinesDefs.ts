@@ -349,29 +349,33 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
             }
 
             // Handle local content passing.
-            // .. Like below, we ignore handling Remotes, and handle them in the source boundary instead.
-            // .. Note also that for content pass, we don't handle the children - we just insert our pass inside.
-            else if (thisDef.MIX_DOM_DEF === "pass" && !thisDef.getRemote) {
-                // Create new def about a fragment.
-                newDef = { MIX_DOM_DEF: "fragment", tag: null, childDefs: [...children] };
-                // Add key.
-                if (thisDef.key != null)
-                    newDef.key = thisDef.key;
-                // Mark copy - or that has true pass now.
-                if (hasTruePass || thisDef.contentPassType === "copy") {
-                    newDef.scopeType = "spread-copy";
+            else if (thisDef.MIX_DOM_DEF === "pass") {
+                // Like below, we ignore handling Remotes, and handle them in the source boundary instead.
+                // .. Note also that for content pass, we don't handle the children - we just insert our pass inside.
+                if (!thisDef.getRemote) {
+                    // Create new def about a fragment.
+                    newDef = { MIX_DOM_DEF: "fragment", tag: null, childDefs: [...children] };
+                    // Add key.
+                    if (thisDef.key != null)
+                        newDef.key = thisDef.key;
+                    // Mark copy - or that has true pass now.
+                    if (hasTruePass || thisDef.contentPassType === "copy") {
+                        newDef.scopeType = "spread-copy";
+                    }
+                    else {
+                        newDef.scopeType = "spread-pass";
+                        hasTruePass = true;
+                    }
+                    // Add to spread bookkeeping.
+                    spreadLinks.passes.push(newDef);
                 }
-                else {
-                    newDef.scopeType = "spread-pass";
-                    hasTruePass = true;
-                }
-                // Add to spread bookkeeping.
-                spreadLinks.passes.push(newDef);
+                // Just reuse a remote content pass - won't be in the next loop, so no need to copy. 
+                else
+                    newDef = thisDef;
             }
             // Not content pass.
             else {
                 // Copy the def basis.
-                // .. Note. It's okay even if is a "pass" for MyRemote.Content.
                 newDef = { ...thisDef };
                 // Only add to the loop if is not a content pass.
                 newLoop.push(newDef);

@@ -63,11 +63,17 @@ export class HostServices {
     private _rootDisabled?: true;
     /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
      * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
-     * - Currently, it's only used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
+     * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
      *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
      *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
      *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
      *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     * - It's also used for a special case related to _simultaneous same scope remote content pass + insertion_.
+     *      * The case is similar to above in that it is related to toggling (Remote) content feed on / off, while using a stable WithContent in the same scope.
+     *          - If the WithContent is _earlier_ in the scope, there is no problem: first run will not ground it, then it's updated with new content.
+     *          - But if it's _later_, then without the special detection would actually create another instance of the WithContent, and result in treeNode confusion and partial double rendering.
+     *      * So in this case, the _whileUpdating id is assigned to each sourceBoundary's _updateId at the moment its update routine begins during HostServices.runUpdates cycle.
+     *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
      */
     public _whileUpdating?: {};
 
@@ -363,7 +369,52 @@ export class HostServices {
         // Update interested boundaries.
         // .. Each is a child boundary of ours (sometimes nested deep inside).
         // .. We have them from 2 sources: 1. interested in our content (parent-chain or remote flow), 2. wired components.
+        //
         if (bInterested && bInterested.size) {
+
+
+            // About avoiding double-updating the content passing boundary in the same scope twice (in remote flow).
+            // - We detect whether the interested boundary has 1. the same sourceBoundary as us, and 2. if it has not yet been updated during this cycle.
+            //      * If that's the case, then don't update it now, but just mark it to be force updated.
+            //      * The boundary will then be updated when it's its turn to be updated (and forced to do so).
+            //      * And in case it is no longer in the scope, it will be collected by clean up and destroyed.
+            // - Note that this works even if the boundary is nested within other boundaries.
+            //      * This is (likely) because all in the scope will be processed (if grounded, or then cleaned up). Anyway tested it.
+            //      * So we don't need to add the boundary to the pending updates or such, but simply mark _forceUpdate for it.
+            // - If we were not to do this, then what would happen:
+            //      * Example case: Using Remote in the same scope to 1. render the content (before was null) and 2. to insert it using WithContent.
+            //          - If the WithContent is _earlier_ in the scope than the remote source part, works correctly.
+            //          - But if the WithContent is _later_, there is double-creation + some treeNode confusion for the WithContent rendering.
+            //          - This is because WithContent got updated early by interests and mounted the new remote.pass inside. And then it updated again on its turn.
+            //              * This would currently cause two instances of WithContent to be created, with partly the same treeNode.
+            //          - So, the solution here checks specifically for this case using boundary._updateId and .sourceBoundary checks. If match, mark _forceUpdate.
+            //
+            // Afterthoughts:
+            // - Note however that the solution is not actually specific to Remotes, but currently also applies to Wired components or other such, if they exhibit these circumstances.
+            //      * On first glance, it's not 100% clear, whether this should be limited to content passing only.
+            //      * However, since the boundary will anyway be updated (or cleaned up), it doesn't sound hurtful to do delay any early update attempts to the proper moment.
+            //      * And why it's not symmetrical, it's probably related to the _mounting_ of the contents, in relation to WithContent's pass vs. null.
+            //          - So that because the pass had not been mounted earlier, updating it twices results in two mounts (due to two pairings), instead of mount + update.
+            //          - This could imply that an alternative solution could lie somewhere in making the process understand that the pairing was already done - don't do it twice.
+            //              * However, that would imply that it's okay to do _early updates_, which in turn does not sound good. It sounds better to _delay early_ until the right moment.
+            //      * So then, at a second glass, this does sound like a rule that should indeed be in the flow.
+            //          - Rule that says: _Never run an early update for a boundary in the same scope through interests_. (Interests come from 1. parent & remote content flow, 2. wired components.)
+            //          - It's okay to run a _late update_ to it, after it's right moment has already passed. But before that, no - just mark with _forceUpdate.
+
+            
+            // Detect for same-scope-boundaries that have _not yet_ been updated - and use _forceUpdate for them instead.
+            // .. Note. We can just loop the set while deleting from it, as it returns a separate Iterable when used with `for of`.
+            for (const b of bInterested) {
+                // Check if the sourceBoundary is same (= same scope), and if updateId is different (= not yet updated).
+                if (b.sourceBoundary === boundary.sourceBoundary && b._updateId !== boundary.host.services._whileUpdating) {
+                    // Mark update.
+                    b._forceUpdate = true;
+                    // Just delete. It's okay to do it while iterating - it's a Set.
+                    bInterested.delete(b);
+                }
+            }
+
+            // Update the interested.
             const uInfos = updatedInterestedInClosure(bInterested, true);
             renderInfos = renderInfos.concat(uInfos[0]);
             boundaryChanges = boundaryChanges.concat(uInfos[1]);
@@ -402,8 +453,8 @@ export class HostServices {
     public static initializeCyclesFor(services: HostServices): void {
         // Hook up cycle interconnections.
         // .. Do the actual running.
-        services.updateCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runUpdateFor(services, pending, resolvePromise));
-        services.renderCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runRenderFor(services, pending, resolvePromise));
+        services.updateCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runUpdates(services, pending, resolvePromise));
+        services.renderCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runRenders(services, pending, resolvePromise));
         // .. Make sure "render" is run when "update" finishes.
         services.updateCycle.listenTo("onFinish", () => {
             // Trigger with default timing. (If was already active, won't do anything.)
@@ -421,16 +472,17 @@ export class HostServices {
     /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
      * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
      */
-    public static runUpdateFor(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
+    public static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
 
         // Prevent multi-running during.
+        // .. We'll handle them during a single run instead - by running the while loop (below) again, not a moment before.
         if (services._whileUpdating)
             return;
 
         // Update again immediately, if new ones collected. We'll reassign pending variable below.
         while (pending.updates.size) {
             
-            // Renew id and marker.
+            // Renew id and while-updating marker.
             services._whileUpdating = {};
 
             // Collect output.
@@ -440,6 +492,9 @@ export class HostServices {
             // Run update for each.
             // .. Do smart sorting here if has at least 2 boundaries.
             for (const boundary of (pending.updates.size > 1 ? sortBoundaries(pending.updates) : [...pending.updates])) {
+                // Mark update id.
+                boundary._updateId = services._whileUpdating;
+                // Update.
                 const updates = services.updateBoundary(boundary);
                 if (updates) {
                     renderInfos = renderInfos.concat(updates[0]);
@@ -468,7 +523,7 @@ export class HostServices {
         // resolvePromise();
     }
 
-    public static runRenderFor(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
+    public static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
         // Render infos.
         if (pending.rInfos)
             for (const renderInfos of pending.rInfos)

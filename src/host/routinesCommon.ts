@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMChangeInfos, MixDOMBoundary, MixDOMRenderInfo, MixDOMSourceBoundaryChange } from "../typing";
+import { MixDOMChangeInfos, MixDOMBoundary } from "../typing";
 // Boundaries.
 import { ContentClosure, SourceBoundary } from "../boundaries/index";
 // Only typing (distant).
@@ -11,19 +11,14 @@ import { ComponentRemote } from "../components/index";
 
 // - Merge changes - //
 
-export function mergeChanges<T extends MixDOMChangeInfos | null>(firstInfo: T, ...moreInfos: (MixDOMChangeInfos | null)[]): T {
-    let allInfos: T = firstInfo;
+/** Merge MIXDOMChangeInfos together. Mutates the allChanges, but doesn't mutate the arrays inside (just concats new). */
+export function mergeChangesTo(allChanges: MixDOMChangeInfos, ...moreInfos: (MixDOMChangeInfos | null)[]): void {
     for (const infos of moreInfos) {
-        if (!infos)
-            continue;
-        if (allInfos) {
-            allInfos[0] = allInfos[0].concat(infos[0]);
-            allInfos[1] = allInfos[1].concat(infos[1]);
-        }
-        else
-            allInfos = infos as T;
+        if (infos && infos[0][0])
+            allChanges[0] = allChanges[0].concat(infos[0]);
+        if (infos && infos[1][0])
+            allChanges[1] = allChanges[1].concat(infos[1]);
     }
-    return allInfos;
 }
 
 
@@ -107,10 +102,10 @@ export function sortBoundaries(boundaries: Set<SourceBoundary>): Array<SourceBou
 
 // - Closure interests - //
 
+/** Update the boundaries interested in the closure and collect change infos. */
 export function updatedInterestedInClosure(bInterested: Set<SourceBoundary>, sortBefore: boolean = true): MixDOMChangeInfos {
     // Prepare return.
-    let renderInfos: MixDOMRenderInfo[] = [];
-    let boundaryChanges: MixDOMSourceBoundaryChange[] = [];
+    let allChanges: MixDOMChangeInfos = [[], []];
     // Update each - if still needs to be updated (when the call comes).
     // .. Sort, if needs and has at least two entries.
     for (const thruBoundary of (sortBefore && bInterested.size > 1 ? sortBoundaries(bInterested) : bInterested)) {
@@ -119,13 +114,11 @@ export function updatedInterestedInClosure(bInterested: Set<SourceBoundary>, sor
             continue;
         // Update and collect.
         const uInfos = thruBoundary.host.services.updateBoundary(thruBoundary);
-        if (uInfos) {
-            renderInfos = renderInfos.concat(uInfos[0]);
-            boundaryChanges = boundaryChanges.concat(uInfos[1]);
-        }
+        if (uInfos)
+            mergeChangesTo(allChanges, uInfos);
     }
     // Return infos.
-    return [ renderInfos, boundaryChanges ];
+    return allChanges;
 }
 
 /** Collect the interested boundaries.

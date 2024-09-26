@@ -52,9 +52,6 @@
 
 ### TODO  
 
-- Finishing new REMOTE.
-  * VERIFY WITHCONTENT WITH SPREAD. (Should be fine, but just in case.)
-  * Verify the new special methods: filterContent, wrapContent, renderContent (ok!).
 - The TYPE refines and FIXES above.
 - Refactor COMPONENT MIXIN usage base, according to "mixin-types" approach.
 - REMOVE THE DEV LOGS... Simply leave them as comments.. can just uncomment...

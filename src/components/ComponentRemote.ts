@@ -85,12 +85,6 @@ export interface ComponentRemote<CustomProps extends Record<string, any> = {}> e
     }
     /** Check whether this remote content pass has content to render (vs. null like). */
     hasContent: () => boolean;
-
-    // Refreshing.
-    /** Used internally in relation to the content passing updating process. */
-    preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null;
-    /** Used internally in relation to the content passing updating process. */
-    applyRefresh(forceUpdate?: boolean): MixDOMChangeInfos;
 }
 
 // Remote class type.
@@ -191,17 +185,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
         })();
 
 
-        // - Instanced - //
-
-        public preRefresh(newEnvelope: MixDOMContentEnvelope | null): Set<SourceBoundary> | null {
-            // Pass the preRefresh (part 1/2) from closure to closure.
-            return preRefreshClosure(this.closure, newEnvelope, this as ComponentRemote) || null;
-        }
-
-        public applyRefresh(forceUpdate: boolean = false): MixDOMChangeInfos {
-            // Pass the applyRefresh (part 2/2) from closure to closure.
-            return applyClosureRefresh(this.closure, forceUpdate) || [ [], [] ];
-        }
+        // - Render - //
 
         // Make sure renders null.
         public render() {

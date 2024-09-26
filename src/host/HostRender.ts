@@ -335,7 +335,7 @@ export class HostRender {
 
         // - DEVLOG - //
         //
-        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting: __routinesApply.cleanUpDefs.
+        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting DEVLOG in __routinesApply.cleanUpDefs.
         // console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos.map(info => ({ ...info, treeNode: info.create ? info.treeNode : { ...info.treeNode, def: { ...info.treeNode.def } }})));
 
         // In disabled mode - just update bookkeeping.

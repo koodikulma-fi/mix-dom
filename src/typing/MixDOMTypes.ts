@@ -316,7 +316,7 @@ export type MixDOMRenderInfo = MixDOMRenderInfoBoundary | MixDOMRenderInfoDOMLik
 /** This only includes the calls that can be made after the fact: onUnmount is called before (so not here). */
 export type MixDOMSourceBoundaryChangeType = "mounted" | "updated" | "moved";
 export type MixDOMSourceBoundaryChange = [ boundary: SourceBoundary, changeType: MixDOMSourceBoundaryChangeType, prevProps?: Record<string, any>, prevState?: Record<string, any> ];
-export type MixDOMChangeInfos = [ MixDOMRenderInfo[], MixDOMSourceBoundaryChange[] ];
+export type MixDOMChangeInfos = [ renderInfos: MixDOMRenderInfo[], boundaryChanges: MixDOMSourceBoundaryChange[] ];
 
 
 
