@@ -1,7 +1,9 @@
 
 // - About inheritance - //
-
-// Order of JS-inheritance by folders:
+//
+// Note. Only the typing contains cyclical imports, the JS side not.
+// Inheritance of JS imports by folders is as follows:
+// 
 // ./typing/
 // ./static/
 // ./common/

@@ -138,14 +138,20 @@ export function cleanDOMProps<Props extends Record<string, any> & Pick<MixDOMCom
 
 // Help from: https://stackoverflow.com/questions/8987550/convert-css-text-to-javascript-object
 export function parseStyle(cssText: string): CSSProperties {
+    // Clean extra empty chars.
     const text = cssText.replace(/\/\*(.|\s)*?\*\//g, " ").replace(/\s+/g, " ").trim();
     if (!text)
         return {};
+    // Parse into statements by ";", and convert each to a tuple: [prop: string, val?: string].
+    const pairs = text.split(";").map(o => {
+        const i = o.indexOf(":");
+        return i === -1 ? [o.trim()] : [o.slice(0, i).trim(), o.slice(i + 1).trim()];
+    });
+    // Loop the pairs to create a dictionary with camelCase keys.
     const style: CSSProperties = {};
-    const properties = text.split(";").map(o => o.split(":").map(x => x && x.trim()));
-    for (const [prop, val] of properties)
+    for (const [prop, val] of pairs)
         if (prop)
-            style[prop.replace(/\W+\w/g, match => match.slice(-1).toUpperCase())] = val;
+            style[prop.replace(/\W+\w/g, match => match.slice(-1).toUpperCase())] = val; // Convert key to camelCase, value is a string or undefined.
     return style;
 }
 

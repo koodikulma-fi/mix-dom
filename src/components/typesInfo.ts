@@ -2,10 +2,10 @@
 // - Imports - //
 
 // Library.
-import { ClassType, IterateBackwards } from "mixin-types";
+import { ClassType, InstanceTypeFrom, IterateBackwards } from "mixin-types";
 import { ContextsAllType } from "data-signals";
 // Typing.
-import { InstanceTypeFrom, MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
 import { ComponentTypeAny } from "./typesVariants";
 import { Component, ComponentFunc, ComponentType } from "./Component";

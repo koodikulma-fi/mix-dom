@@ -56,14 +56,19 @@ import {
 export { newDef, newDefHTML } from "./static/routinesDefs";
 export { classNames, parseStyle } from "./static/routinesDOM";
 
-// Add.
-/** Create a new context. */
+// Add shortcuts.
+/** Create a Context instance. The class is directly the same as in `data-signals`.
+ * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+ */
 export const newContext = <
     Data extends Record<string, any> = {},
     Signals extends SignalsRecord = SignalsRecord
 >(data?: Data, settings?: Partial<ContextSettings>): Context<Data, Signals> => new Context<Data, Signals>(data!, settings);
-
-/** Create multiple named contexts by giving data. */
+/** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
+ * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
+ * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
+ * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+ */
 export const newContexts = <
     Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> },
     AllData extends Record<string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }
@@ -75,6 +80,7 @@ export const newContexts = <
 };
 
 // Collected shortcuts and static methods.
+/** Shortcut dictionary to contain all the main features of MixDOM library. */
 export const MixDOM = {
 
     
@@ -131,17 +137,20 @@ export const MixDOM = {
     // - Pseudo classes - //
 
     /** Fragment represent a list of render output instead of stuff under one root.
-     * Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>` */
+     * - Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>`, or just `<><div/><div/></>`.
+     */
     Fragment: PseudoFragment,
     /** Portal allows to insert the content into a foreign dom node.
-     * Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>` */
+     * - Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>`
+     */
     Portal: PseudoPortal,
-    /** This allows to use an existing dom element as if it was part of the system.
-     * So you can modify its props and such. */
+    /** Element allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
+     * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
+     */
     Element: PseudoElement,
     /** Empty dummy component that accepts any props, but always renders null. */
     Empty: PseudoEmpty,
-    /** This is an empty dummy remote class:
+    /** This is an empty dummy ComponentRemote class:
      * - Its purpose is to make writing render output easier (1. no empty checks, and 2. for typing):
      *     * For example: `const MyRemote = component.state.PopupRemote || MixDOM.EmptyRemote;`
      *     * You can then access the Content and ContentCopy members, and copyContent(key) and withContent(...contents) methods fluently.
@@ -150,22 +159,25 @@ export const MixDOM = {
      *     * And it only adds the 2 public members (Content and ContentCopy) and 2 public methods (copycontent and withContent).
      *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
      * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
-     *     * For example, to set specific content listening needs, you can use a memo - run it on render or .onBeforeUpdate callback.
-     *     * Memo onMount: `(NewRemote: ComponentRemoteType) => NewRemote.isRemote() && component.contentAPI.needsFor(NewRemote, true);`
-     *     * MEmo onUnmount: `(OldRemote: ComponentRemoteType) => OldRemote.isRemote() && component.contentAPI.needsFor(OldRemote, null);`
      */
     EmptyRemote: PseudoEmptyRemote,
 
 
     // - Instance classes - //
 
-    /** Create a Host instance to orchestrate rendering. */
+    /** Create a Host instance to orchestrate rendering. You need one to start using MixDOM. */
     newHost,
-    /** Create a Ref instance. */
+    /** Create a Ref instance. Refs help to get a reference to elements and/or components. */
     newRef,
-    /** Create a Context instance. */
+    /** Create a Context instance. The class is directly the same as in `data-signals`.
+     * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+     */
     newContext,
-    /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI - and for getting the combined type for TypeScript purposes. */
+    /** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
+     * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
+     * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
+     * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+     */
     newContexts,
 
 
@@ -174,14 +186,14 @@ export const MixDOM = {
     /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
     component: createComponent,
     /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    componentWith: createComponentCtx,
+    componentCtx: createComponentCtx,
     /** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
      * - Shadow components are normal components, but they have a ShadowAPI attached as component.constructor.api.
      * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
     */
     shadow: createShadow,
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowWith: createShadowCtx,
+    shadowCtx: createShadowCtx,
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
@@ -212,9 +224,10 @@ export const MixDOM = {
      *      - This class can then allow to set and refresh the common props, and trigger should-updates for all the instances and use signals.
      *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
      * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
+     * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
      */
     wired: createWired,
-    /** This returns the original function (to create a mixin class) back but simply helps with typing. 
+    /** Function that on JS side returns the original function back (to create a mixin class) but simply helps with typing. 
      * - The idea of a mixin is this: `(Base) => class extends Base { ... }`. So it creates a new class that extends the provided base class.
      *     * In the context of Components the idea is that the Base is Component and then different features are added to it.
      *     * Optionally, when used with mixComponentMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
@@ -288,16 +301,21 @@ export const MixDOM = {
 
     // - Finding stuff - //
 
+    /** Find tree nodes within a treeNode. */
     findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] => {
         const okTypes = types ? types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types)) : undefined;
         return treeNodesWithin(treeNode, okTypes as Set<MixDOMTreeNodeType> | undefined, maxCount, inNested, overHosts, validator);
     },
+    /** Get all components within a treeNode. */
     findComponentsIn: <Comp extends ComponentTypeAny = ComponentTypeAny>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[] =>
         treeNodesWithin(treeNode, new Set(["boundary"]), maxCount, inNested, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp),
+    /** Get all elements within a treeNode. */
     findElementsIn: <T extends Node = Node>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): T[] =>
         treeNodesWithin(treeNode, new Set(["dom"]), maxCount, inNested, overHosts, validator).map(tNode => tNode.domNode) as T[],
+    /** Find the first matching element within a treeNode using a selector. */
     queryElementIn: <T extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, inNested?: boolean, overHosts?: boolean): T | null =>
         domElementByQuery<T>(treeNode, selector, inNested, overHosts),
+    /** Find the matching elements within a treeNode using a selector. */
     queryElementsIn: <T extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, maxCount?: number, inNested?: boolean, overHosts?: boolean): T[] =>
         domElementsByQuery<T>(treeNode, selector, maxCount, inNested, overHosts),
 
@@ -305,7 +323,8 @@ export const MixDOM = {
     // - HTML helpers - //
 
     /** Read html content as string from the given treeNode, component or boundary.
-     * Typically used with Host having settings.disableRendering (and settings.renderTimeout = null). */
+     * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
+     */
     readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
         return treeNode ? HostRender.readAsString(treeNode) : "";
@@ -327,7 +346,8 @@ export const MixDOM = {
     /** Convert a style cssText string into a dictionary with capitalized keys.
      * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
      * - The dictionary format is used for easy detection of changes.
-     *   .. As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.) */
+     *      * As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.)
+     */
     parseStyle: parseStyle,
 
 };

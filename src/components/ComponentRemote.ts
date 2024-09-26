@@ -10,9 +10,9 @@ import { newContentPassDef, newDef, newDefFrom } from "../static/index";
 // Common.
 import { MixDOMContent } from "../common/index";
 // Boundaries.
-import { SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
+import { SourceBoundary, ContentClosure } from "../boundaries/index";
 // Host.
-import { applyClosureEnvelope, applyClosureRefresh, collectInterestedInClosure, preRefreshClosure } from "../host/index";
+import { applyClosureEnvelope, collectInterestedInClosure } from "../host/index";
 // Local.
 import { Component, ComponentFunc, ComponentType } from "./Component";
 
@@ -201,6 +201,8 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
         private static ContentPasser: ComponentFunc<{ props: ContentPasserProps<CustomProps>; }> = (_initProps, component) => {
             // Bookkeeping.
             _Remote.passers.add(component);
+            // Listen to unmount.
+            // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
             component.listenTo("willUnmount", () => _Remote.passers.delete(component));
             // Return a renderer to render a fragment for the content pass of each source.
             return (props): MixDOMRenderOutput => {
@@ -242,7 +244,10 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             // Instance side.
             constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary, ...passArgs: any[]) {
                 super(props, boundary, ...passArgs);
+                // Mark to interests.
                 WithContent.withContents.add(this.boundary);
+                // Listen to unmount.
+                // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
                 this.listenTo("willUnmount", () => WithContent.withContents.delete(this.boundary))
             }
             // For detection.

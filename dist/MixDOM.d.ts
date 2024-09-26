@@ -1,9 +1,7 @@
 import * as data_signals from 'data-signals';
 import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, NodeJSTimeout, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
 import * as mixin_types from 'mixin-types';
-import { AsClass, ClassType, IterateBackwards, AsMixin } from 'mixin-types';
-
-type InstanceTypeFrom<Anything> = Anything extends abstract new (...args: any[]) => infer Instance ? Instance : {};
+import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, AsMixin } from 'mixin-types';
 
 /** Type for className input.
  * - Represents what can be fed into the MixDOM.classNames method with (ValidName extends string):
@@ -563,6 +561,46 @@ interface SVGNativeAttributes extends SVGCoreAttributes {
     "yChannelSelector": string;
     "z": number | string;
     "zoomAndPan": string;
+}
+
+interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericKeys> & Record<CSSNumericKeys, string | number>> {
+    [index: number]: never;
+}
+/** Some commonly used CSS properties that can receive numeric input. */
+type CSSNumericKeys = "borderWidth" | "borderBottomWidth" | "borderLeftWidth" | "borderRightWidth" | "borderTopWidth" | "bottom" | "columnGap" | "flexGrow" | "flexShrink" | "fontWeight" | "gap" | "gridColumnEnd" | "gridColumnGap" | "gridColumnStart" | "gridRowEnd" | "gridRowGap" | "gridRowStart" | "height" | "inset" | "left" | "margin" | "marginBottom" | "marginLeft" | "marginRight" | "marginTop" | "maxWidth" | "maxHeight" | "minWidth" | "minHeight" | "offsetDistance" | "opacity" | "order" | "outlineWidth" | "padding" | "paddingTop" | "paddingBottom" | "paddingLeft" | "paddingRight" | "right" | "rowGap" | "scrollMargin" | "scrollMarginBlock" | "scrollMarginBlockEnd" | "scrollMarginBlockStart" | "scrollMarginBottom" | "scrollMarginInline" | "scrollMarginInlineEnd" | "scrollMarginInlineStart" | "scrollMarginLeft" | "scrollMarginRight" | "scrollMarginTop" | "scrollPadding" | "scrollPaddingBlock" | "scrollPaddingBlockEnd" | "scrollPaddingBlockStart" | "scrollPaddingBottom" | "scrollPaddingInline" | "scrollPaddingInlineEnd" | "scrollPaddingInlineStart" | "scrollPaddingLeft" | "scrollPaddingRight" | "scrollPaddingTop" | "stopOpacity" | "strokeWidth" | "strokeOpacity" | "tabIndex" | "tabSize" | "top" | "width" | "zIndex";
+type DOMTags = HTMLTags | SVGTags;
+type DOMElement = HTMLElement | SVGElement;
+type ListenerAttributeNames = keyof ListenerAttributesAll;
+type ListenerAttributes = {
+    [Name in keyof ListenerAttributesAll]?: ListenerAttributesAll[Name] | null;
+};
+type SVGAttributes<Tag extends SVGTags = SVGTags> = Omit<SVGAttributesBy[Tag], "style" | "class" | "className"> & Partial<ListenerAttributesAll>;
+type HTMLSVGAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
+type HTMLSVGAttributesBy = {
+    [Tag in DOMTags]: HTMLSVGAttributes<Tag>;
+};
+/** Combined type for `HTMLAttributes & SVGAttributes`. */
+type DOMAttributes = HTMLAttributes & SVGAttributes;
+
+declare class ContentBoundary extends BaseBoundary {
+    /** The def whose children define our content - we are a fragment-like container. */
+    targetDef: MixDOMDefTarget;
+    /** Redefine that we always have it. It's based on the targetDef. */
+    _innerDef: MixDOMDefApplied;
+    /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
+     * Note that the content might get passed through many boundaries, but now we have landed it. */
+    sourceBoundary: SourceBoundary;
+    /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
+     * - Note that it gets assigned (externally) immediately after constructor is called.
+     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
+    parentBoundary: SourceBoundary | ContentBoundary;
+    /** Content boundaries will never feature component. So can be used for checks to know if is a source or content boundary. */
+    component?: never;
+    /** Content boundaries will never feature bId. So can be used for checks to know if is a source or content boundary. */
+    bId?: never;
+    constructor(outerDef: MixDOMDefApplied, targetDef: MixDOMDefTarget, treeNode: MixDOMTreeNode, sourceBoundary: SourceBoundary);
+    /** Apply a targetDef from the new envelope. Simply sets the defs accordingly. */
+    updateEnvelope(targetDef: MixDOMDefTarget, truePassDef?: MixDOMDefApplied | null): void;
 }
 
 /** This is simply a tiny class that is used to manage the host duplication features in a consistent way.
@@ -1149,36 +1187,106 @@ declare class HostRender {
      * - Except emptyMove's should be prepended to the start, and destructions appended to the end (<- happens automatically due to clean up being after).
      */
     applyToDOM(renderInfos: MixDOMRenderInfo[]): void;
+    /** Get a dom node with approval related to cloning dom nodes. Uses instanced settings.duplicateDOMNodeHandler and externalElements bookkeeping. */
     private getApprovedNode;
+    /** Core handler to create a single dom node based on a treeNode info. */
     private createDOMNodeBy;
     static SIMPLE_TAGS: string[];
     static SPECIAL_PROPS: Record<string, "other" | "render" | undefined>;
     static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
     static LISTENER_PROPS: Record<keyof ListenerAttributesAll, (e: Event) => void>;
-    /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets. */
+    /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
+     *
+     * ```
+     *
+     * // Situation example:
+     * //
+     * //  <div>                               // domNode: <div/>
+     * //      <Something>                     // domNode: <span/> #1
+     * //          <Onething>                  // domNode: <span/> #1
+     * //              <span>Stuff 1</span>    // domNode: <span/> #1
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #2
+     * //              <span>Stuff 2</span>    // domNode: <span/> #2
+     * //              <span>Stuff 3</span>    // domNode: <span/> #3
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #4
+     * //              <span>Stuff 4</span>    // domNode: <span/> #4
+     * //          </Onething>                 //
+     * //      </Something>                    //
+     * //      <Something>                     // domNode: <span/> #5
+     * //          <Onething>                  // domNode: <span/> #5
+     * //              <span>Stuff 5</span>    // domNode: <span/> #5
+     * //              <span>Stuff 6</span>    // domNode: <span/> #6
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #7
+     * //              <span>Stuff 7</span>    // domNode: <span/> #7
+     * //          </Onething>                 //
+     * //      </Something>                    //
+     * //  </div>                              //
+     * //
+     * //
+     * // LOGIC FOR INSERTION (moving and creation):
+     * // 1. First find the domParent by simply going up until hits a treeNode with a dom tag.
+     * //    * If none found, stop. We cannot insert the element. (Should never happen - except for swappable elements, when it's intended to "remove" them.)
+     * //    * If the domParent was found in the newlyCreated smart bookkeeping, skip step 2 below (there are no next siblings yet).
+     * // 2. Then find the next domSibling reference element.
+     * //    * Go up and check your index.
+     * //    * Loop your next siblings and see if any has .domNode. If has, stop, we've found it.
+     * //    * If doesn't find any (or no next siblings), repeat the loop (go one up and check index). Until hits the domParent.
+     * // 3. Insert the domElement into the domParent using the domSibling reference if found (otherwise null -> becomes the last one).
+     * //
+     * //
+     * // CASE EXAMPLE FOR FINDING NEXT SIBLING - for <span/> #2 above:
+     * // 1. We first go up to <Onething/> and see if we have next siblings.
+     * //    * If <span /3> has .domNode, we are already finished.
+     * // 2. There are no more siblings after it, so we go up to <Something/> and do the same.
+     * //    * If the third <Onething/> has a .domNode, we are finished.
+     * // 3. Otherwise we go up to <div> and look for siblings.
+     * //    * If the second <Something/> has a .domNode, we are finished.
+     * // 4. Otherwise we are finished as well, but without a .domNode. We will be inserted as the last child.
+     * //
+     * //
+     * // BOOKKEEPING (see updateDOMChainBy() below):
+     * // - The bookkeeping is done by whenever an element is moved / created:
+     * //   * Goes to update domNode up the chain until is not the first child of parent or hits a dom tag.
+     * //   * Actually, it's a tiny bit more complicated: even if we are, say, the 2nd child,
+     * //     but 1st child has no domNode (eg. boundary rendered null), then we should still also update the chain.
+     * // - In the case of removing, the procedure is a bit more complex:
+     * //   * Goes up level by level until not the first child anymore or hits a dom tag.
+     * //     - On each tries to find a next sibling, unless already did find earlier.
+     * //     - Then applies that node to the current (boundary) treeNode.
+     * // - So if <span/> #2 is inserted above, after creating the element (and before inserting it),
+     * //   will go one up to update <Onething/>, but then is not anymore the first child (of <Something>), so stops.
+     *
+     * ```
+     *
+     */
     static findInsertionNodes(treeNode: MixDOMTreeNode): [Node, Node | null] | [null, null];
     /** This should be called (after the dom action) for each renderInfo that has action: "create" / "move" / "remove" / "swap" (and on "content" if changed node).
      * - The respective action is defined by whether gives a domNode or null. If null, it's remove, otherwise it's like moving (for creation too).
      * - In either case, it goes and updates the bookkeeping so that each affected boundary always has a .domNode reference that points to its first element.
      * - This information is essential (and as minimal as possible) to know where to insert new domNodes in a performant manner. (See above findInsertionNodes().)
      * - Note that if the whole boundary unmounts, this is not called. Instead the one that was "moved" to be the first one is called to replace this.
-     *   .. In dom sense, we can skip these "would move to the same point" before actual dom moving, but renderInfos should be created - as they are automatically by the basic flow. */
+     *      * In dom sense, we can skip these "would move to the same point" before actual dom moving, but renderInfos should be created - as they are automatically by the basic flow.
+     */
     static updateDOMChainBy(fromTreeNode: MixDOMTreeNode, domNode: Node | null, fromSelf?: boolean): void;
-    /** This reads the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
+    /** Read the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
     static readFromDOM(domNode: HTMLElement | SVGElement | Node): MixDOMProcessedDOMProps;
     /** Returns a single html element.
-     * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content. */
+     * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
+     */
     static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
     /** Apply properties to dom elements for the given treeNode. Returns [ appliedProps, domElement, diffs? ]. */
     static domApplyProps(treeNode: MixDOMTreeNodeDOM, logWarnings?: boolean): [MixDOMProcessedDOMProps, Element | SVGElement | null, MixDOMDOMDiffs?];
     /**
      * - With "-" as replaceBy, functions like this: "testProp" => "test-prop", and "TestProp" => "-test-prop".
-     * - This behaviour mirrors how element.dataset[prop] = value works. For example: data.TestProp = true   =>   <div data--test-prop="true" />
+     * - This behaviour mirrors how element.dataset[prop] = value works. For example: `data.TestProp = true`   =>   `<div data--test-prop="true" />`
      */
     static decapitalizeString(str: string, replaceBy?: string): string;
-    /** This returns the content inside a root tree node as a html string. */
+    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering. */
     static readAsString(treeNode: MixDOMTreeNode): string;
-    /** This returns a suitable virtual item from the structure.
+    /** Find a suitable virtual item from the structure.
      * - Tries the given vItem, or if used its children.
      * - Can use an optional suggester that can suggest some other virtual item or a direct dom node.
      *   * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
@@ -1187,6 +1295,7 @@ declare class HostRender {
      * - DEV. NOTE. This is a bit SKETCHY.
      */
     static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMHydrationItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMHydrationItem[]>>, excludedNodes?: Set<Node> | null, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): MixDOMHydrationItem | Node | null;
+    /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
     private static isVirtualItemOk;
 }
 
@@ -1299,14 +1408,16 @@ declare class PseudoPortal<Props extends PseudoPortalProps = PseudoPortalProps> 
     constructor(_props: Props);
 }
 type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMTagProps<Tag> & {
+    /** HTML or SVG element to smuggle in. */
     element: HTMLElement | SVGElement | null;
     /** Determines what happens when meeting duplicates.
      * - If == null, uses the Host based setting.
      * - If boolean, then is either "deep" or nothing. */
     cloneMode?: boolean | MixDOMCloneNodeBehaviour | null;
 };
-/** This allows to use an existing dom element as if it was part of the system.
- * So you can modify its props and such. */
+/** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
+ * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
+ */
 declare class PseudoElement<Tag extends DOMTags = DOMTags, Props extends PseudoElementProps<Tag> = PseudoElementProps<Tag>> {
     static MIX_DOM_CLASS: string;
     readonly props: Props;
@@ -1426,6 +1537,7 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
  *      - This class can then allow to set and refresh the common props, and trigger should-updates for all the instances and use signals.
  *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
+ * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
  */
 declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
     props: ParentProps;
@@ -1735,9 +1847,9 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     /** Trigger an update manually. Normally you never need to use this. Can optionally define update related timing */
     triggerUpdate(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Add a wired component to this component's refresh cycle. Create the wired component using the `createWired` method. */
-    addWired(wired: ComponentWiredFunc): void;
+    addWired(Wired: ComponentWiredFunc): void;
     /** Remove a wired component to this component's refresh cycle. */
-    removeWired(wired: ComponentWiredFunc): void;
+    removeWired(Wired: ComponentWiredFunc): void;
     /** The most important function of any component: the render function. If not using functional rendering, override this manually on the class.
      */
     render(props: Props, state: State): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Props, State>;
@@ -1951,26 +2063,70 @@ declare class BaseBoundary {
     constructor(host: Host, outerDef: MixDOMDefApplied, treeNode: MixDOMTreeNode);
 }
 
-declare class ContentBoundary extends BaseBoundary {
-    /** The def whose children define our content - we are a fragment-like container. */
-    targetDef: MixDOMDefTarget;
-    /** Redefine that we always have it. It's based on the targetDef. */
-    _innerDef: MixDOMDefApplied;
-    /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
-     * Note that the content might get passed through many boundaries, but now we have landed it. */
-    sourceBoundary: SourceBoundary;
-    /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
-     * - Note that it gets assigned (externally) immediately after constructor is called.
-     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
-    parentBoundary: SourceBoundary | ContentBoundary;
-    /** Content boundaries will never feature component. So can be used for checks to know if is a source or content boundary. */
-    component?: never;
-    /** Content boundaries will never feature bId. So can be used for checks to know if is a source or content boundary. */
-    bId?: never;
-    constructor(outerDef: MixDOMDefApplied, targetDef: MixDOMDefTarget, treeNode: MixDOMTreeNode, sourceBoundary: SourceBoundary);
-    /** Apply a targetDef from the new envelope. Simply sets the defs accordingly. */
-    updateEnvelope(targetDef: MixDOMDefTarget, truePassDef?: MixDOMDefApplied | null): void;
+type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "contexts" | "host" | "root";
+interface MixDOMTreeNodeBase {
+    /** The main type of the treeNode that defines how it should behave and what it contains.
+     * The type "" is only used temporarily - it can only end up in treeNodes if there's an error. */
+    type: MixDOMTreeNodeType | "";
+    /** Normally, only the root has no parent, but all others do.
+     * However, if we are talking about a treeNode that is no longer in the tree (= a dead branch),
+     * .. then the parent is null, or one of the parents in the chain is null even though it's not a real root node. */
+    parent: MixDOMTreeNode | null;
+    /** The treeNodes inside - for navigation. */
+    children: MixDOMTreeNode[];
+    /** Every treeNode has a domNode reference. It refers to the NEAREST DOM ELEMENT DOWNWARDS from this treeNode.
+     * - So if this treeNode is of "dom" type, it's actually its own node.
+     * - But boundaries and other abstractions do not have their own dom node.
+     * - Instead, it's updated UPWARDS (until meets a dom tag parent) from an actual treeNode with dom element upon create / remove / move.
+     *   .. The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
+     *   .. We do minimal bookkeeping for a very quick way to find where any node should be.*/
+    domNode: DOMElement | Node | null;
+    /** The boundary that produced this tree node - might be passed through content closures. */
+    sourceBoundary: SourceBoundary | null;
+    /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
+    boundary?: MixDOMBoundary | null;
+    /** The def tied to this particular treeNode. */
+    def?: MixDOMDefApplied;
 }
+interface MixDOMTreeNodeBaseWithDef extends MixDOMTreeNodeBase {
+    def: MixDOMDefApplied;
+}
+interface MixDOMTreeNodeEmpty extends MixDOMTreeNodeBase {
+    type: "";
+}
+interface MixDOMTreeNodeRoot extends MixDOMTreeNodeBase {
+    type: "root";
+    def?: never;
+}
+interface MixDOMTreeNodeDOM extends MixDOMTreeNodeBaseWithDef {
+    type: "dom";
+    /** This exists only for treeNodes referring to dom elements (typeof appliedDef.tag === "string").
+     * To avoid ever missing diffs, it's best to hold a memory for the props that were actually applied to a dom element.
+     * Note. Like React, we do not want to read the state of the dom element due to 2 reasons:
+     *   1. Reading from dom element is relatively slow (in comparison to reading property of an object).
+     *   2. It's actually better for outside purposes that we only take care of our own changes to dom - not forcing things there (except create / destroy our own). */
+    domProps: MixDOMProcessedDOMProps;
+}
+interface MixDOMTreeNodePortal extends MixDOMTreeNodeBaseWithDef {
+    type: "portal";
+    /** For portals, the domNode refers to the external container. */
+    domNode: MixDOMTreeNodeBase["domNode"];
+}
+interface MixDOMTreeNodeBoundary extends MixDOMTreeNodeBaseWithDef {
+    type: "boundary";
+    /** This will be set to the treeNode right after instancing the source boundary. */
+    boundary: SourceBoundary;
+}
+interface MixDOMTreeNodePass extends MixDOMTreeNodeBaseWithDef {
+    type: "pass";
+    /** This will be set to the treeNode right after instancing the content boundary.
+     * - It's null only if there's no content, otherwise there's a content boundary.*/
+    boundary: ContentBoundary | null;
+}
+interface MixDOMTreeNodeHost extends MixDOMTreeNodeBaseWithDef {
+    type: "host";
+}
+type MixDOMTreeNode = MixDOMTreeNodeEmpty | MixDOMTreeNodeDOM | MixDOMTreeNodePortal | MixDOMTreeNodeBoundary | MixDOMTreeNodePass | MixDOMTreeNodeHost | MixDOMTreeNodeRoot;
 
 type RefDOMSignals<Type extends Node = Node> = {
     /** Called when a ref is about to be attached to a dom element. */
@@ -2051,252 +2207,6 @@ declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentType
 /** Create a new ref instance shortcut. */
 declare const newRef: <Type extends Node | ComponentTypeEither<{}> = Node | ComponentTypeEither<{}>>() => Ref<Type>;
 
-/** Describes what kind of def it is.
- * - Compared to treeNode.type, we have extra: "content" | "element" | "fragment". But don't have "root" (or ""). */
-type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "contexts" | "fragment" | "host";
-type MixDOMSpreadLinks = {
-    /** This contains any true and copy passes. It's the point where the inner spread stopped processing, and the parent spread can continue from it. */
-    passes: MixDOMDefTarget[];
-    /** This contains any MixDOM.WithContent components, if they were not sure whether they actually have content or not (due to only having "pass" defs without any solid stuff).
-     * - The structure is [ childDefs, withDef ], where childDefs are the children originally passed to the spread.
-     */
-    withs: [childDefs: MixDOMDefTarget[], withDef: MixDOMDefTarget & {
-        props: {
-            hasContent?: boolean;
-        };
-    }][];
-};
-interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> {
-    /** This is to distinguish from other objects as well as to define the type both in the same.
-     * - That's why it's name so strangely (to distinguish from objects), but still somewhat sensibly to be readible.
-     * - In earlier quick tests, it seemed (almost 2x) faster to use { _isDef: true} as opposed to creating a new class instance (without _isDef member). */
-    MIX_DOM_DEF: MixDOMDefType;
-    tag: MixDOMPostTag;
-    childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
-    /** The def should be skipped - used internally.
-     * - Currently only used for type "content" for settings.noRenderValuesMode and "fragment" for withContent() and spread usage. */
-    disabled?: boolean;
-    key?: any;
-    attachedRefs?: RefBase[];
-    attachedSignals?: Partial<Record<string, SignalListener[0]>>;
-    attachedContexts?: Partial<Record<string, Context | null>>;
-    props?: Props;
-    isArray?: boolean;
-    scopeType?: "spread" | "spread-pass" | "spread-copy";
-    scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
-    spreadLinks?: MixDOMSpreadLinks;
-    domContent?: MixDOMContentSimple | null;
-    domHTMLMode?: boolean;
-    domElement?: HTMLElement | SVGElement | null;
-    domCloneMode?: MixDOMCloneNodeBehaviour | "" | null;
-    domPortal?: Node | null;
-    contentPass?: ContentClosure | null;
-    contentPassType?: "pass" | "copy";
-    getRemote?: () => ComponentRemote;
-    host?: Host;
-    hasPassWithin?: true;
-    treeNode?: MixDOMTreeNode;
-}
-interface MixDOMDefDOM<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
-    MIX_DOM_DEF: "dom";
-    tag: DOMTags;
-    props: Props;
-    attachedRefs?: RefBase[];
-}
-interface MixDOMDefContent extends MixDOMDefBase {
-    MIX_DOM_DEF: "content";
-    tag: "" | DOMTags;
-    domContent: MixDOMContentSimple;
-    domHTMLMode?: false;
-    props?: never;
-}
-interface MixDOMDefContentInner<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
-    MIX_DOM_DEF: "content";
-    tag: "" | DOMTags;
-    domContent: MixDOMContentSimple;
-    /** If true, sets the content as innerHTML. */
-    domHTMLMode: true;
-    props?: Props;
-}
-interface MixDOMDefElement<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
-    MIX_DOM_DEF: "element";
-    tag: "_";
-    props: Props;
-    domElement: HTMLElement | SVGElement | null;
-    domCloneMode?: MixDOMCloneNodeBehaviour | "" | null;
-}
-interface MixDOMDefPortal<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
-    MIX_DOM_DEF: "portal";
-    tag: null;
-    domPortal: Node | null;
-    props?: never;
-}
-interface MixDOMDefBoundary<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
-    MIX_DOM_DEF: "boundary";
-    tag: MixDOMComponentTag;
-    props: Props;
-    /** Internal marker put on the applied def to mark that was passed in a content pass.
-     * - This helps to form a parental chain of closures that pass the content down.
-     * - This in turn helps to make WithContent feature work recursively.
-     * - Note that alternatively this could be after-checked in contentClosure.preRefresh.
-     *      * However, it's more performant to just go check for this while pairing defs.
-     */
-    hasPassWithin?: true;
-}
-interface MixDOMDefFragment extends MixDOMDefBase {
-    MIX_DOM_DEF: "fragment";
-    tag: null;
-    isArray?: boolean;
-    scopeType?: MixDOMDefBase["scopeType"];
-    /** This helps to optimize nested spread processing, as well as handle WithContent recursively for spreads. */
-    spreadLinks?: MixDOMDefBase["spreadLinks"];
-    /** Scope map is used only on the applied def side.
-     * - This is used to isolate the scopes for the pairing process.
-     * - For example, any spread function outputs, and any content pass copies in them, should be isolated.
-     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it. */
-    scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
-}
-interface MixDOMDefPass extends MixDOMDefBase {
-    MIX_DOM_DEF: "pass";
-    tag: null;
-    contentPass?: ContentClosure | null;
-    contentPassType?: "pass" | "copy";
-    /** If is about a remote source, this is assigned and gets the remote source instance. */
-    getRemote?: () => ComponentRemote;
-    props?: never;
-}
-interface MixDOMDefHost extends MixDOMDefBase {
-    MIX_DOM_DEF: "host";
-    tag: null;
-    host: Host;
-    props?: never;
-}
-type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefContentInner | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
-interface MixDOMDefAppliedBase extends MixDOMDefBase {
-    childDefs: MixDOMDefApplied[];
-    action: "mounted" | "moved" | "updated";
-    treeNode?: MixDOMTreeNode;
-    /** Used internally for special case detections.
-     * - Only applied when is performing a _wide move_ - to the mover and all defs inside. The updateId value {} comes from hostServices and is renewed on every update cycle
-     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediary boundary (that holds the pass) simultaneously.
-     *      * If had already paired some defs (impying they were moved out by the sourceBoundary), then shouldn't clean up those defs.
-     *      * The detection is done by: `def.updateId && def.updateId === def.treeNode?.sourceBoundary?.host.services._whileUpdating`.
-     *      * The updateId is cleaned away from the def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
-     */
-    updateId?: {};
-}
-interface MixDOMDefTargetBase extends MixDOMDefBase {
-    childDefs: MixDOMDefTarget[];
-    treeNode?: never;
-    action?: never;
-}
-type MixDOMDefApplied = MixDOMDefAppliedBase & MixDOMDefTypesAll;
-type MixDOMDefTarget = MixDOMDefTargetBase & MixDOMDefTypesAll;
-interface DefPseudo {
-    MIX_DOM_DEF?: "";
-    childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
-    disabled?: boolean;
-    type?: MixDOMDefType | "";
-    tag?: any;
-    isArray?: boolean;
-    props?: Record<string, any> | MixDOMProcessedDOMProps;
-    domElement?: HTMLElement | SVGElement | null;
-    _skipDef?: true;
-}
-interface MixDOMDefTargetPseudo extends DefPseudo {
-    childDefs: MixDOMDefTarget[];
-    scopeType?: MixDOMDefFragment["scopeType"];
-    scopeMap?: MixDOMDefFragment["scopeMap"];
-}
-interface MixDOMDefAppliedPseudo extends DefPseudo {
-    childDefs: MixDOMDefApplied[];
-    scopeType?: MixDOMDefFragment["scopeType"];
-    scopeMap?: MixDOMDefFragment["scopeMap"];
-    action?: MixDOMDefAppliedBase["action"];
-    hasPassWithin?: true;
-}
-
-type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "contexts" | "host" | "root";
-interface MixDOMTreeNodeBase {
-    /** The main type of the treeNode that defines how it should behave and what it contains.
-     * The type "" is only used temporarily - it can only end up in treeNodes if there's an error. */
-    type: MixDOMTreeNodeType | "";
-    /** Normally, only the root has no parent, but all others do.
-     * However, if we are talking about a treeNode that is no longer in the tree (= a dead branch),
-     * .. then the parent is null, or one of the parents in the chain is null even though it's not a real root node. */
-    parent: MixDOMTreeNode | null;
-    /** The treeNodes inside - for navigation. */
-    children: MixDOMTreeNode[];
-    /** Every treeNode has a domNode reference. It refers to the NEAREST DOM ELEMENT DOWNWARDS from this treeNode.
-     * - So if this treeNode is of "dom" type, it's actually its own node.
-     * - But boundaries and other abstractions do not have their own dom node.
-     * - Instead, it's updated UPWARDS (until meets a dom tag parent) from an actual treeNode with dom element upon create / remove / move.
-     *   .. The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
-     *   .. We do minimal bookkeeping for a very quick way to find where any node should be.*/
-    domNode: DOMElement | Node | null;
-    /** The boundary that produced this tree node - might be passed through content closures. */
-    sourceBoundary: SourceBoundary | null;
-    /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
-    boundary?: MixDOMBoundary | null;
-    /** The def tied to this particular treeNode. */
-    def?: MixDOMDefApplied;
-}
-interface MixDOMTreeNodeBaseWithDef extends MixDOMTreeNodeBase {
-    def: MixDOMDefApplied;
-}
-interface MixDOMTreeNodeEmpty extends MixDOMTreeNodeBase {
-    type: "";
-}
-interface MixDOMTreeNodeRoot extends MixDOMTreeNodeBase {
-    type: "root";
-    def?: never;
-}
-interface MixDOMTreeNodeDOM extends MixDOMTreeNodeBaseWithDef {
-    type: "dom";
-    /** This exists only for treeNodes referring to dom elements (typeof appliedDef.tag === "string").
-     * To avoid ever missing diffs, it's best to hold a memory for the props that were actually applied to a dom element.
-     * Note. Like React, we do not want to read the state of the dom element due to 2 reasons:
-     *   1. Reading from dom element is relatively slow (in comparison to reading property of an object).
-     *   2. It's actually better for outside purposes that we only take care of our own changes to dom - not forcing things there (except create / destroy our own). */
-    domProps: MixDOMProcessedDOMProps;
-}
-interface MixDOMTreeNodePortal extends MixDOMTreeNodeBaseWithDef {
-    type: "portal";
-    /** For portals, the domNode refers to the external container. */
-    domNode: MixDOMTreeNodeBase["domNode"];
-}
-interface MixDOMTreeNodeBoundary extends MixDOMTreeNodeBaseWithDef {
-    type: "boundary";
-    /** This will be set to the treeNode right after instancing the source boundary. */
-    boundary: SourceBoundary;
-}
-interface MixDOMTreeNodePass extends MixDOMTreeNodeBaseWithDef {
-    type: "pass";
-    /** This will be set to the treeNode right after instancing the content boundary.
-     * - It's null only if there's no content, otherwise there's a content boundary.*/
-    boundary: ContentBoundary | null;
-}
-interface MixDOMTreeNodeHost extends MixDOMTreeNodeBaseWithDef {
-    type: "host";
-}
-type MixDOMTreeNode = MixDOMTreeNodeEmpty | MixDOMTreeNodeDOM | MixDOMTreeNodePortal | MixDOMTreeNodeBoundary | MixDOMTreeNodePass | MixDOMTreeNodeHost | MixDOMTreeNodeRoot;
-
-interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericKeys> & Record<CSSNumericKeys, string | number>> {
-    [index: number]: never;
-}
-/** Some commonly used CSS properties that can receive numeric input. */
-type CSSNumericKeys = "borderWidth" | "borderBottomWidth" | "borderLeftWidth" | "borderRightWidth" | "borderTopWidth" | "bottom" | "columnGap" | "flexGrow" | "flexShrink" | "fontWeight" | "gap" | "gridColumnEnd" | "gridColumnGap" | "gridColumnStart" | "gridRowEnd" | "gridRowGap" | "gridRowStart" | "height" | "inset" | "left" | "margin" | "marginBottom" | "marginLeft" | "marginRight" | "marginTop" | "maxWidth" | "maxHeight" | "minWidth" | "minHeight" | "offsetDistance" | "opacity" | "order" | "outlineWidth" | "padding" | "paddingTop" | "paddingBottom" | "paddingLeft" | "paddingRight" | "right" | "rowGap" | "scrollMargin" | "scrollMarginBlock" | "scrollMarginBlockEnd" | "scrollMarginBlockStart" | "scrollMarginBottom" | "scrollMarginInline" | "scrollMarginInlineEnd" | "scrollMarginInlineStart" | "scrollMarginLeft" | "scrollMarginRight" | "scrollMarginTop" | "scrollPadding" | "scrollPaddingBlock" | "scrollPaddingBlockEnd" | "scrollPaddingBlockStart" | "scrollPaddingBottom" | "scrollPaddingInline" | "scrollPaddingInlineEnd" | "scrollPaddingInlineStart" | "scrollPaddingLeft" | "scrollPaddingRight" | "scrollPaddingTop" | "stopOpacity" | "strokeWidth" | "strokeOpacity" | "tabIndex" | "tabSize" | "top" | "width" | "zIndex";
-type DOMTags = HTMLTags | SVGTags;
-type DOMElement = HTMLElement | SVGElement;
-type ListenerAttributeNames = keyof ListenerAttributesAll;
-type ListenerAttributes = {
-    [Name in keyof ListenerAttributesAll]?: ListenerAttributesAll[Name] | null;
-};
-type SVGAttributes<Tag extends SVGTags = SVGTags> = Omit<SVGAttributesBy[Tag], "style" | "class" | "className"> & Partial<ListenerAttributesAll>;
-type HTMLSVGAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
-type HTMLSVGAttributesBy = {
-    [Tag in DOMTags]: HTMLSVGAttributes<Tag>;
-};
 type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends Record<string, any> = {}> = (props: Props, state: State) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 type MixDOMBoundary = SourceBoundary | ContentBoundary;
 type MixDOMSourceBoundaryId = string;
@@ -2470,6 +2380,171 @@ type MixDOMSourceBoundaryChangeType = "mounted" | "updated" | "moved";
 type MixDOMSourceBoundaryChange = [boundary: SourceBoundary, changeType: MixDOMSourceBoundaryChangeType, prevProps?: Record<string, any>, prevState?: Record<string, any>];
 type MixDOMChangeInfos = [renderInfos: MixDOMRenderInfo[], boundaryChanges: MixDOMSourceBoundaryChange[]];
 
+/** Describes what kind of def it is.
+ * - Compared to treeNode.type, we have extra: "content" | "element" | "fragment". But don't have "root" (or ""). */
+type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "contexts" | "fragment" | "host";
+type MixDOMSpreadLinks = {
+    /** This contains any true and copy passes. It's the point where the inner spread stopped processing, and the parent spread can continue from it. */
+    passes: MixDOMDefTarget[];
+    /** This contains any MixDOM.WithContent components, if they were not sure whether they actually have content or not (due to only having "pass" defs without any solid stuff).
+     * - The structure is [ childDefs, withDef ], where childDefs are the children originally passed to the spread.
+     */
+    withs: [childDefs: MixDOMDefTarget[], withDef: MixDOMDefTarget & {
+        props: {
+            hasContent?: boolean;
+        };
+    }][];
+};
+interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> {
+    /** This is to distinguish from other objects as well as to define the type both in the same.
+     * - That's why it's name so strangely (to distinguish from objects), but still somewhat sensibly to be readible.
+     * - In earlier quick tests, it seemed (almost 2x) faster to use { _isDef: true} as opposed to creating a new class instance (without _isDef member). */
+    MIX_DOM_DEF: MixDOMDefType;
+    tag: MixDOMPostTag;
+    childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
+    /** The def should be skipped - used internally.
+     * - Currently only used for type "content" for settings.noRenderValuesMode and "fragment" for withContent() and spread usage. */
+    disabled?: boolean;
+    key?: any;
+    attachedRefs?: RefBase[];
+    attachedSignals?: Partial<Record<string, SignalListener[0]>>;
+    attachedContexts?: Partial<Record<string, Context | null>>;
+    props?: Props;
+    isArray?: boolean;
+    scopeType?: "spread" | "spread-pass" | "spread-copy";
+    scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
+    spreadLinks?: MixDOMSpreadLinks;
+    domContent?: MixDOMContentSimple | null;
+    domHTMLMode?: boolean;
+    domElement?: HTMLElement | SVGElement | null;
+    domCloneMode?: MixDOMCloneNodeBehaviour | "" | null;
+    domPortal?: Node | null;
+    contentPass?: ContentClosure | null;
+    contentPassType?: "pass" | "copy";
+    getRemote?: () => ComponentRemote;
+    host?: Host;
+    hasPassWithin?: true;
+    treeNode?: MixDOMTreeNode;
+}
+interface MixDOMDefDOM<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
+    MIX_DOM_DEF: "dom";
+    tag: DOMTags;
+    props: Props;
+    attachedRefs?: RefBase[];
+}
+interface MixDOMDefContent extends MixDOMDefBase {
+    MIX_DOM_DEF: "content";
+    tag: "" | DOMTags;
+    domContent: MixDOMContentSimple;
+    domHTMLMode?: false;
+    props?: never;
+}
+interface MixDOMDefContentInner<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
+    MIX_DOM_DEF: "content";
+    tag: "" | DOMTags;
+    domContent: MixDOMContentSimple;
+    /** If true, sets the content as innerHTML. */
+    domHTMLMode: true;
+    props?: Props;
+}
+interface MixDOMDefElement<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
+    MIX_DOM_DEF: "element";
+    tag: "_";
+    props: Props;
+    domElement: HTMLElement | SVGElement | null;
+    domCloneMode?: MixDOMCloneNodeBehaviour | "" | null;
+}
+interface MixDOMDefPortal<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
+    MIX_DOM_DEF: "portal";
+    tag: null;
+    domPortal: Node | null;
+    props?: never;
+}
+interface MixDOMDefBoundary<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
+    MIX_DOM_DEF: "boundary";
+    tag: MixDOMComponentTag;
+    props: Props;
+    /** Internal marker put on the applied def to mark that was passed in a content pass.
+     * - This helps to form a parental chain of closures that pass the content down.
+     * - This in turn helps to make WithContent feature work recursively.
+     * - Note that alternatively this could be after-checked in contentClosure.preRefresh.
+     *      * However, it's more performant to just go check for this while pairing defs.
+     */
+    hasPassWithin?: true;
+}
+interface MixDOMDefFragment extends MixDOMDefBase {
+    MIX_DOM_DEF: "fragment";
+    tag: null;
+    isArray?: boolean;
+    scopeType?: MixDOMDefBase["scopeType"];
+    /** This helps to optimize nested spread processing, as well as handle WithContent recursively for spreads. */
+    spreadLinks?: MixDOMDefBase["spreadLinks"];
+    /** Scope map is used only on the applied def side.
+     * - This is used to isolate the scopes for the pairing process.
+     * - For example, any spread function outputs, and any content pass copies in them, should be isolated.
+     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it. */
+    scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
+}
+interface MixDOMDefPass extends MixDOMDefBase {
+    MIX_DOM_DEF: "pass";
+    tag: null;
+    contentPass?: ContentClosure | null;
+    contentPassType?: "pass" | "copy";
+    /** If is about a remote source, this is assigned and gets the remote source instance. */
+    getRemote?: () => ComponentRemote;
+    props?: never;
+}
+interface MixDOMDefHost extends MixDOMDefBase {
+    MIX_DOM_DEF: "host";
+    tag: null;
+    host: Host;
+    props?: never;
+}
+type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefContentInner | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
+interface MixDOMDefAppliedBase extends MixDOMDefBase {
+    childDefs: MixDOMDefApplied[];
+    action: "mounted" | "moved" | "updated";
+    treeNode?: MixDOMTreeNode;
+    /** Used internally for special case detections.
+     * - Only applied when is performing a _wide move_ - to the mover and all defs inside. The updateId value {} comes from hostServices and is renewed on every update cycle
+     * - The updateId is used in a case where moves contents out of a content pass while destroying an intermediary boundary (that holds the pass) simultaneously.
+     *      * If had already paired some defs (impying they were moved out by the sourceBoundary), then shouldn't clean up those defs.
+     *      * The detection is done by: `def.updateId && def.updateId === def.treeNode?.sourceBoundary?.host.services._whileUpdating`.
+     *      * The updateId is cleaned away from the def on next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     */
+    updateId?: {};
+}
+interface MixDOMDefTargetBase extends MixDOMDefBase {
+    childDefs: MixDOMDefTarget[];
+    treeNode?: never;
+    action?: never;
+}
+type MixDOMDefApplied = MixDOMDefAppliedBase & MixDOMDefTypesAll;
+type MixDOMDefTarget = MixDOMDefTargetBase & MixDOMDefTypesAll;
+interface DefPseudo {
+    MIX_DOM_DEF?: "";
+    childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
+    disabled?: boolean;
+    type?: MixDOMDefType | "";
+    tag?: any;
+    isArray?: boolean;
+    props?: Record<string, any> | MixDOMProcessedDOMProps;
+    domElement?: HTMLElement | SVGElement | null;
+    _skipDef?: true;
+}
+interface MixDOMDefTargetPseudo extends DefPseudo {
+    childDefs: MixDOMDefTarget[];
+    scopeType?: MixDOMDefFragment["scopeType"];
+    scopeMap?: MixDOMDefFragment["scopeMap"];
+}
+interface MixDOMDefAppliedPseudo extends DefPseudo {
+    childDefs: MixDOMDefApplied[];
+    scopeType?: MixDOMDefFragment["scopeType"];
+    scopeMap?: MixDOMDefFragment["scopeMap"];
+    action?: MixDOMDefAppliedBase["action"];
+    hasPassWithin?: true;
+}
+
 /** Include this once in your project in a file included in TS/TSX compilation:
  *
  * ```
@@ -2529,10 +2604,17 @@ declare function newDef<Props extends MixDOMPreDOMTagProps | MixDOMPreComponentP
 declare function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any): MixDOMDefTarget;
 declare function newContentCopyDef(key?: any): MixDOMDefTarget;
 
-/** Create a new context. */
+/** Create a Context instance. The class is directly the same as in `data-signals`.
+ * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+ */
 declare const newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord>(data?: Data | undefined, settings?: Partial<ContextSettings>) => Context<Data, Signals>;
-/** Create multiple named contexts by giving data. */
+/** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
+ * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
+ * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
+ * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+ */
 declare const newContexts: <Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts & string]: Contexts[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts;
+/** Shortcut dictionary to contain all the main features of MixDOM library. */
 declare const MixDOM: {
     /** Create a new render definition. Can feed JSX input. (It's like `React.createElement` but `MixDOM.def`). */
     def: typeof newDef;
@@ -2571,17 +2653,20 @@ declare const MixDOM: {
     Host: typeof Host;
     Ref: typeof Ref;
     /** Fragment represent a list of render output instead of stuff under one root.
-     * Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>` */
+     * - Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>`, or just `<><div/><div/></>`.
+     */
     Fragment: typeof PseudoFragment;
     /** Portal allows to insert the content into a foreign dom node.
-     * Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>` */
+     * - Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>`
+     */
     Portal: typeof PseudoPortal;
-    /** This allows to use an existing dom element as if it was part of the system.
-     * So you can modify its props and such. */
+    /** Element allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
+     * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
+     */
     Element: typeof PseudoElement;
     /** Empty dummy component that accepts any props, but always renders null. */
     Empty: typeof PseudoEmpty;
-    /** This is an empty dummy remote class:
+    /** This is an empty dummy ComponentRemote class:
      * - Its purpose is to make writing render output easier (1. no empty checks, and 2. for typing):
      *     * For example: `const MyRemote = component.state.PopupRemote || MixDOM.EmptyRemote;`
      *     * You can then access the Content and ContentCopy members, and copyContent(key) and withContent(...contents) methods fluently.
@@ -2590,30 +2675,33 @@ declare const MixDOM: {
      *     * And it only adds the 2 public members (Content and ContentCopy) and 2 public methods (copycontent and withContent).
      *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
      * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
-     *     * For example, to set specific content listening needs, you can use a memo - run it on render or .onBeforeUpdate callback.
-     *     * Memo onMount: `(NewRemote: ComponentRemoteType) => NewRemote.isRemote() && component.contentAPI.needsFor(NewRemote, true);`
-     *     * MEmo onUnmount: `(OldRemote: ComponentRemoteType) => OldRemote.isRemote() && component.contentAPI.needsFor(OldRemote, null);`
      */
     EmptyRemote: ComponentRemoteType<{}>;
-    /** Create a Host instance to orchestrate rendering. */
+    /** Create a Host instance to orchestrate rendering. You need one to start using MixDOM. */
     newHost: <Contexts extends data_signals.ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null | undefined, settings?: HostSettingsUpdate | null | undefined, contexts?: Contexts | undefined) => Host<Contexts>;
-    /** Create a Ref instance. */
+    /** Create a Ref instance. Refs help to get a reference to elements and/or components. */
     newRef: <Type extends Node | ComponentTypeEither<{}> = Node | ComponentTypeEither<{}>>() => Ref<Type>;
-    /** Create a Context instance. */
+    /** Create a Context instance. The class is directly the same as in `data-signals`.
+     * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+     */
     newContext: <Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord>(data?: Data | undefined, settings?: Partial<ContextSettings>) => Context<Data, Signals>;
-    /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI - and for getting the combined type for TypeScript purposes. */
+    /** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
+     * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
+     * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
+     * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
+     */
     newContexts: <Contexts_1 extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts_1 & string]: Contexts_1[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts_1;
     /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
     component: typeof createComponent;
     /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    componentWith: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string) => ComponentFuncCtx<Info>;
+    componentCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string) => ComponentFuncCtx<Info>;
     /** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
      * - Shadow components are normal components, but they have a ShadowAPI attached as component.constructor.api.
      * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowWith: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
+    shadowCtx: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
@@ -2644,9 +2732,10 @@ declare const MixDOM: {
      *      - This class can then allow to set and refresh the common props, and trigger should-updates for all the instances and use signals.
      *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
      * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
+     * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
      */
     wired: typeof createWired;
-    /** This returns the original function (to create a mixin class) back but simply helps with typing.
+    /** Function that on JS side returns the original function back (to create a mixin class) but simply helps with typing.
      * - The idea of a mixin is this: `(Base) => class extends Base { ... }`. So it creates a new class that extends the provided base class.
      *     * In the context of Components the idea is that the Base is Component and then different features are added to it.
      *     * Optionally, when used with mixComponentMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
@@ -2712,13 +2801,19 @@ declare const MixDOM: {
      * - Consider using mixFuncs or mixMixins concepts instead. They are like HOCs merged into one component with a dynamic base.
      */
     mixHOCs: typeof mixHOCs;
+    /** Find tree nodes within a treeNode. */
     findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => MixDOMTreeNode[];
+    /** Get all components within a treeNode. */
     findComponentsIn: <Comp extends ComponentTypeAny<{}> = ComponentTypeAny<{}>>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => Comp[];
+    /** Get all elements within a treeNode. */
     findElementsIn: <T extends Node = Node>(treeNode: MixDOMTreeNode, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined) => T[];
+    /** Find the first matching element within a treeNode using a selector. */
     queryElementIn: <T_1 extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, inNested?: boolean, overHosts?: boolean) => T_1 | null;
+    /** Find the matching elements within a treeNode using a selector. */
     queryElementsIn: <T_2 extends Element = Element>(treeNode: MixDOMTreeNode, selector: string, maxCount?: number, inNested?: boolean, overHosts?: boolean) => T_2[];
     /** Read html content as string from the given treeNode, component or boundary.
-     * Typically used with Host having settings.disableRendering (and settings.renderTimeout = null). */
+     * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
+     */
     readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary) => string;
     /** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
      * - Each item in the classNames can be:
@@ -2735,8 +2830,9 @@ declare const MixDOM: {
     /** Convert a style cssText string into a dictionary with capitalized keys.
      * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
      * - The dictionary format is used for easy detection of changes.
-     *   .. As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.) */
+     *      * As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.)
+     */
     parseStyle: typeof parseStyle;
 };
 
-export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, InstanceTypeFrom, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };
+export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, DOMAttributes, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };

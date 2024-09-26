@@ -4,8 +4,9 @@
 // Libraries.
 import { SignalListener, Context } from "data-signals";
 // Local.
-import { DOMTags, MixDOMComponentTag, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMPostTag, MixDOMProcessedDOMProps } from "./MixDOMTypes";
+import { DOMTags } from "./DOMTypes";
 // Only typing (local).
+import { MixDOMComponentTag, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMPostTag, MixDOMProcessedDOMProps } from "./MixDOMTypes";
 import { MixDOMTreeNode } from "./MixDOMTreeNode";
 // Only typing (distant).
 import { RefBase } from "../common/Ref";

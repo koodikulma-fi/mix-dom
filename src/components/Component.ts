@@ -440,9 +440,9 @@ export interface Component<
     // >(builder: Builder | BuildProps | null, mixer: Mixer | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
 
     /** Add a wired component to this component's refresh cycle. Create the wired component using the `createWired` method. */
-    addWired(wired: ComponentWiredFunc): void;
+    addWired(Wired: ComponentWiredFunc): void;
     /** Remove a wired component to this component's refresh cycle. */
-    removeWired(wired: ComponentWiredFunc): void;
+    removeWired(Wired: ComponentWiredFunc): void;
 
 
     // - Render - //

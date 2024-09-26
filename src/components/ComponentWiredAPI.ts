@@ -111,6 +111,7 @@ export class ComponentWiredAPI<
  *      - This class can then allow to set and refresh the common props, and trigger should-updates for all the instances and use signals.
  *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
+ * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
  */
 export function createWired <
     ParentProps extends Record<string, any> = {},

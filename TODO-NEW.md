@@ -21,24 +21,11 @@
     - There's also a new mode for listening to data by a dictionary: keys are dotted data keys, values are fallbacks. In Context and ContextAPI.
 - Refined and cleaned up typing (and JS).
   * Reorganied typing in relation to component mixing and extending.
-  * STYLE related refines and fixes:
-    - TODO: Discrepancy in DICTIONARY vs. STRING format for STYLE:
-      * TYPESCRIPT: Not systematic that "background-image" not okay key in dictionary form.
-      * JAVASCRIPT: In styles, could not use _string format_ to define background-image with url. It just cut all after "https". Could use it in _dictionary form_.
-    - TODO: Refine that eg. { width, height, left, right } as numbers get "px" on JS side.
-      * They only get it in some situations. Eg. in mixdom docs could do { width: 5 } on JS side, but on another not..!
-      * Also refine / verify typing all around this + maybe extra comments about number -> "px".
-    - TODO: `MixDOM.def("span", { "style": { colorFAIL: "#aac" } });` <-- colorFAIL won't fail.
-  * ATTRIBUTE related refines:
-    - TODO: In relation to "onclick" vs. "onClick".
-      * <-- Solve it by allowing to select JSX or JSX_lowercase or JSX_camelCase. When declares the globals..!
-    - TODO: SVG ATTRIBUTES typing.
-      * Not detailed here, but there were some problems, it seems.
-    - TODO: Add typing for ease of use for DOMAttributes: HTMLAttributes & SVGAttributes.
+  * Tiny fixes and refines in relation dom style and attributes.
 - Reorganized and renamed STREAM to REMOTE.
   * The new name is to avoid connotations with the word "stream" or "streaming" in web context.
     - Also, ComponentRemote describes the feature just as well: it's a component that inputs/outputs content distantly.
-  * TODO: The feature is also reorganized.
+  * The feature is also reorganized.
     - Changed from "overriding a stream" (by importance) to simply _allowing multiple streams_ to co-exist and land at the target.
       * Only once the source disconnects, that particular remote stream ends. (Or the inserter unmounts the stream insertion point.)
     - The reason is that the feature is simply so much more useful in practice this way.
@@ -50,14 +37,33 @@
   - TODO: `mix-dom-debug` that extends `data-signals-debug `with the viewer for the "grounded tree" (of MixDOMTreeNodes).
 - Note. Tried changing Routines to static classes from direct export functions but fattened the MixDOM.module.js size from 61.4KB to 64.0KB. Changed back.
 
+### CASES THAT DON'T SEEM TO EXIST ANYMORE:
+- DONE?: `MixDOM.def("span", { "style": { colorFAIL: "#aac" } });` <-- colorFAIL won't fail.
+  * <-- Maybe it was due to the sub-imports or type deep conflicts..?
+- DONE?: Refine that eg. { width, height, left, right } as numbers get "px" on JS side.
+  * They only get it in some situations. Eg. in mixdom docs could do { width: 5 } on JS side, but on another not..!
+  * Also refine / verify typing all around this + maybe extra comments about number -> "px".
+
+### FIXED
+- DONE: Discrepancy in DICTIONARY vs. STRING format for STYLE:
+  * TYPESCRIPT: Not systematic that "background-image" not okay key in dictionary form.
+    - <-- It's correct, it should be "backgroundImage".
+  * JAVASCRIPT: In styles, could not use _string format_ to define background-image with url. It just cut all after "https". Could use it in _dictionary form_.
+    - <-- Fixed in parseStyle.
+
 ### TODO  
 
-- The TYPE refines and FIXES above.
+* ATTRIBUTE related refines:
+  - TODO: In relation to "onclick" vs. "onClick".
+    * <-- Solve it by allowing to select JSX or JSX_lowercase or JSX_camelCase. When declares the globals..!
+  - TODO: SVG ATTRIBUTES typing.
+    * Not detailed here, but there were some problems, it seems.
+    * ... Don't remember where it was.. something very recent... or older..?
+- VERIFY typing for ease of use for DOMAttributes: HTMLAttributes & SVGAttributes. That is sensible.
+
 - Refactor COMPONENT MIXIN usage base, according to "mixin-types" approach.
-- REMOVE THE DEV LOGS... Simply leave them as comments.. can just uncomment...
 - VERIFY THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
   - Is teh idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
-- compiling .. now has dependencies....  ... seems fine..?
 
 
 ---

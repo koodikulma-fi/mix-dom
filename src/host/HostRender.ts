@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { askListeners, callListeners, deepCopy } from "data-signals";
+import { askListeners, callListeners } from "data-signals";
 // Typing.
 import {
     HTMLTags,
@@ -33,16 +33,16 @@ import { HostSettings } from "./Host";
 
 // Settings.
 export type HostRenderSettings = Pick<HostSettings,
-    "renderTextHandler" |
-    "renderTextTag" |
-    "renderHTMLDefTag" |
-    "renderSVGNamespaceURI" |
-    "renderDOMPropsOnSwap" |
-    "noRenderValuesMode" |
-    "disableRendering" |
-    "duplicateDOMNodeHandler" |
-    "duplicateDOMNodeBehaviour" |
-    "devLogWarnings"
+    | "renderTextHandler"
+    | "renderTextTag"
+    | "renderHTMLDefTag"
+    | "renderSVGNamespaceURI"
+    | "renderDOMPropsOnSwap"
+    | "noRenderValuesMode"
+    | "disableRendering"
+    | "duplicateDOMNodeHandler"
+    | "duplicateDOMNodeBehaviour"
+    | "devLogWarnings"
 >;
 
 
@@ -720,6 +720,7 @@ export class HostRender {
 
     // - Private services - //
 
+    /** Get a dom node with approval related to cloning dom nodes. Uses instanced settings.duplicateDOMNodeHandler and externalElements bookkeeping. */
     private getApprovedNode(newEl: Node, treeNode: MixDOMTreeNodeDOM): Node | null {
         let el : Node | null = newEl;
         const behaviour = treeNode.def.domCloneMode != null ? treeNode.def.domCloneMode : this.settings.duplicateDOMNodeBehaviour;
@@ -735,8 +736,10 @@ export class HostRender {
         return el;
     }
 
+    /** Core handler to create a single dom node based on a treeNode info. */
     private createDOMNodeBy(treeNode: MixDOMTreeNodeDOM): Node | null {
 
+        
         // - Instanced part - //
 
         // Invalid.
@@ -753,11 +756,13 @@ export class HostRender {
             // .. Note that they are not keyed. So will "remove" and "create" (<- insert) them.
             return this.getApprovedNode(simpleContent, treeNode);
         }
+        // Get settings.
+        const settings = this.settings;
 
-        // - Static part (after getting settings) - //
+
+        // - Static part - //
 
         // HTML string.
-        const settings = this.settings;
         const htmlMode = treeNode.def.domHTMLMode;
         if (htmlMode && simpleContent != null && simpleContent !== "")
             return HostRender.domNodeFrom(simpleContent.toString(), (origTag as DOMTags) || settings.renderHTMLDefTag, true);
@@ -818,67 +823,74 @@ export class HostRender {
     static LISTENER_PROPS = [
     "Abort","Activate","AnimationCancel","AnimationEnd","AnimationIteration","AnimationStart","AuxClick","Blur","CanPlay","CanPlayThrough","Change","Click","Close","ContextMenu","CueChange","DblClick","Drag","DragEnd","DragEnter","DragLeave","DragOver","DragStart","Drop","DurationChange","Emptied","Ended","Error","Focus","FocusIn","FocusOut","GotPointerCapture","Input","Invalid","KeyDown","KeyPress","KeyUp","Load","LoadedData","LoadedMetaData","LoadStart","LostPointerCapture","MouseDown","MouseEnter","MouseLeave","MouseMove","MouseOut","MouseOver","MouseUp","Pause","Play","Playing","PointerCancel","PointerDown","PointerEnter","PointerLeave","PointerMove","PointerOut","PointerOver","PointerUp","Progress","RateChange","Reset","Resize","Scroll","SecurityPolicyViolation","Seeked","Seeking","Select","Stalled","Submit","Suspend","TimeUpdate","Toggle","TouchCancel","TouchEnd","TouchMove","TouchStart","TransitionCancel","TransitionEnd","TransitionRun","TransitionStart","VolumeChange","Waiting","Wheel"].reduce((acc,curr) => (acc["on" + curr]=curr.toLowerCase(),acc), {}) as Record<ListenerAttributeNames, (e: Event) => void>;
 
-    /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets. */
+    /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
+     * 
+     * ```
+     * 
+     * // Situation example:
+     * //
+     * //  <div>                               // domNode: <div/>
+     * //      <Something>                     // domNode: <span/> #1
+     * //          <Onething>                  // domNode: <span/> #1
+     * //              <span>Stuff 1</span>    // domNode: <span/> #1
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #2
+     * //              <span>Stuff 2</span>    // domNode: <span/> #2
+     * //              <span>Stuff 3</span>    // domNode: <span/> #3
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #4
+     * //              <span>Stuff 4</span>    // domNode: <span/> #4
+     * //          </Onething>                 //
+     * //      </Something>                    //
+     * //      <Something>                     // domNode: <span/> #5
+     * //          <Onething>                  // domNode: <span/> #5
+     * //              <span>Stuff 5</span>    // domNode: <span/> #5
+     * //              <span>Stuff 6</span>    // domNode: <span/> #6
+     * //          </Onething>                 //
+     * //          <Onething>                  // domNode: <span/> #7
+     * //              <span>Stuff 7</span>    // domNode: <span/> #7
+     * //          </Onething>                 //
+     * //      </Something>                    //
+     * //  </div>                              //
+     * //
+     * //
+     * // LOGIC FOR INSERTION (moving and creation):
+     * // 1. First find the domParent by simply going up until hits a treeNode with a dom tag.
+     * //    * If none found, stop. We cannot insert the element. (Should never happen - except for swappable elements, when it's intended to "remove" them.)
+     * //    * If the domParent was found in the newlyCreated smart bookkeeping, skip step 2 below (there are no next siblings yet).
+     * // 2. Then find the next domSibling reference element.
+     * //    * Go up and check your index.
+     * //    * Loop your next siblings and see if any has .domNode. If has, stop, we've found it.
+     * //    * If doesn't find any (or no next siblings), repeat the loop (go one up and check index). Until hits the domParent.
+     * // 3. Insert the domElement into the domParent using the domSibling reference if found (otherwise null -> becomes the last one).
+     * //
+     * //
+     * // CASE EXAMPLE FOR FINDING NEXT SIBLING - for <span/> #2 above:
+     * // 1. We first go up to <Onething/> and see if we have next siblings.
+     * //    * If <span /3> has .domNode, we are already finished.
+     * // 2. There are no more siblings after it, so we go up to <Something/> and do the same.
+     * //    * If the third <Onething/> has a .domNode, we are finished.
+     * // 3. Otherwise we go up to <div> and look for siblings.
+     * //    * If the second <Something/> has a .domNode, we are finished.
+     * // 4. Otherwise we are finished as well, but without a .domNode. We will be inserted as the last child.
+     * //
+     * //
+     * // BOOKKEEPING (see updateDOMChainBy() below):
+     * // - The bookkeeping is done by whenever an element is moved / created:
+     * //   * Goes to update domNode up the chain until is not the first child of parent or hits a dom tag.
+     * //   * Actually, it's a tiny bit more complicated: even if we are, say, the 2nd child,
+     * //     but 1st child has no domNode (eg. boundary rendered null), then we should still also update the chain.
+     * // - In the case of removing, the procedure is a bit more complex:
+     * //   * Goes up level by level until not the first child anymore or hits a dom tag.
+     * //     - On each tries to find a next sibling, unless already did find earlier.
+     * //     - Then applies that node to the current (boundary) treeNode.
+     * // - So if <span/> #2 is inserted above, after creating the element (and before inserting it),
+     * //   will go one up to update <Onething/>, but then is not anymore the first child (of <Something>), so stops.
+     * 
+     * ```
+     * 
+     */
     public static findInsertionNodes(treeNode: MixDOMTreeNode): [ Node, Node | null ] | [ null, null ] {
-
-        // Situation example:
-        //
-        //  <div>                               // domNode: <div/>
-        //      <Something>                     // domNode: <span/> #1
-        //          <Onething>                  // domNode: <span/> #1
-        //              <span>Stuff 1</span>    // domNode: <span/> #1
-        //          </Onething>                 //
-        //          <Onething>                  // domNode: <span/> #2
-        //              <span>Stuff 2</span>    // domNode: <span/> #2
-        //              <span>Stuff 3</span>    // domNode: <span/> #3
-        //          </Onething>                 //
-        //          <Onething>                  // domNode: <span/> #4
-        //              <span>Stuff 4</span>    // domNode: <span/> #4
-        //          </Onething>                 //
-        //      </Something>                    //
-        //      <Something>                     // domNode: <span/> #5
-        //          <Onething>                  // domNode: <span/> #5
-        //              <span>Stuff 5</span>    // domNode: <span/> #5
-        //              <span>Stuff 6</span>    // domNode: <span/> #6
-        //          </Onething>                 //
-        //          <Onething>                  // domNode: <span/> #7
-        //              <span>Stuff 7</span>    // domNode: <span/> #7
-        //          </Onething>                 //
-        //      </Something>                    //
-        //  </div>                              //
-        //
-        // LOGIC FOR INSERTION (moving and creation):
-        // 1. First find the domParent by simply going up until hits a treeNode with a dom tag.
-        //    * If none found, stop. We cannot insert the element. (Should never happen - except for swappable elements, when it's intended to "remove" them.)
-        //    * If the domParent was found in the newlyCreated smart bookkeeping, skip step 2 below (there are no next siblings yet).
-        // 2. Then find the next domSibling reference element.
-        //    * Go up and check your index.
-        //    * Loop your next siblings and see if any has .domNode. If has, stop, we've found it.
-        //    * If doesn't find any (or no next siblings), repeat the loop (go one up and check index). Until hits the domParent.
-        // 3. Insert the domElement into the domParent using the domSibling reference if found (otherwise null -> becomes the last one).
-        //
-        // CASE EXAMPLE FOR FINDING NEXT SIBLING - for <span/> #2 above:
-        // 1. We first go up to <Onething/> and see if we have next siblings.
-        //    * If <span /3> has .domNode, we are already finished.
-        // 2. There are no more siblings after it, so we go up to <Something/> and do the same.
-        //    * If the third <Onething/> has a .domNode, we are finished.
-        // 3. Otherwise we go up to <div> and look for siblings.
-        //    * If the second <Something/> has a .domNode, we are finished.
-        // 4. Otherwise we are finished as well, but without a .domNode. We will be inserted as the last child.
-        //
-        // BOOKKEEPING (see updateDOMChainBy() below):
-        // - The bookkeeping is done by whenever an element is moved / created:
-        //   * Goes to update domNode up the chain until is not the first child of parent or hits a dom tag.
-        //   * Actually, it's a tiny bit more complicated: even if we are, say, the 2nd child,
-        //     but 1st child has no domNode (eg. boundary rendered null), then we should still also update the chain.
-        // - In the case of removing, the procedure is a bit more complex:
-        //   * Goes up level by level until not the first child anymore or hits a dom tag.
-        //     - On each tries to find a next sibling, unless already did find earlier.
-        //     - Then applies that node to the current (boundary) treeNode.
-        // - So if <span/> #2 is inserted above, after creating the element (and before inserting it),
-        //   will go one up to update <Onething/>, but then is not anymore the first child (of <Something>), so stops.
-        //
-
 
         // 1. First, find parent.
         let domParent: Node | null = null;
@@ -937,7 +949,8 @@ export class HostRender {
      * - In either case, it goes and updates the bookkeeping so that each affected boundary always has a .domNode reference that points to its first element.
      * - This information is essential (and as minimal as possible) to know where to insert new domNodes in a performant manner. (See above findInsertionNodes().)
      * - Note that if the whole boundary unmounts, this is not called. Instead the one that was "moved" to be the first one is called to replace this.
-     *   .. In dom sense, we can skip these "would move to the same point" before actual dom moving, but renderInfos should be created - as they are automatically by the basic flow. */
+     *      * In dom sense, we can skip these "would move to the same point" before actual dom moving, but renderInfos should be created - as they are automatically by the basic flow.
+     */
     public static updateDOMChainBy(fromTreeNode: MixDOMTreeNode, domNode: Node | null, fromSelf: boolean = false) {
         // Note, in the simple case that we have a domNode, the next sibling part is simply skipped. See the logic above in findInsertionNodes.
         let tNode: MixDOMTreeNode | null = fromTreeNode;
@@ -998,7 +1011,7 @@ export class HostRender {
         }
     }
 
-    /** This reads the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
+    /** Read the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
     public static readFromDOM(domNode: HTMLElement | SVGElement | Node): MixDOMProcessedDOMProps {
         // Prepare.
         const domProps: MixDOMProcessedDOMProps = {};
@@ -1024,7 +1037,8 @@ export class HostRender {
     }
 
     /** Returns a single html element.
-     * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content. */
+     * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
+     */
     public static domNodeFrom (innerHTML: string, fallbackTagOrEl: DOMTags | HTMLElement = "div", keepTag: boolean = false): Node | null {
         const dummy = fallbackTagOrEl instanceof Element ? fallbackTagOrEl : typeof document === "object" ? document.createElement(fallbackTagOrEl) : null;
         if (!dummy)
@@ -1165,13 +1179,13 @@ export class HostRender {
     // Thanks to: https://stackoverflow.com/questions/24758284/how-to-change-camelcase-to-slug-case-or-kabob-case-via-regex-in-javascript
     /**
      * - With "-" as replaceBy, functions like this: "testProp" => "test-prop", and "TestProp" => "-test-prop".
-     * - This behaviour mirrors how element.dataset[prop] = value works. For example: data.TestProp = true   =>   <div data--test-prop="true" />
+     * - This behaviour mirrors how element.dataset[prop] = value works. For example: `data.TestProp = true`   =>   `<div data--test-prop="true" />`
      */
     public static decapitalizeString(str: string, replaceBy: string = ""): string {
         return str.replace(/([A-Z])/g, replaceBy + "$1").toLowerCase();
     }
 
-    /** This returns the content inside a root tree node as a html string. */
+    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering. */
     public static readAsString(treeNode: MixDOMTreeNode): string {
 
         // Get def.
@@ -1271,7 +1285,7 @@ export class HostRender {
         return dom;
     }
 
-    /** This returns a suitable virtual item from the structure.
+    /** Find a suitable virtual item from the structure.
      * - Tries the given vItem, or if used its children.
      * - Can use an optional suggester that can suggest some other virtual item or a direct dom node. 
      *   * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
@@ -1325,6 +1339,7 @@ export class HostRender {
         return null;
     }
 
+    /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
     private static isVirtualItemOk(treeNode: MixDOMTreeNodeDOM, item: MixDOMHydrationItem, baseItem: MixDOMHydrationItem | null, validator?: MixDOMHydrationValidator | null): boolean {
         // Must always have the identical tag.
         if (item.tag !== treeNode.def.tag)

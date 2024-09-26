@@ -4,11 +4,12 @@
 // Libraries.
 import { SignalsRecord, Context } from "data-signals";
 // Local.
-import { SVGAttributesBy, SVGTags } from "./SVGTypes";
-import { HTMLAttributes, HTMLTags, ListenerAttributesAll } from "./HTMLTypes";
+import { SVGTags } from "./SVGTypes";
+import { HTMLTags } from "./HTMLTypes";
+import { CSSProperties, DOMTags, HTMLSVGAttributes, HTMLSVGAttributesBy, ListenerAttributes } from "./DOMTypes";
 // Only typing (local).
-import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
 import { MixDOMDefTarget } from "./MixDOMDefs";
+import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
 // Only typing (distant).
 import { RefBase, RefDOMSignals } from "../common/Ref";
 import { ContentBoundary } from "../boundaries/ContentBoundary";
@@ -17,94 +18,6 @@ import { Host } from "../host/Host";
 import { ComponentTypeAny } from "../components/typesVariants";
 import { ComponentSignals } from "../components/typesSignals";
 import { PseudoElement, PseudoElementProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, PseudoEmpty, PseudoEmptyProps } from "../components/ComponentPseudos";
-
-
-// - HTML & SVG - //
-
-export interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericKeys> & Record<CSSNumericKeys, string | number>> {
-    [index: number]: never;
-};
-/** Some commonly used CSS properties that can receive numeric input. */
-export type CSSNumericKeys = 
-    | "borderWidth"
-    | "borderBottomWidth"
-    | "borderLeftWidth"
-    | "borderRightWidth"
-    | "borderTopWidth"
-    | "bottom"
-    | "columnGap"
-    | "flexGrow"
-    | "flexShrink"
-    | "fontWeight"
-    | "gap"
-    | "gridColumnEnd"
-    | "gridColumnGap"
-    | "gridColumnStart"
-    | "gridRowEnd"
-    | "gridRowGap"
-    | "gridRowStart"
-    | "height"
-    | "inset"
-    | "left"
-    | "margin"
-    | "marginBottom"
-    | "marginLeft"
-    | "marginRight"
-    | "marginTop"
-    | "maxWidth"
-    | "maxHeight"
-    | "minWidth"
-    | "minHeight"
-    | "offsetDistance"
-    | "opacity"
-    | "order"
-    | "outlineWidth"
-    | "padding"
-    | "paddingTop"
-    | "paddingBottom"
-    | "paddingLeft"
-    | "paddingRight"
-    | "right"
-    | "rowGap"
-    | "scrollMargin"
-    | "scrollMarginBlock"
-    | "scrollMarginBlockEnd"
-    | "scrollMarginBlockStart"
-    | "scrollMarginBottom"
-    | "scrollMarginInline"
-    | "scrollMarginInlineEnd"
-    | "scrollMarginInlineStart"
-    | "scrollMarginLeft"
-    | "scrollMarginRight"
-    | "scrollMarginTop"
-    | "scrollPadding"
-    | "scrollPaddingBlock"
-    | "scrollPaddingBlockEnd"
-    | "scrollPaddingBlockStart"
-    | "scrollPaddingBottom"
-    | "scrollPaddingInline"
-    | "scrollPaddingInlineEnd"
-    | "scrollPaddingInlineStart"
-    | "scrollPaddingLeft"
-    | "scrollPaddingRight"
-    | "scrollPaddingTop"
-    | "stopOpacity"
-    | "strokeWidth"
-    | "strokeOpacity"
-    | "tabIndex"
-    | "tabSize"
-    | "top"
-    | "width"
-    | "zIndex"
-;
-
-export type DOMTags = HTMLTags | SVGTags;
-export type DOMElement = HTMLElement | SVGElement;
-export type ListenerAttributeNames = keyof ListenerAttributesAll;
-export type ListenerAttributes = { [Name in keyof ListenerAttributesAll]?: ListenerAttributesAll[Name] | null; };
-export type SVGAttributes<Tag extends SVGTags = SVGTags> = Omit<SVGAttributesBy[Tag], "style" | "class" | "className"> & Partial<ListenerAttributesAll>;
-export type HTMLSVGAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
-export type HTMLSVGAttributesBy = { [Tag in DOMTags]: HTMLSVGAttributes<Tag>; };
 
 
 // - Component & Boundary - //
