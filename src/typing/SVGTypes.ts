@@ -26,7 +26,8 @@ export type SVGAttributes_mixedCase<Tag extends SVGTags = SVGTags> = SVGAttribut
 type CustomTypedAttributes = "style" | "class" | "className";
 
 // Global attributes.
-type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
+// type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
+type SVGGlobalAttributes = Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGNativeAttributes> & Partial<SVGGraphicalEventAttributes>;
 
 // Manual additions.
 interface SVGManualAttributes {

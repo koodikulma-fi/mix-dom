@@ -214,7 +214,7 @@ type SVGAttributes_lowercase<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGEl
 /** SVG element attributes by tag name with both lowercase and camelCase listener and aria attributes. */
 type SVGAttributes_mixedCase<Tag extends SVGTags = SVGTags> = SVGAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
 type CustomTypedAttributes = "style" | "class" | "className";
-type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
+type SVGGlobalAttributes = Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGNativeAttributes> & Partial<SVGGraphicalEventAttributes>;
 interface SVGManualAttributes {
     a: {
         "download"?: HTMLAnchorElement["download"];

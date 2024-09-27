@@ -50,6 +50,8 @@ The `mix-dom` library now uses `data-signals` and `mixin-types` (also used by `d
     - Instead there is `addWired` and `removeWired` methods on the `Component` class that expect an already created wired class as the 1st arg.
     - This makes it easier to manage the wired hookups externally, while internally gets rid of the only cyclical JS import in source code.
   - Simplified component timers methods (from 5 methods to 3 methods) to not clutter the Component public instance API.
+- In MixDOM shortcut object.
+  - The shortcuts referring to contextAPI has now "Ctx" ending: `MixDOM.componentCtx` and `MixDOM.shadowCtx`. (Used to have "With" ending.)
 - Some types have been renamed, some types dropped and many complex types have been internally rewritten (to be cleaner and simpler).
   - Enhances typing and JS implementation of some special attributes.
   - There is now three sets of JSX declarations available.
