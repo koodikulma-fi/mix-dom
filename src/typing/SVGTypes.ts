@@ -1,15 +1,34 @@
 
+// - Imports - //
+
+// Local.
+import { ListenerAttributesAll } from "./ListenerTypes";
+
+
 // - Exports - //
 
-export type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
-export type SVGGeneralAttributes = SVGGlobalAttributes & Partial<SVGNativeAttributes>;
-
+// Tags and element.
 export type SVGTags = keyof SVGElementTagNameMap;
-export type SVGElementType<Tag extends SVGTags = SVGTags> = SVGElementTagNameMap[Tag];
+export type SVGElementType<Tag extends SVGTags = SVGTags> = SVGElementTagNameMap[Tag] & SVGGlobalAttributes & (Tag extends keyof SVGManualAttributes ? SVGManualAttributes[Tag] : {});
 
-// Collected common - others more generally.
-export interface SVGAttributesBy extends SVGAttributesByTag {}
-type SVGAttributesByTag = SVGManualAttributes & Record<Exclude<keyof SVGElementTagNameMap, keyof SVGManualAttributes>, Partial<SVGNativeAttributes>>;
+// SVG attributes.
+/** SVG element attributes by tag name with camelCase listener and aria attributes. */
+export type SVGAttributes<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
+/** SVG element attributes by tag name with lowercase listener and aria attributes. */
+export type SVGAttributes_lowercase<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof ARIAMixin> & SVGAriaAttributes>;
+/** SVG element attributes by tag name with both lowercase and camelCase listener and aria attributes. */
+export type SVGAttributes_mixedCase<Tag extends SVGTags = SVGTags> = SVGAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
+
+
+// - Local typing - //
+
+// Helper.
+type CustomTypedAttributes = "style" | "class" | "className";
+
+// Global attributes.
+type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
+
+// Manual additions.
 interface SVGManualAttributes {
     a: {
         "download"?: HTMLAnchorElement["download"];
@@ -21,21 +40,21 @@ interface SVGManualAttributes {
         "target"?: HTMLAnchorElement["target"];
         "type"?: SVGNativeAttributes["type"];
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
-    } & SVGGlobalAttributes;
+    };
     circle: {
         "cx"?: SVGNativeAttributes["cx"];
         "cy"?: SVGNativeAttributes["cy"];
         "r"?: SVGNativeAttributes["r"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     ellipse: {
         "cx"?: SVGNativeAttributes["cx"];
         "cy"?: SVGNativeAttributes["cy"];
         "rx"?: SVGNativeAttributes["rx"];
         "ry"?: SVGNativeAttributes["ry"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
-    g: {} & SVGGlobalAttributes;
+    };
+    g: {};
     image: {
         "x"?: SVGNativeAttributes["x"];
         "y"?: SVGNativeAttributes["y"];
@@ -45,26 +64,26 @@ interface SVGManualAttributes {
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
         "preserveAspectRatio"?: SVGNativeAttributes["preserveAspectRatio"];
         "crossorigin"?: SVGNativeAttributes["crossorigin"];
-    } & SVGGlobalAttributes;
+    };
     line: {
         "x1"?: SVGNativeAttributes["x1"];
         "y1"?: SVGNativeAttributes["y1"];
         "x2"?: SVGNativeAttributes["x2"];
         "y2"?: SVGNativeAttributes["y2"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     path: {
         "d"?: SVGNativeAttributes["d"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     polyline: {
         "points"?: SVGNativeAttributes["points"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     polygon: {
         "points"?: SVGNativeAttributes["points"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     rect: {
         "x"?: SVGNativeAttributes["x"];
         "y"?: SVGNativeAttributes["y"];
@@ -73,7 +92,7 @@ interface SVGManualAttributes {
         "rx"?: SVGNativeAttributes["rx"];
         "ry"?: SVGNativeAttributes["ry"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     use: {
         "href"?: HTMLAnchorElement["href"];
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
@@ -81,10 +100,10 @@ interface SVGManualAttributes {
         "y"?: SVGNativeAttributes["y"];
         "width"?: SVGNativeAttributes["width"];
         "height"?: SVGNativeAttributes["height"];
-    } & SVGGlobalAttributes;
+    };
 }
 
-export interface SVGCoreAttributes {
+interface SVGCoreAttributes {
     "id": string;
     "lang": string;
     "tabindex": string;
@@ -94,16 +113,16 @@ export interface SVGCoreAttributes {
     "xmlns": string;
     "xmlns:xlink": string;
 }
-export interface SVGStylingAttributes {
+interface SVGStylingAttributes {
     "class": string;
     "style": string;
 }
-export interface SVGGraphicalEventAttributes {
+interface SVGGraphicalEventAttributes {
     onActivate: (this: GlobalEventHandlers, ev: UIEvent) => void;
     onFocusIn: (this: GlobalEventHandlers, ev: UIEvent) => void;
     onFocusOut: (this: GlobalEventHandlers, ev: UIEvent) => void;
 }
-export interface SVGPresentationalAttributes {
+interface SVGPresentationalAttributes {
     "clip-path": string;
     "clip-rule": number | string;
     "color": string;
@@ -131,8 +150,9 @@ export interface SVGPresentationalAttributes {
     "vector-effect": number | string;
     "visibility": number | string;
 }
+
 // Assuming these are all strings - didn't check.
-export interface SVGAriaAttributes {
+interface SVGAriaAttributes {
     "aria-activedescendant": string;
     "aria-atomic": string;
     "aria-autocomplete": string;
@@ -185,7 +205,7 @@ export interface SVGAriaAttributes {
 }
 
 /** The collected native attributes for all svg elements combined - excluding the global attributes belonging to all. */
-export interface SVGNativeAttributes extends SVGCoreAttributes {
+interface SVGNativeAttributes extends SVGCoreAttributes {
     "accent-height": number | string;
     "accumulate": 'none' | 'sum';
     "additive": 'replace' | 'sum';

@@ -4,9 +4,10 @@
 // Libraries.
 import { SignalsRecord, Context } from "data-signals";
 // Local.
+import { CSSProperties } from "./CSSTypes";
 import { SVGTags } from "./SVGTypes";
 import { HTMLTags } from "./HTMLTypes";
-import { CSSProperties, DOMTags, HTMLSVGAttributes, HTMLSVGAttributesBy, ListenerAttributes } from "./DOMTypes";
+import { DOMTags, DOMAttributes, ListenerAttributes } from "./DOMTypes";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
@@ -95,7 +96,7 @@ export interface MixDOMPreDOMProps extends MixDOMPreBaseProps {
     _signals?: Partial<RefDOMSignals> | null;
 }
 /** This includes all the internal dom props (_key, _ref, ...) as well as common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-export type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & HTMLSVGAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+export type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
 
 
 // - POST Props - //
@@ -107,22 +108,10 @@ export interface MixDOMCommonDOMProps {
     data?: Record<string, any>;
 }
 /** These are any DOM props excluding internal props (like _key, _ref, ...), but also including HTML and SVG attributes (including listeners) by inputting Tag. */
-export type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = HTMLSVGAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+export type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
 
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary. */
 export type MixDOMProcessedDOMProps = { className?: string; style?: CSSProperties; data?: Record<string, any>; };
-
-
-// - JSX - Intrinsic attributes - //
-
-/** Meant for JSX.
- * - Generic support for "_key", "_ref" and "_disable" props (by catch phrase).
- *      * Note that for components, the "_signals" prop is component specific, so uses the initial props on constructor or func.
- *      * This means, each component should be typed with shortcuts (eg. `ComponentFunc<Info>`). To do it manually initProps should have MixDOMPreComponentProps included.
- * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
- *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
- */
-export type IntrinsicAttributesBy = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof HTMLSVGAttributesBy]: MixDOMPreDOMProps & MixDOMCommonDOMProps; } & HTMLSVGAttributesBy;
 
 
 // - Render output types - //

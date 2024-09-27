@@ -39,8 +39,6 @@ const contentKey: {} = {};
 export function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDOMPreDOMTagProps<DOMTag> | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
 export function newDef<Props extends Record<string, any>>(componentTag: MixDOMComponentTag<Props>, origProps?: (MixDOMPreComponentProps & Props) | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
 export function newDef<Props extends MixDOMPreDOMTagProps | MixDOMPreComponentProps>(tag: MixDOMPreTag, origProps?: Props | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
-// export function newDef<Props extends HTMLSVGAttributes | MixDOMPreComponentProps>(tag: DOMTags | ComponentTypeAny<Props>, origProps?: Props | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
-// export function newDef<DOMTag extends DOMTags, Props extends HTMLSVGAttributes<DOMTag> | MixDOMPreComponentProps>(tag: DOMTag | ComponentTypeAny<Props>, origProps?: Props | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
 export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
     // Get type.
     const defType = getMixDOMDefType(tagOrClass);

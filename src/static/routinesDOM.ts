@@ -17,6 +17,7 @@ const complexDomProps = {
 
 // - Comparison helpers - //
 
+/** Collect shallow differences in two dictionaries. Assumes first one is original and second are the updates (= the next state) of the dictionary. Returns `null` if no changes detected. */
 export function getDictionaryDiffs<T extends Record<string, any>>(orig: Partial<T>, update: Partial<T>): Partial<T> | null {
     // Collect.
     const diffs: Partial<T> = {};
@@ -43,7 +44,8 @@ export function getDictionaryDiffs<T extends Record<string, any>>(orig: Partial<
 
 /** Helper to compare a dictionary against another by a dictionary of update modes (only compares the propeties of this dictionary).
  * - Returns false if had differences. Note that in "always" mode even identical values are considered different, so returns true for any. 
- * - -2 always, -1 deep, 0 changed, 1 shallow, 2 double, ... See the MixDOMUpdateCompareMode type for details. */
+ * - -2 always, -1 deep, 0 changed, 1 shallow, 2 double, ... See the MixDOMUpdateCompareMode type for details.
+ */
 export function equalDictionariesBy(from: Record<string, any> | null | undefined, to: Record<string, any> | null | undefined, compareBy: Record<string, MixDOMUpdateCompareMode | number | any>): boolean {
     // Loop each prop key in the compareBy dictionary.
     const eitherEmpty = !from || !to;
@@ -122,6 +124,12 @@ export function equalDOMProps(a: MixDOMProcessedDOMProps, b: MixDOMProcessedDOMP
 
 // - HTML props - //
 
+/** Clean the given DOM properties.
+ * - Handles "style" separately supporting string vs. dictionary, combines to a dictionary with camelCase names. (Does not clean existing styles dictionary.)
+ * - Combines "class" and "className" to "className".
+ * - Cleans "aria" related: eg. "ariaAutoComplete" becomes "aria-autocomplete".
+ * - However, does _not_ rename listeners - since they are anyway detected separately in the flow.
+ */
 export function cleanDOMProps<Props extends Record<string, any> & Pick<MixDOMCommonDOMProps, "class" | "className" | "style"> = {}>(origProps: Props, copy?: boolean): MixDOMProcessedDOMProps & Props {
     // Copy.
     const props = copy ? { ...origProps } : origProps;
@@ -132,11 +140,20 @@ export function cleanDOMProps<Props extends Record<string, any> & Pick<MixDOMCom
     // Style.
     if (typeof props.style === "string")
         props.style = parseStyle(props.style);
+    // Attributes.
+    for (const prop in props) {
+        if (prop.startsWith("aria") && !prop.startsWith("aria-")) {
+            // It's okay to mutate the dictionary while looping it - at least with not-natural-number like keys.
+            (props as Record<string, any>)["aria-" + prop.slice(4).toLowerCase()] = props[prop];
+            delete props[prop];
+        }
+    }
     // Return cleaned.
     return props as MixDOMProcessedDOMProps & Props;
 }
 
 // Help from: https://stackoverflow.com/questions/8987550/convert-css-text-to-javascript-object
+/** Parse style string to a dictionary with camelCase keys. Value is string or undefined. */
 export function parseStyle(cssText: string): CSSProperties {
     // Clean extra empty chars.
     const text = cssText.replace(/\/\*(.|\s)*?\*\//g, " ").replace(/\s+/g, " ").trim();

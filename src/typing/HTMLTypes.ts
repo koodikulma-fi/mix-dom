@@ -1,98 +1,84 @@
 
+// - Imports - //
+
+// Local.
+import { ListenerAttributesAll } from "./ListenerTypes";
+
+
 // - HTML related typing - //
 
+// Tags and element.
+/** All known HTML tag names. */
 export type HTMLTags = keyof HTMLElementTagNameMap;
+/** The native HTML element type by tag name. */
 export type HTMLElementType<Tag extends HTMLTags = HTMLTags> = HTMLElementTagNameMap[Tag];
-export type HTMLAttributes<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, "style" | "class" | "className" | "textContent" | "innerHTML" | "outerHTML" | "outerText" | "innerText">> & Partial<ListenerAttributesAll>;
 
-export interface ListenerAttributesAll {
-    onAbort: GlobalEventHandlers["onabort"];
-    onActivate: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onAnimationCancel: GlobalEventHandlers["onanimationcancel"];
-    onAnimationEnd: GlobalEventHandlers["onanimationend"];
-    onAnimationIteration: GlobalEventHandlers["onanimationiteration"];
-    onAnimationStart: GlobalEventHandlers["onanimationstart"];
-    onAuxClick: GlobalEventHandlers["onauxclick"];
-    onBlur: GlobalEventHandlers["onblur"];
-    // onCancel: Animation["oncancel"];
-    onCanPlay: GlobalEventHandlers["oncanplay"];
-    onCanPlayThrough: GlobalEventHandlers["oncanplaythrough"];
-    onChange: GlobalEventHandlers["onchange"];
-    onClick: GlobalEventHandlers["onclick"];
-    onClose: GlobalEventHandlers["onclose"];
-    onContextMenu: GlobalEventHandlers["oncontextmenu"];
-    onCueChange: GlobalEventHandlers["oncuechange"];
-    onDblClick: GlobalEventHandlers["ondblclick"];
-    onDrag: GlobalEventHandlers["ondrag"];
-    onDragEnd: GlobalEventHandlers["ondragend"];
-    onDragEnter: GlobalEventHandlers["ondragenter"];
-    // onDragExit: GlobalEventHandlers["ondragexit"];
-    onDragLeave: GlobalEventHandlers["ondragleave"];
-    onDragOver: GlobalEventHandlers["ondragover"];
-    onDragStart: GlobalEventHandlers["ondragstart"];
-    onDrop: GlobalEventHandlers["ondrop"];
-    onDurationChange: GlobalEventHandlers["ondurationchange"];
-    onEmptied: GlobalEventHandlers["onemptied"];
-    onEnded: GlobalEventHandlers["onended"];
-    onError: GlobalEventHandlers["onerror"];
-    onFocus: GlobalEventHandlers["onfocus"];
-    onFocusIn: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onFocusOut: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onGotPointerCapture: GlobalEventHandlers["ongotpointercapture"];
-    onInput: GlobalEventHandlers["oninput"];
-    onInvalid: GlobalEventHandlers["oninvalid"];
-    onKeyDown: GlobalEventHandlers["onkeydown"];
-    // Note, onkeypress is deprecated, but we need to support it nevertheless - for some while, at least.
-    // onKeyPress: GlobalEventHandlers["onkeypress"];
-    onKeyPress: ((this: GlobalEventHandlers, ev: KeyboardEvent) => any) | null;
-    onKeyUp: GlobalEventHandlers["onkeyup"];
-    onLoad: GlobalEventHandlers["onload"];
-    onLoadedData: GlobalEventHandlers["onloadeddata"];
-    onLoadedMetaData: GlobalEventHandlers["onloadedmetadata"];
-    // onLoadEnd: GlobalEventHandlers["onloadend"];
-    onLoadStart: GlobalEventHandlers["onloadstart"];
-    onLostPointerCapture: GlobalEventHandlers["onlostpointercapture"];
-    onMouseDown: GlobalEventHandlers["onmousedown"];
-    onMouseEnter: GlobalEventHandlers["onmouseenter"];
-    onMouseLeave: GlobalEventHandlers["onmouseleave"];
-    onMouseMove: GlobalEventHandlers["onmousemove"];
-    onMouseOut: GlobalEventHandlers["onmouseout"];
-    onMouseOver: GlobalEventHandlers["onmouseover"];
-    onMouseUp: GlobalEventHandlers["onmouseup"];
-    onPause: GlobalEventHandlers["onpause"];
-    onPlay: GlobalEventHandlers["onplay"];
-    onPlaying: GlobalEventHandlers["onplaying"];
-    onPointerCancel: GlobalEventHandlers["onpointercancel"];
-    onPointerDown: GlobalEventHandlers["onpointerdown"];
-    onPointerEnter: GlobalEventHandlers["onpointerenter"];
-    onPointerLeave: GlobalEventHandlers["onpointerleave"];
-    onPointerMove: GlobalEventHandlers["onpointermove"];
-    onPointerOut: GlobalEventHandlers["onpointerout"];
-    onPointerOver: GlobalEventHandlers["onpointerover"];
-    onPointerUp: GlobalEventHandlers["onpointerup"];
-    onProgress: GlobalEventHandlers["onprogress"];
-    onRateChange: GlobalEventHandlers["onratechange"];
-    onReset: GlobalEventHandlers["onreset"];
-    onResize: GlobalEventHandlers["onresize"];
-    onScroll: GlobalEventHandlers["onscroll"];
-    onSecurityPolicyViolation: GlobalEventHandlers["onsecuritypolicyviolation"];
-    onSeeked: GlobalEventHandlers["onseeked"];
-    onSeeking: GlobalEventHandlers["onseeking"];
-    onSelect: GlobalEventHandlers["onselect"];
-    onStalled: GlobalEventHandlers["onstalled"];
-    onSubmit: GlobalEventHandlers["onsubmit"];
-    onSuspend: GlobalEventHandlers["onsuspend"];
-    onTimeUpdate: GlobalEventHandlers["ontimeupdate"];
-    onToggle: GlobalEventHandlers["ontoggle"];
-    onTouchCancel: GlobalEventHandlers["ontouchcancel"];
-    onTouchEnd: GlobalEventHandlers["ontouchend"];
-    onTouchMove: GlobalEventHandlers["ontouchmove"];
-    onTouchStart: GlobalEventHandlers["ontouchstart"];
-    onTransitionCancel: GlobalEventHandlers["ontransitioncancel"];
-    onTransitionEnd: GlobalEventHandlers["ontransitionend"];
-    onTransitionRun: GlobalEventHandlers["ontransitionrun"];
-    onTransitionStart: GlobalEventHandlers["ontransitionstart"];
-    onVolumeChange: GlobalEventHandlers["onvolumechange"];
-    onWaiting: GlobalEventHandlers["onwaiting"];
-    onWheel: GlobalEventHandlers["onwheel"];
+// HTML attributes.
+/** HTML element attributes by tag name with camelCase listener and aria attributes. */
+export type HTMLAttributes<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
+/** HTML element attributes by tag name with lowercase listener and aria attributes. */
+export type HTMLAttributes_lowercase<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes | keyof ARIAMixin> & HTMLAriaAttributes_lowercase>;
+/** HTML element attributes by tag name with both lowercase and camelCase listener keys. */
+export type HTMLAttributes_mixedCase<Tag extends HTMLTags = HTMLTags> = HTMLAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
+
+
+// - Local typing - //
+
+// Helper.
+type CustomTypedAttributes = "style" | "class" | "className" | "textContent" | "innerHTML" | "outerHTML" | "outerText" | "innerText";
+
+// Assuming these are all strings - didn't check. From https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes.
+interface HTMLAriaAttributes_lowercase {
+    // Role.
+    "role": string;
+    // Aria (alphabetically).
+    "aria-activedescendant": string;
+    "aria-atomic": string;
+    "aria-autocomplete": string;
+    "aria-busy": string;
+    "aria-checked": string;
+    "aria-colcount": string;
+    "aria-colindex": string;
+    "aria-colspan": string;
+    "aria-controls": string;
+    "aria-current": string;
+    "aria-describedby": string;
+    "aria-description": string;
+    "aria-details": string;
+    "aria-disabled": string;
+    "aria-dropeffect": string;
+    "aria-errormessage": string;
+    "aria-expanded": string;
+    "aria-flowto": string;
+    "aria-grabbed": string;
+    "aria-haspopup": string;
+    "aria-hidden": string;
+    "aria-invalid": string;
+    "aria-keyshortcuts": string;
+    "aria-label": string;
+    "aria-labelledby": string;
+    "aria-level": string;
+    "aria-live": string;
+    "aria-modal": string;
+    "aria-multiline": string;
+    "aria-multiselectable": string;
+    "aria-orientation": string;
+    "aria-owns": string;
+    "aria-placeholder": string;
+    "aria-posinset": string;
+    "aria-pressed": string;
+    "aria-readonly": string;
+    "aria-relevant": string;
+    "aria-required": string;
+    "aria-roledescription": string;
+    "aria-rowcount": string;
+    "aria-rowindex": string;
+    "aria-rowspan": string;
+    "aria-selected": string;
+    "aria-setsize": string;
+    "aria-sort": string;
+    "aria-valuemax": string;
+    "aria-valuemin": string;
+    "aria-valuenow": string;
+    "aria-valuetext": string;
 }

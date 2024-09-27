@@ -46,9 +46,7 @@ type NameValidator<Valid extends any, Input> = [
  */
 type ValidateNames<Valid extends string, Nulls extends any = undefined | null | false | 0 | ""> = <T1 extends NameValidator<Valid | Nulls, T1>, T2 extends NameValidator<Valid | Nulls, T2>, T3 extends NameValidator<Valid | Nulls, T3>, T4 extends NameValidator<Valid | Nulls, T4>, T5 extends NameValidator<Valid | Nulls, T5>, T6 extends NameValidator<Valid | Nulls, T6>, T7 extends NameValidator<Valid | Nulls, T7>, T8 extends NameValidator<Valid | Nulls, T8>, T9 extends NameValidator<Valid | Nulls, T9>, T10 extends NameValidator<Valid | Nulls, T10>, Tn extends NameValidator<Valid, Tn>>(t1?: T1, t2?: T2, t3?: T3, t4?: T4, t5?: T5, t6?: T6, t7?: T7, t8?: T8, t9?: T9, t10?: T10, ...tn: Tn[]) => string;
 
-type HTMLTags = keyof HTMLElementTagNameMap;
-type HTMLElementType<Tag extends HTMLTags = HTMLTags> = HTMLElementTagNameMap[Tag];
-type HTMLAttributes<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, "style" | "class" | "className" | "textContent" | "innerHTML" | "outerHTML" | "outerText" | "innerText">> & Partial<ListenerAttributesAll>;
+/** All DOM listener attributes with camelCase keys referring to the lowercase originals in type. */
 interface ListenerAttributesAll {
     onAbort: GlobalEventHandlers["onabort"];
     onActivate: (this: GlobalEventHandlers, ev: UIEvent) => void;
@@ -136,13 +134,87 @@ interface ListenerAttributesAll {
     onWheel: GlobalEventHandlers["onwheel"];
 }
 
-type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
-type SVGGeneralAttributes = SVGGlobalAttributes & Partial<SVGNativeAttributes>;
-type SVGTags = keyof SVGElementTagNameMap;
-type SVGElementType<Tag extends SVGTags = SVGTags> = SVGElementTagNameMap[Tag];
-interface SVGAttributesBy extends SVGAttributesByTag {
+/** The CSS properties with camelCase keys. Values are strings, or numbers for certain natively supported style properties (like "width", "height", "opacity" and others). */
+interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericPropertyNames> & Record<CSSNumericPropertyNames, string | number>> {
+    [index: number]: never;
 }
-type SVGAttributesByTag = SVGManualAttributes & Record<Exclude<keyof SVGElementTagNameMap, keyof SVGManualAttributes>, Partial<SVGNativeAttributes>>;
+/** Commonly used CSS properties that can receive numeric input natively. */
+type CSSNumericPropertyNames = "borderWidth" | "borderBottomWidth" | "borderLeftWidth" | "borderRightWidth" | "borderTopWidth" | "bottom" | "columnGap" | "flexGrow" | "flexShrink" | "fontWeight" | "gap" | "gridColumnEnd" | "gridColumnGap" | "gridColumnStart" | "gridRowEnd" | "gridRowGap" | "gridRowStart" | "height" | "inset" | "left" | "margin" | "marginBottom" | "marginLeft" | "marginRight" | "marginTop" | "maxWidth" | "maxHeight" | "minWidth" | "minHeight" | "offsetDistance" | "opacity" | "order" | "outlineWidth" | "padding" | "paddingTop" | "paddingBottom" | "paddingLeft" | "paddingRight" | "right" | "rowGap" | "scrollMargin" | "scrollMarginBlock" | "scrollMarginBlockEnd" | "scrollMarginBlockStart" | "scrollMarginBottom" | "scrollMarginInline" | "scrollMarginInlineEnd" | "scrollMarginInlineStart" | "scrollMarginLeft" | "scrollMarginRight" | "scrollMarginTop" | "scrollPadding" | "scrollPaddingBlock" | "scrollPaddingBlockEnd" | "scrollPaddingBlockStart" | "scrollPaddingBottom" | "scrollPaddingInline" | "scrollPaddingInlineEnd" | "scrollPaddingInlineStart" | "scrollPaddingLeft" | "scrollPaddingRight" | "scrollPaddingTop" | "stopOpacity" | "strokeWidth" | "strokeOpacity" | "tabIndex" | "tabSize" | "top" | "width" | "zIndex";
+
+/** All known HTML tag names. */
+type HTMLTags = keyof HTMLElementTagNameMap;
+/** The native HTML element type by tag name. */
+type HTMLElementType<Tag extends HTMLTags = HTMLTags> = HTMLElementTagNameMap[Tag];
+/** HTML element attributes by tag name with camelCase listener and aria attributes. */
+type HTMLAttributes<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes$1 | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
+/** HTML element attributes by tag name with lowercase listener and aria attributes. */
+type HTMLAttributes_lowercase<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes$1 | keyof ARIAMixin> & HTMLAriaAttributes_lowercase>;
+/** HTML element attributes by tag name with both lowercase and camelCase listener keys. */
+type HTMLAttributes_mixedCase<Tag extends HTMLTags = HTMLTags> = HTMLAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
+type CustomTypedAttributes$1 = "style" | "class" | "className" | "textContent" | "innerHTML" | "outerHTML" | "outerText" | "innerText";
+interface HTMLAriaAttributes_lowercase {
+    "role": string;
+    "aria-activedescendant": string;
+    "aria-atomic": string;
+    "aria-autocomplete": string;
+    "aria-busy": string;
+    "aria-checked": string;
+    "aria-colcount": string;
+    "aria-colindex": string;
+    "aria-colspan": string;
+    "aria-controls": string;
+    "aria-current": string;
+    "aria-describedby": string;
+    "aria-description": string;
+    "aria-details": string;
+    "aria-disabled": string;
+    "aria-dropeffect": string;
+    "aria-errormessage": string;
+    "aria-expanded": string;
+    "aria-flowto": string;
+    "aria-grabbed": string;
+    "aria-haspopup": string;
+    "aria-hidden": string;
+    "aria-invalid": string;
+    "aria-keyshortcuts": string;
+    "aria-label": string;
+    "aria-labelledby": string;
+    "aria-level": string;
+    "aria-live": string;
+    "aria-modal": string;
+    "aria-multiline": string;
+    "aria-multiselectable": string;
+    "aria-orientation": string;
+    "aria-owns": string;
+    "aria-placeholder": string;
+    "aria-posinset": string;
+    "aria-pressed": string;
+    "aria-readonly": string;
+    "aria-relevant": string;
+    "aria-required": string;
+    "aria-roledescription": string;
+    "aria-rowcount": string;
+    "aria-rowindex": string;
+    "aria-rowspan": string;
+    "aria-selected": string;
+    "aria-setsize": string;
+    "aria-sort": string;
+    "aria-valuemax": string;
+    "aria-valuemin": string;
+    "aria-valuenow": string;
+    "aria-valuetext": string;
+}
+
+type SVGTags = keyof SVGElementTagNameMap;
+type SVGElementType<Tag extends SVGTags = SVGTags> = SVGElementTagNameMap[Tag] & SVGGlobalAttributes & (Tag extends keyof SVGManualAttributes ? SVGManualAttributes[Tag] : {});
+/** SVG element attributes by tag name with camelCase listener and aria attributes. */
+type SVGAttributes<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
+/** SVG element attributes by tag name with lowercase listener and aria attributes. */
+type SVGAttributes_lowercase<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof ARIAMixin> & SVGAriaAttributes>;
+/** SVG element attributes by tag name with both lowercase and camelCase listener and aria attributes. */
+type SVGAttributes_mixedCase<Tag extends SVGTags = SVGTags> = SVGAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
+type CustomTypedAttributes = "style" | "class" | "className";
+type SVGGlobalAttributes = Partial<SVGCoreAttributes> & Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGCoreAttributes> & Partial<SVGGraphicalEventAttributes>;
 interface SVGManualAttributes {
     a: {
         "download"?: HTMLAnchorElement["download"];
@@ -154,21 +226,21 @@ interface SVGManualAttributes {
         "target"?: HTMLAnchorElement["target"];
         "type"?: SVGNativeAttributes["type"];
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
-    } & SVGGlobalAttributes;
+    };
     circle: {
         "cx"?: SVGNativeAttributes["cx"];
         "cy"?: SVGNativeAttributes["cy"];
         "r"?: SVGNativeAttributes["r"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     ellipse: {
         "cx"?: SVGNativeAttributes["cx"];
         "cy"?: SVGNativeAttributes["cy"];
         "rx"?: SVGNativeAttributes["rx"];
         "ry"?: SVGNativeAttributes["ry"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
-    g: {} & SVGGlobalAttributes;
+    };
+    g: {};
     image: {
         "x"?: SVGNativeAttributes["x"];
         "y"?: SVGNativeAttributes["y"];
@@ -178,26 +250,26 @@ interface SVGManualAttributes {
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
         "preserveAspectRatio"?: SVGNativeAttributes["preserveAspectRatio"];
         "crossorigin"?: SVGNativeAttributes["crossorigin"];
-    } & SVGGlobalAttributes;
+    };
     line: {
         "x1"?: SVGNativeAttributes["x1"];
         "y1"?: SVGNativeAttributes["y1"];
         "x2"?: SVGNativeAttributes["x2"];
         "y2"?: SVGNativeAttributes["y2"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     path: {
         "d"?: SVGNativeAttributes["d"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     polyline: {
         "points"?: SVGNativeAttributes["points"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     polygon: {
         "points"?: SVGNativeAttributes["points"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     rect: {
         "x"?: SVGNativeAttributes["x"];
         "y"?: SVGNativeAttributes["y"];
@@ -206,7 +278,7 @@ interface SVGManualAttributes {
         "rx"?: SVGNativeAttributes["rx"];
         "ry"?: SVGNativeAttributes["ry"];
         "pathLength"?: SVGNativeAttributes["pathLength"];
-    } & SVGGlobalAttributes;
+    };
     use: {
         "href"?: HTMLAnchorElement["href"];
         "xlink:href"?: SVGNativeAttributes["xlink:href"];
@@ -214,7 +286,7 @@ interface SVGManualAttributes {
         "y"?: SVGNativeAttributes["y"];
         "width"?: SVGNativeAttributes["width"];
         "height"?: SVGNativeAttributes["height"];
-    } & SVGGlobalAttributes;
+    };
 }
 interface SVGCoreAttributes {
     "id": string;
@@ -563,24 +635,24 @@ interface SVGNativeAttributes extends SVGCoreAttributes {
     "zoomAndPan": string;
 }
 
-interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericKeys> & Record<CSSNumericKeys, string | number>> {
-    [index: number]: never;
-}
-/** Some commonly used CSS properties that can receive numeric input. */
-type CSSNumericKeys = "borderWidth" | "borderBottomWidth" | "borderLeftWidth" | "borderRightWidth" | "borderTopWidth" | "bottom" | "columnGap" | "flexGrow" | "flexShrink" | "fontWeight" | "gap" | "gridColumnEnd" | "gridColumnGap" | "gridColumnStart" | "gridRowEnd" | "gridRowGap" | "gridRowStart" | "height" | "inset" | "left" | "margin" | "marginBottom" | "marginLeft" | "marginRight" | "marginTop" | "maxWidth" | "maxHeight" | "minWidth" | "minHeight" | "offsetDistance" | "opacity" | "order" | "outlineWidth" | "padding" | "paddingTop" | "paddingBottom" | "paddingLeft" | "paddingRight" | "right" | "rowGap" | "scrollMargin" | "scrollMarginBlock" | "scrollMarginBlockEnd" | "scrollMarginBlockStart" | "scrollMarginBottom" | "scrollMarginInline" | "scrollMarginInlineEnd" | "scrollMarginInlineStart" | "scrollMarginLeft" | "scrollMarginRight" | "scrollMarginTop" | "scrollPadding" | "scrollPaddingBlock" | "scrollPaddingBlockEnd" | "scrollPaddingBlockStart" | "scrollPaddingBottom" | "scrollPaddingInline" | "scrollPaddingInlineEnd" | "scrollPaddingInlineStart" | "scrollPaddingLeft" | "scrollPaddingRight" | "scrollPaddingTop" | "stopOpacity" | "strokeWidth" | "strokeOpacity" | "tabIndex" | "tabSize" | "top" | "width" | "zIndex";
-type DOMTags = HTMLTags | SVGTags;
-type DOMElement = HTMLElement | SVGElement;
 type ListenerAttributeNames = keyof ListenerAttributesAll;
 type ListenerAttributes = {
     [Name in keyof ListenerAttributesAll]?: ListenerAttributesAll[Name] | null;
 };
-type SVGAttributes<Tag extends SVGTags = SVGTags> = Omit<SVGAttributesBy[Tag], "style" | "class" | "className"> & Partial<ListenerAttributesAll>;
-type HTMLSVGAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
-type HTMLSVGAttributesBy = {
-    [Tag in DOMTags]: HTMLSVGAttributes<Tag>;
+type DOMTags = HTMLTags | SVGTags;
+type DOMElement = HTMLElement | SVGElement;
+type DOMAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
+type DOMAttributes_lowercase<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes_lowercase<Tag> : [Tag] extends [SVGTags] ? SVGAttributes_lowercase<Tag> : Other;
+type DOMAttributes_mixedCase<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes_mixedCase<Tag> : [Tag] extends [SVGTags] ? SVGAttributes_mixedCase<Tag> : Other;
+type DOMAttributesBy = {
+    [Tag in DOMTags]: DOMAttributes<Tag>;
 };
-/** Combined type for `HTMLAttributes & SVGAttributes`. */
-type DOMAttributes = HTMLAttributes & SVGAttributes;
+type DOMAttributesBy_lowercase = {
+    [Tag in DOMTags]: DOMAttributes_lowercase<Tag>;
+};
+type DOMAttributesBy_mixedCase = {
+    [Tag in DOMTags]: DOMAttributes_mixedCase<Tag>;
+};
 
 declare class ContentBoundary extends BaseBoundary {
     /** The def whose children define our content - we are a fragment-like container. */
@@ -2262,7 +2334,7 @@ interface MixDOMPreDOMProps extends MixDOMPreBaseProps {
     _signals?: Partial<RefDOMSignals> | null;
 }
 /** This includes all the internal dom props (_key, _ref, ...) as well as common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & HTMLSVGAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
 interface MixDOMCommonDOMProps {
     class?: string;
     className?: string;
@@ -2270,25 +2342,13 @@ interface MixDOMCommonDOMProps {
     data?: Record<string, any>;
 }
 /** These are any DOM props excluding internal props (like _key, _ref, ...), but also including HTML and SVG attributes (including listeners) by inputting Tag. */
-type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = HTMLSVGAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary. */
 type MixDOMProcessedDOMProps = {
     className?: string;
     style?: CSSProperties;
     data?: Record<string, any>;
 };
-/** Meant for JSX.
- * - Generic support for "_key", "_ref" and "_disable" props (by catch phrase).
- *      * Note that for components, the "_signals" prop is component specific, so uses the initial props on constructor or func.
- *      * This means, each component should be typed with shortcuts (eg. `ComponentFunc<Info>`). To do it manually initProps should have MixDOMPreComponentProps included.
- * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
- *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
- */
-type IntrinsicAttributesBy = {
-    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
-} & {
-    [Tag in keyof HTMLSVGAttributesBy]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
-} & HTMLSVGAttributesBy;
 type MixDOMContentNull = null | undefined;
 type MixDOMContentValue = string | number;
 type MixDOMContentSimple = MixDOMContentValue | Node;
@@ -2545,19 +2605,38 @@ interface MixDOMDefAppliedPseudo extends DefPseudo {
     hasPassWithin?: true;
 }
 
+/** The intrinsic attributes for JSX in camelCase (for listeners and aria props). */
+type IntrinsicAttributesBy_camelCase = {
+    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
+} & {
+    [Tag in keyof DOMAttributesBy]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
+} & DOMAttributesBy;
+/** The intrinsic attributes for JSX in lowercase (for listeners and aria props). */
+type IntrinsicAttributesBy_lowercase = {
+    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
+} & {
+    [Tag in keyof DOMAttributesBy_lowercase]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
+} & DOMAttributesBy_lowercase;
+/** The intrinsic attributes for JSX in both: lowercase and camelCase (for listeners and aria props). */
+type IntrinsicAttributesBy_mixedCase = {
+    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
+} & {
+    [Tag in keyof DOMAttributesBy_mixedCase]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
+} & DOMAttributesBy_mixedCase;
 /** Include this once in your project in a file included in TS/TSX compilation:
+ * - Note that the JSX namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use lowercase, use `JSX_lowercase`, or both with `JSX_mixedCase`.
  *
  * ```
-import { JSX as _JSX } from "mix-dom";
+import { JSX_camelCase } from "mix-dom";
 declare global {
     namespace JSX {
-        interface IntrinsicElements extends _JSX.IntrinsicElements {}
-        interface IntrinsicAttributes extends _JSX.IntrinsicAttributes {}
+        interface IntrinsicElements extends JSX_camelCase.IntrinsicElements {}
+        interface IntrinsicAttributes extends JSX_camelCase.IntrinsicAttributes {}
     }
 }
 ```
  */
-declare namespace JSX {
+declare namespace JSX_camelCase {
     /** This gives support for:
      * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
      *      * Note however that the "_signals" prop is component specific, so uses the initial props on constructor or func.
@@ -2566,7 +2645,67 @@ declare namespace JSX {
      * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
      *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
      */
-    interface IntrinsicElements extends IntrinsicAttributesBy {
+    interface IntrinsicElements extends IntrinsicAttributesBy_camelCase {
+    }
+    /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
+     * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable".
+     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there. */
+    interface IntrinsicAttributes extends MixDOMPreBaseProps {
+    }
+}
+/** Include this once in your project in a file included in TS/TSX compilation:
+ * - Note that the JSX namespace uses _lowercase_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
+ *
+ * ```
+import { JSX_lowercase } from "mix-dom";
+declare global {
+    namespace JSX {
+        interface IntrinsicElements extends JSX_lowercase.IntrinsicElements {}
+        interface IntrinsicAttributes extends JSX_lowercase.IntrinsicAttributes {}
+    }
+}
+```
+ */
+declare namespace JSX_lowercase {
+    /** This gives support for:
+     * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
+     *      * Note however that the "_signals" prop is component specific, so uses the initial props on constructor or func.
+     *          * This means, each component should be typed with shortcuts (eg. `ComponentFunc<Info>`). To do it manually initProps should have MixDOMPreComponentProps included.
+     *      * Similarly the "_contexts" prop is gotten through the props, even though it's not component specific (though could be, but it's not necessarily desired).
+     * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
+     *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
+     */
+    interface IntrinsicElements extends IntrinsicAttributesBy_lowercase {
+    }
+    /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
+     * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable".
+     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there. */
+    interface IntrinsicAttributes extends MixDOMPreBaseProps {
+    }
+}
+/** Include this once in your project in a file included in TS/TSX compilation:
+ * - Note that the JSX namespace uses _lowercase_ and _camelCase_ for DOM attributes related to listeners and aria. To use only camelCase use `JSX_camelCase`, for only lowercase use `JSX_mixedCase`.
+ *
+ * ```
+import { JSX_mixedCase } from "mix-dom";
+declare global {
+    namespace JSX {
+        interface IntrinsicElements extends JSX_mixedCase.IntrinsicElements {}
+        interface IntrinsicAttributes extends JSX_mixedCase.IntrinsicAttributes {}
+    }
+}
+```
+ */
+declare namespace JSX_mixedCase {
+    /** This gives support for:
+     * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
+     *      * Note however that the "_signals" prop is component specific, so uses the initial props on constructor or func.
+     *          * This means, each component should be typed with shortcuts (eg. `ComponentFunc<Info>`). To do it manually initProps should have MixDOMPreComponentProps included.
+     *      * Similarly the "_contexts" prop is gotten through the props, even though it's not component specific (though could be, but it's not necessarily desired).
+     * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
+     *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
+     */
+    interface IntrinsicElements extends IntrinsicAttributesBy_mixedCase {
     }
     /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
      * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable".
@@ -2578,6 +2717,7 @@ declare namespace JSX {
 declare const MixDOMContent: MixDOMDefTarget;
 declare const MixDOMContentCopy: MixDOMDefTarget;
 
+/** Parse style string to a dictionary with camelCase keys. Value is string or undefined. */
 declare function parseStyle(cssText: string): CSSProperties;
 /** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
  * - Each item in the classNames can be:
@@ -2835,4 +2975,4 @@ declare const MixDOM: {
     parseStyle: typeof parseStyle;
 };
 
-export { CSSNumericKeys, CSSProperties, Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, DOMAttributes, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLElementType, HTMLSVGAttributes, HTMLSVGAttributesBy, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IntrinsicAttributesBy, JSX, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAriaAttributes, SVGAttributes, SVGAttributesBy, SVGCoreAttributes, SVGElementType, SVGGeneralAttributes, SVGGlobalAttributes, SVGGraphicalEventAttributes, SVGNativeAttributes, SVGPresentationalAttributes, SVGStylingAttributes, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };
+export { CSSNumericPropertyNames, CSSProperties, Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, DOMAttributes, DOMAttributesBy, DOMAttributesBy_lowercase, DOMAttributesBy_mixedCase, DOMAttributes_lowercase, DOMAttributes_mixedCase, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLAttributes_lowercase, HTMLAttributes_mixedCase, HTMLElementType, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_lowercase, JSX_mixedCase, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAttributes, SVGAttributes_lowercase, SVGAttributes_mixedCase, SVGElementType, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };

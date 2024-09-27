@@ -1020,6 +1020,7 @@ export class HostRender {
         // Attributes.
         // .. This includes className as class, but we convert it back to className for fluidity with our flow.
         for (const prop of domNode.getAttributeNames())
+            // Convert class to className, otherwise reuse keys directly from what was applied in DOM - we assume it's clean.
             domProps[prop === "class" ? "className" : prop] = domNode.getAttribute(prop);
         // Style.
         const cssText = (domNode as HTMLElement | SVGElement).style.cssText;
@@ -1157,6 +1158,8 @@ export class HostRender {
                 // Diffs.
                 if (!diffs.attributes)
                     diffs.attributes = {};
+                // Set attribute diff, with aria prop conversion to HTML ready mode.
+                // .. We just assume anything starting with "aria" that is meant for a DOM element is ARIA related.
                 diffs.attributes[prop] = val;
                 // Apply.
                 if (domElement)
@@ -1265,7 +1268,7 @@ export class HostRender {
                 dom += ' data-' + HostRender.decapitalizeString(prop, "-") + '="' + data[prop].toString() + '"';
         }
         // .. Other attributes - skipping listeners and special.
-        for (const prop in attributes)
+        for (let prop in attributes)
             if (!HostRender.LISTENER_PROPS[prop] && !HostRender.SPECIAL_PROPS[prop])
                 dom += ' ' + prop + '="' + attributes[prop].toString() + '"';
 
