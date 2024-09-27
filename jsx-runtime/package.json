@@ -4,22 +4,22 @@
 	"version": "1.0.0",
 	"private": true,
 	"description": "MixDOM JSX runtime",
-	"main": "dist/jsxRuntime.js",
-	"module": "dist/jsxRuntime.module.js",
-	"umd:main": "dist/jsxRuntime.umd.js",
+	"main": "dist/index.js",
+	"module": "dist/index.module.js",
+	"umd:main": "dist/index.umd.js",
 	"source": "src/index.jts",
 	"types": "src/index.d.ts",
 	"license": "MIT",
 	"peerDependencies": {
-		"mix-dom": "^3.0.0"
+		"mix-dom": "^4.0.0"
 	},
 	"exports": {
 		".": {
-			"types": "./src/index.d.ts",
-			"browser": "./dist/jsxRuntime.module.js",
-			"umd": "./dist/jsxRuntime.umd.js",
-			"import": "./dist/jsxRuntime.mjs",
-			"require": "./dist/jsxRuntime.js"
+			"types": "./dist/index.d.ts",
+			"browser": "./dist/index.module.js",
+			"umd": "./dist/index.umd.js",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
 		}
 	}
 }
