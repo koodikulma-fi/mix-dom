@@ -1,6 +1,6 @@
 ## Note
 
-This repo is for developing v4. Work in progress.
+This repo is for developing v4. The work is completed, except for updating docs.
 
 ## MixDOM
 
