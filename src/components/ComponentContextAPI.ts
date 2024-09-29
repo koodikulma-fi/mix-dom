@@ -73,8 +73,8 @@ export class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends 
         // Trigger and await update cycle.
         if (!fullDelay)
             return this.host.afterRefresh(false, updateTimeout, renderTimeout);
-        // Trigger and await render cycle.
-        this.host.updateRefreshTimes(updateTimeout, renderTimeout);
+        // Trigger update with custom times.
+        this.host.triggerRefresh(updateTimeout, renderTimeout);
         return this.awaitDelay();
     }
     /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */

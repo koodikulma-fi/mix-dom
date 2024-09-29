@@ -211,19 +211,17 @@ export class HostServices {
         // Update times.
         this.updateRefreshTimes(forceUpdateTimeout, forceRenderTimeout);
         // Trigger update.
-        this.updateCycle.trigger(this.host.settings.updateTimeout, forceUpdateTimeout);
+        this.updateCycle.trigger(this.host.settings.updateTimeout);
     }
 
     /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
     public updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-        // Optionally set custom render timeout.
-        // .. Note that if is set to use instant rendering, we won't trigger the instant now, but just mark renderCycle to be infinite.
-        // .. We then later (in initializeCyclesFor hookup) check if it had no timeout set, then resolve instantly.
+        // Set render timeout.
         if (forceRenderTimeout !== undefined)
-            this.renderCycle.extend(forceRenderTimeout ?? undefined, false);
-        // Trigger update.
+            this.renderCycle.extend(forceRenderTimeout); // Note. We just _extend_ here - we won't resolve nor trigger the cycle instantly.
+        // Set update timeout.
         if (forceUpdateTimeout !== undefined)
-            this.updateCycle.extend(forceUpdateTimeout, false);
+            this.updateCycle.extend(forceUpdateTimeout); // Note. We just _extend_ here - we won't resolve nor trigger the cycle instantly.
     }
 
     /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
@@ -458,9 +456,7 @@ export class HostServices {
         services.updateCycle.listenTo("onFinish", () => {
             // Trigger with default timing. (If was already active, won't do anything.)
             services.renderCycle.trigger(services.host.settings.renderTimeout);
-            // See here if renderCycle had been set to infinite timeout. If so, resolve instantly.
-            if (services.renderCycle.timer === undefined)
-                services.renderCycle.resolve();
+            // Note that in case renderCycle had been set to instant resolution, it's already been solved by the time of this comment line.
         });
         // .. Make sure to start "update" when "render" is started.
         services.renderCycle.listenTo("onStart", () => services.updateCycle.trigger(services.host.settings.updateTimeout));
