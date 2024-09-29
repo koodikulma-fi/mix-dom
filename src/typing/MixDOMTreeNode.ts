@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Local.
-import { DOMElement } from "./DOMTypes";
+import { DOMElement } from "dom-types";
 // Only typing (local).
 import { MixDOMDefApplied } from "./MixDOMDefs";
 import { MixDOMBoundary, MixDOMProcessedDOMProps } from "./MixDOMTypes";
@@ -40,7 +40,7 @@ interface MixDOMTreeNodeBase {
 
     /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
     boundary?: MixDOMBoundary | null;
-    /** The def tied to this particular treeNode. */
+    /** The applied def tied to this particular treeNode. */
     def?: MixDOMDefApplied;
 
 };

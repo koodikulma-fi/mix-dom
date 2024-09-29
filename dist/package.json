@@ -1,9 +1,21 @@
 {
   "name": "mix-dom",
   "version": "4.0.0",
-  "description": "",
+  "description": "Powerful state based DOM rendering library (in JS/TS)",
   "keywords": [
-    "mix-dom"
+      "MixDOM",
+      "mix-dom",
+      "mix",
+      "mixing",
+      "components",
+      "dom",
+      "render",
+      "react",
+      "user interface",
+      "virtual dom",
+      "front-end",
+      "library",
+      "framework"
   ],
   "homepage": "https://github.com/koodikulma-fi/mix-dom",
   "author": "Mikael Saurén",
@@ -24,7 +36,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "mixin-types": "^1.0.0",
-    "data-signals": "^1.0.0"
+    "data-signals": "^1.0.0",
+    "dom-types": "^1.0.0",
+    "mixin-types": "^1.0.0"
   }
 }

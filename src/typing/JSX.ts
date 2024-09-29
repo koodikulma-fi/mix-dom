@@ -2,24 +2,24 @@
 // - Imports - //
 
 // Local typing.
-import { DOMAttributesBy, DOMAttributesBy_lowercase, DOMAttributesBy_mixedCase } from "./DOMTypes";
-import { MixDOMCommonDOMProps, MixDOMPreBaseProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreProps } from "./MixDOMTypes";
+import { DOMAttributesBy, DOMAttributesBy_native } from "dom-types";
+import { MixDOMPreBaseProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreProps } from "./MixDOMTypes";
 
 
 // - JSX - Intrinsic attributes - //
 
-/** The intrinsic attributes for JSX in camelCase (for listeners and aria props). */
-type IntrinsicAttributesBy_camelCase = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof DOMAttributesBy]: MixDOMPreDOMProps & MixDOMCommonDOMProps; } & DOMAttributesBy;
-/** The intrinsic attributes for JSX in lowercase (for listeners and aria props). */
-type IntrinsicAttributesBy_lowercase = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof DOMAttributesBy_lowercase]: MixDOMPreDOMProps & MixDOMCommonDOMProps; } & DOMAttributesBy_lowercase;
-/** The intrinsic attributes for JSX in both: lowercase and camelCase (for listeners and aria props). */
-type IntrinsicAttributesBy_mixedCase = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof DOMAttributesBy_mixedCase]: MixDOMPreDOMProps & MixDOMCommonDOMProps; } & DOMAttributesBy_mixedCase;
+/** The intrinsic attributes for JSX in native (for listeners and aria props). Recommended when wanting to match traditional string like HTML code inputting (can often just copy-paste the string, and works as TSX directly). */
+type IntrinsicAttributesBy_native = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof DOMAttributesBy_native]: MixDOMPreDOMProps; } & DOMAttributesBy_native;
+/** The intrinsic attributes for JSX in camelCase (for listeners and aria props). Recommended as a default. */
+type IntrinsicAttributesBy_camelCase = { [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps; } & {[Tag in keyof DOMAttributesBy]: MixDOMPreDOMProps; } & DOMAttributesBy;
+/** The intrinsic attributes for JSX in both: native and camelCase (for listeners and aria props). Not typically recommended, but can of course be used. (It's usually best to pick either native or camelCase way and stick to it.) */
+type IntrinsicAttributesBy_mixedCase = IntrinsicAttributesBy_camelCase & IntrinsicAttributesBy_native;
 
 
 // - Exports - //
 
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use lowercase, use `JSX_lowercase`, or both with `JSX_mixedCase`.
+ * - Note that the JSX_camelCase namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use native, use `JSX_nativeCase`, or both with `JSX_mixedCase`.
  * 
  * ```
 import { JSX_camelCase } from "mix-dom";
@@ -50,19 +50,19 @@ export declare namespace JSX_camelCase {
 
 }
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _lowercase_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
+ * - Note that the JSX namespace uses _native_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
  * 
  * ```
-import { JSX_lowercase } from "mix-dom";
+import { JSX_nativeCase } from "mix-dom";
 declare global {
 	namespace JSX {
-		interface IntrinsicElements extends JSX_lowercase.IntrinsicElements {}
-		interface IntrinsicAttributes extends JSX_lowercase.IntrinsicAttributes {}
+		interface IntrinsicElements extends JSX_nativeCase.IntrinsicElements {}
+		interface IntrinsicAttributes extends JSX_nativeCase.IntrinsicAttributes {}
 	}
 }
 ```
  */
-export declare namespace JSX_lowercase {
+export declare namespace JSX_nativeCase {
 
     /** This gives support for:
      * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
@@ -72,7 +72,7 @@ export declare namespace JSX_lowercase {
      * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
      *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
      */
-    export interface IntrinsicElements extends IntrinsicAttributesBy_lowercase {}
+    export interface IntrinsicElements extends IntrinsicAttributesBy_native {}
     
     /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
      * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable". 
@@ -81,7 +81,7 @@ export declare namespace JSX_lowercase {
 
 }
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _lowercase_ and _camelCase_ for DOM attributes related to listeners and aria. To use only camelCase use `JSX_camelCase`, for only lowercase use `JSX_mixedCase`.
+ * - Note that the JSX namespace uses _native_ and _camelCase_ for DOM attributes related to listeners and aria. To use only camelCase use `JSX_camelCase`, for only native use `JSX_mixedCase`.
  * 
  * ```
 import { JSX_mixedCase } from "mix-dom";

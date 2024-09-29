@@ -26,6 +26,7 @@ export type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}>
 
 // - Class types - //
 
+/** The static class type for ComponentShadow. */
 export interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
     api: ComponentShadowAPI<Info>;
 }

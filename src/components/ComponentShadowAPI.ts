@@ -9,9 +9,9 @@ import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy } 
 import { ComponentInfo } from "./typesInfo";
 import { ComponentTypeEither } from "./typesVariants";
 import { ComponentContextAPI } from "./ComponentContextAPI";
-import { Component, ComponentType, createComponent, createComponentCtx } from "./Component";
+import { Component, ComponentFunc, ComponentType, createComponent, createComponentCtx } from "./Component";
 // Only typing (local).
-import { ComponentShadow, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
+import { ComponentShadow, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
 
 
 // - Class - //
@@ -19,16 +19,10 @@ import { ComponentShadow, ComponentShadowFunc, ComponentShadowFuncWith, Componen
 /** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
 export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentShadowSignals<Info>> {
     
-    /** The currently instanced components that use our custom class as their constructor. */
-    public components: Set<Component<Info>>;
+    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
+    public components: Set<Component<Info>> = new Set();
     /** Default update modes. Can be overridden by the component's updateModes. */
     public updateModes?: Partial<MixDOMUpdateCompareModesBy>;
-
-    /** The instance is constructed when a new component func is created. When they are instanced they are added to our .components collection. */
-    constructor() {
-        super();
-        this.components = new Set();
-    }
 
     
     // - Methods - //
@@ -69,7 +63,9 @@ export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extend
  * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
 */
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info>;
-export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither, signals?: Partial<ComponentShadowSignals> | null, name: string = funcOrClass.name) {
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither, signals?: Partial<ComponentShadowSignals> | null, name: string = funcOrClass.name): ComponentShadowType<Info> | ComponentShadowFunc<Info> {
     // Exceptionally we also support feeding in a class here. To add support for being a shadow.
     const Shadow = funcOrClass["MIX_DOM_CLASS"] ? { [name]: class extends (funcOrClass as ComponentType) {} }[name] as ComponentShadowType<Info> : createComponent(funcOrClass as any, name) as ComponentShadowFunc<Info>;
     Shadow.api = new ComponentShadowAPI();
@@ -80,9 +76,9 @@ export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrCla
 }
 
 /** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: (component: ComponentShadow<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name: string = func.name): ComponentShadowFuncWith<Info> => {
+export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name: string = func.name): ComponentShadowFuncWith<Info> => {
     // Create and attach ComponentShadowAPI.
-    const Shadow = createComponentCtx(func as any, name) as ComponentShadowFuncWith<Info>;
+    const Shadow = createComponentCtx(func, name) as ComponentShadowFuncWith<Info>;
     Shadow.api = new ComponentShadowAPI();
     if (signals)
         for (const sName in signals)

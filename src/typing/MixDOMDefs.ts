@@ -3,8 +3,8 @@
 
 // Libraries.
 import { SignalListener, Context } from "data-signals";
+import { DOMTags } from "dom-types";
 // Local.
-import { DOMTags } from "./DOMTypes";
 // Only typing (local).
 import { MixDOMComponentTag, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMPostTag, MixDOMProcessedDOMProps } from "./MixDOMTypes";
 import { MixDOMTreeNode } from "./MixDOMTreeNode";
@@ -136,7 +136,8 @@ export interface MixDOMDefFragment extends MixDOMDefBase {
     /** Scope map is used only on the applied def side.
      * - This is used to isolate the scopes for the pairing process.
      * - For example, any spread function outputs, and any content pass copies in them, should be isolated.
-     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it. */
+     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it.
+     */
     scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
 }
 export interface MixDOMDefPass extends MixDOMDefBase {

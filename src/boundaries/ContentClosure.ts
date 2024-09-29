@@ -3,6 +3,8 @@
 
 // Typing.
 import { MixDOMTreeNode, MixDOMDefApplied, MixDOMDefTarget } from "../typing";
+// Static.
+import { hasContentInDefs } from "../static/index.js"; // For some reason, needs to specify index here.
 // Boundaries.
 import { ContentBoundary } from "./ContentBoundary";
 // Only typing (local).
@@ -67,13 +69,7 @@ export class ContentClosure {
 
     /** Whether we have any actual content to pass. */
     public hasContent(): boolean {
-        const aDef = this.envelope?.applied;
-        return !(!aDef || aDef.disabled || (aDef.MIX_DOM_DEF === "fragment" && (!aDef.childDefs.length || aDef.childDefs[0].disabled && aDef.childDefs.length === 1)));
-
-        //
-        // return this.envelope && hasContentInDefs(this.envelope.applied.childDefs, checkRecursively) as boolean || false;
-        //
-        // <-- Should we be using this line instead..?
+        return !!(this.envelope?.applied && hasContentInDefs(this.envelope.applied.childDefs, false)); // Won't return "maybe" since we say false to handlePass.
     }
 
     /** Get the content that we pass. */

@@ -1,6 +1,8 @@
 
 // - Imports - //
 
+// Library.
+import { cleanDOMProps, DOMTags } from "dom-types";
 // Typing.
 import {
     MixDOMProcessedDOMProps,
@@ -11,13 +13,11 @@ import {
     MixDOMComponentTag,
     MixDOMRenderOutput,
     MixDOMContentValue,
-    DOMTags,
     MixDOMPreComponentProps,
     MixDOMPreDOMTagProps,
-    MixDOMPreBaseProps
+    MixDOMPreBaseProps,
+    MixDOMPreDOMProps
 } from "../typing";
-// Routines.
-import { cleanDOMProps } from "./routinesDOM";
 // Only typing (distant).
 import { Ref } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
@@ -40,10 +40,12 @@ export function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDO
 export function newDef<Props extends Record<string, any>>(componentTag: MixDOMComponentTag<Props>, origProps?: (MixDOMPreComponentProps & Props) | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
 export function newDef<Props extends MixDOMPreDOMTagProps | MixDOMPreComponentProps>(tag: MixDOMPreTag, origProps?: Props | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
 export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
+    
     // Get type.
-    const defType = getMixDOMDefType(tagOrClass);
+    const defType = getDefType(tagOrClass);
     if (!defType || origProps && (origProps as MixDOMPreBaseProps)._disable)
         return null;
+
     // Add childDefs to the def.
     const childDefs: MixDOMDefTarget[] = [];
     let wasText = false;
@@ -84,13 +86,14 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
     } as MixDOMDefTarget;
 
     // Props.
-    const needsProps = !!tag;
     if (targetDef.MIX_DOM_DEF === "fragment") {}
     else if (origProps) {
-        // Copy.
+        // Parse (and copy passProps basis).
         const { _key, _ref, _signals, _contexts, _disable, ...passProps } = origProps;
+        // Key.
         if (_key != null)
             targetDef.key = _key;
+        // Ref.
         if (_ref) {
             const forwarded: Ref[] = [];
             if (_ref.constructor["MIX_DOM_CLASS"] === "Ref")
@@ -102,30 +105,35 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
             }
             targetDef.attachedRefs = forwarded;
         }
+        // Signals.
         if (_signals) // Note. These will only be handled for "boundary" and dom-like.
             targetDef.attachedSignals = { ..._signals };
+        // Contexts.
         if (_contexts && defType === "boundary")
             targetDef.attachedContexts = { ..._contexts };
-        if (needsProps)
+        // Props - if has !!tag, uses props.
+        if (tag)
+            // Note. For dom props we clean them now. For others (boundaries), just pass.
+            // .. However, for "Element" pseudo components, we do the DOM parsing a few lines further below.
             targetDef.props = typeof tag === "string" ? cleanDOMProps(passProps) : passProps as MixDOMProcessedDOMProps;
     }
-    // Empty props.
-    else if (needsProps)
+    // Empty props - if has !!tag, uses props.
+    else if (tag)
         targetDef.props = {};
 
     // Specialities.
     switch(targetDef.MIX_DOM_DEF) {
-        case "portal": {
-            const props = (origProps || {}) as PseudoPortalProps;
-            targetDef.domPortal = props.container || null;
+        case "portal":
+            targetDef.domPortal = (origProps as PseudoPortalProps).container || null;
             break;
-        }
         case "element": {
-            const props = (origProps || {}) as PseudoElementProps;
-            targetDef.domElement = props.element || null;
-            targetDef.domCloneMode = props.cloneMode != null ? (typeof props.cloneMode === "boolean" ? (props.cloneMode ? "deep" : "") : props.cloneMode) : null;
-            delete targetDef.props["element"];
-            delete targetDef.props["cloneMode"];
+            // Parse.
+            const { element, cloneMode, ...domProps } = (targetDef.props as Omit<PseudoElementProps, keyof MixDOMPreDOMProps>) || {};
+            // Clean up.
+            targetDef.props = cleanDOMProps(domProps);
+            // Just pass.
+            targetDef.domElement = element || null;
+            targetDef.domCloneMode = cloneMode != null ? (typeof cloneMode === "boolean" ? (cloneMode ? "deep" : "") : cloneMode) : null;
             break;
         }
     }
@@ -319,7 +327,8 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
         pDef.childDefs = [];
         // Loop kids.
         for (const thisDef of childDefs) {
-            // Prepare.
+
+            // Prepare new def.
             let newDef: MixDOMDefTarget & { props?: { hasContent?: boolean | null; }; }; // For easier typing below.
 
             // Already handled by an inner spread function.
@@ -405,7 +414,7 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
 
 /** Note that "content" and "host" defs are created from the ...contents[], while "pass" type comes already as a def.
  * .. This gives any other type. If there's no valid type, returns "". */
-export function getMixDOMDefType(tag: MixDOMPreTag): MixDOMDefType | "spread" | "" {
+export function getDefType(tag: MixDOMPreTag): MixDOMDefType | "spread" | "" {
     // Dom.
     if (typeof tag === "string")
         return "dom";

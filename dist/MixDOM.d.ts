@@ -1,658 +1,6 @@
-import * as data_signals from 'data-signals';
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, NodeJSTimeout, SignalManType, SignalsRecord, ContextSettings } from 'data-signals';
-import * as mixin_types from 'mixin-types';
-import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, AsMixin } from 'mixin-types';
-
-/** Type for className input.
- * - Represents what can be fed into the MixDOM.classNames method with (ValidName extends string):
- *     1. ValidName (single className string),
- *     2. Array<ValidName>,
- *     3. Record<ValidName, any>.
- *     + If you want to use the validation only for Arrays and Records but not Strings, add 2nd parameter `string` to the type: `CleanClassName<ValidName, string>`
- */
-type MixDOMPreClassName<Valid extends string = string, Single extends string = Valid> = Single | Partial<Record<Valid, any>> | Array<Valid> | Set<Valid>;
-/** Split a string into a typed array.
- * - Use with PropType to validate and get deep value types with, say, dotted strings.
- */
-type Split<S extends string, D extends string> = string extends S ? string[] : S extends '' ? [] : S extends `${infer T}${D}${infer U}` ? [T, ...Split<U, D>] : [S];
-/** Split a string array by a string. */
-type SplitArr<S extends string[] | readonly string[], D extends string> = Split<S[number] & string, D>;
-/** Typing tool for class name validation. The input can be:
- *    1. A string, either single or concatenated: "bold", "bold italic".
- *    2. An array of strings, similarly either single or concatenated: ["bold", "bold italic"].
- *    3. A record of string keys (where values are non-important for typing). Similarly short or long: { "bold": false, "bold italic": true }
- *    4. Anything else is accepted including "". This is to allow usage like: doHighlight && "highlight" (for strings or arrays). For objects used like: { "highlight": doHighlight }.
- * - Note that this returns either `string` (for valid strings), `Valid[]` or `any` (for valid objects & arrays), or `never` type (for failure).
- *   .. This is mostly because of whatever happens to work in practice in all the required scenarios.
- *   .. It's also because more detail is not required, and can then support mangling more flexible (while avoiding problems like circular constraints).
- * - Note that this functionality is paired with a javascript function's inner workings. (It will collect a valid class name out of the same input.)
- */
-type NameValidator<Valid extends any, Input> = [
-    Input
-] extends [string] ? Split<Input, " "> extends Valid[] ? string : never : [
-    Input
-] extends [Array<any> | Readonly<Array<any>>] ? Input extends Valid[] ? Valid[] : SplitArr<Input, " "> extends Valid[] ? any : never : [
-    Input
-] extends [object] ? keyof Input extends Valid ? any : Split<keyof Input & string, " "> extends Valid[] ? any : never : any;
-/** Helper to validate class names (paired with a javascript function that actually supports handling: (...params: any[]) => string;
- * 1. First create a type for valid names, eg.: `type ValidNames = "bold" | "italic" | "underline" | "dimmed";
- * 2. Then define a shortcut for the validator with the ValidNames type: `const cleanNames: ValidateNames<ValidNames> = MixDOM.classNames;`.
- * 3. Then reuse the function for validation:
- *     a. For strings: `const okName = cleanNames("bold", "underline italic", false, "");` // => "bold underline italic"
- *     b. For arrays: `const okName = cleanNames(["underline", "dimmed italic", false, ""], [], undefined, ["bold"]);` // => "underline dimmed italic bold"
- *     c. For objects: `const okName = cleanNames({"bold": false, "dimmed italic": true}, null, {"underline": true });` // => "dimmed italic underline"
- * - You can also mix these freely: `const okName = cleanNames("bold", ["italic"], {"underline": false});`
- * - Note however, that the typing support is made for 10 arguments max. Anything after that uses a common type ...T[], so it will get buggy in various ways.
- */
-type ValidateNames<Valid extends string, Nulls extends any = undefined | null | false | 0 | ""> = <T1 extends NameValidator<Valid | Nulls, T1>, T2 extends NameValidator<Valid | Nulls, T2>, T3 extends NameValidator<Valid | Nulls, T3>, T4 extends NameValidator<Valid | Nulls, T4>, T5 extends NameValidator<Valid | Nulls, T5>, T6 extends NameValidator<Valid | Nulls, T6>, T7 extends NameValidator<Valid | Nulls, T7>, T8 extends NameValidator<Valid | Nulls, T8>, T9 extends NameValidator<Valid | Nulls, T9>, T10 extends NameValidator<Valid | Nulls, T10>, Tn extends NameValidator<Valid, Tn>>(t1?: T1, t2?: T2, t3?: T3, t4?: T4, t5?: T5, t6?: T6, t7?: T7, t8?: T8, t9?: T9, t10?: T10, ...tn: Tn[]) => string;
-
-/** All DOM listener attributes with camelCase keys referring to the lowercase originals in type. */
-interface ListenerAttributesAll {
-    onAbort: GlobalEventHandlers["onabort"];
-    onActivate: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onAnimationCancel: GlobalEventHandlers["onanimationcancel"];
-    onAnimationEnd: GlobalEventHandlers["onanimationend"];
-    onAnimationIteration: GlobalEventHandlers["onanimationiteration"];
-    onAnimationStart: GlobalEventHandlers["onanimationstart"];
-    onAuxClick: GlobalEventHandlers["onauxclick"];
-    onBlur: GlobalEventHandlers["onblur"];
-    onCanPlay: GlobalEventHandlers["oncanplay"];
-    onCanPlayThrough: GlobalEventHandlers["oncanplaythrough"];
-    onChange: GlobalEventHandlers["onchange"];
-    onClick: GlobalEventHandlers["onclick"];
-    onClose: GlobalEventHandlers["onclose"];
-    onContextMenu: GlobalEventHandlers["oncontextmenu"];
-    onCueChange: GlobalEventHandlers["oncuechange"];
-    onDblClick: GlobalEventHandlers["ondblclick"];
-    onDrag: GlobalEventHandlers["ondrag"];
-    onDragEnd: GlobalEventHandlers["ondragend"];
-    onDragEnter: GlobalEventHandlers["ondragenter"];
-    onDragLeave: GlobalEventHandlers["ondragleave"];
-    onDragOver: GlobalEventHandlers["ondragover"];
-    onDragStart: GlobalEventHandlers["ondragstart"];
-    onDrop: GlobalEventHandlers["ondrop"];
-    onDurationChange: GlobalEventHandlers["ondurationchange"];
-    onEmptied: GlobalEventHandlers["onemptied"];
-    onEnded: GlobalEventHandlers["onended"];
-    onError: GlobalEventHandlers["onerror"];
-    onFocus: GlobalEventHandlers["onfocus"];
-    onFocusIn: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onFocusOut: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onGotPointerCapture: GlobalEventHandlers["ongotpointercapture"];
-    onInput: GlobalEventHandlers["oninput"];
-    onInvalid: GlobalEventHandlers["oninvalid"];
-    onKeyDown: GlobalEventHandlers["onkeydown"];
-    onKeyPress: ((this: GlobalEventHandlers, ev: KeyboardEvent) => any) | null;
-    onKeyUp: GlobalEventHandlers["onkeyup"];
-    onLoad: GlobalEventHandlers["onload"];
-    onLoadedData: GlobalEventHandlers["onloadeddata"];
-    onLoadedMetaData: GlobalEventHandlers["onloadedmetadata"];
-    onLoadStart: GlobalEventHandlers["onloadstart"];
-    onLostPointerCapture: GlobalEventHandlers["onlostpointercapture"];
-    onMouseDown: GlobalEventHandlers["onmousedown"];
-    onMouseEnter: GlobalEventHandlers["onmouseenter"];
-    onMouseLeave: GlobalEventHandlers["onmouseleave"];
-    onMouseMove: GlobalEventHandlers["onmousemove"];
-    onMouseOut: GlobalEventHandlers["onmouseout"];
-    onMouseOver: GlobalEventHandlers["onmouseover"];
-    onMouseUp: GlobalEventHandlers["onmouseup"];
-    onPause: GlobalEventHandlers["onpause"];
-    onPlay: GlobalEventHandlers["onplay"];
-    onPlaying: GlobalEventHandlers["onplaying"];
-    onPointerCancel: GlobalEventHandlers["onpointercancel"];
-    onPointerDown: GlobalEventHandlers["onpointerdown"];
-    onPointerEnter: GlobalEventHandlers["onpointerenter"];
-    onPointerLeave: GlobalEventHandlers["onpointerleave"];
-    onPointerMove: GlobalEventHandlers["onpointermove"];
-    onPointerOut: GlobalEventHandlers["onpointerout"];
-    onPointerOver: GlobalEventHandlers["onpointerover"];
-    onPointerUp: GlobalEventHandlers["onpointerup"];
-    onProgress: GlobalEventHandlers["onprogress"];
-    onRateChange: GlobalEventHandlers["onratechange"];
-    onReset: GlobalEventHandlers["onreset"];
-    onResize: GlobalEventHandlers["onresize"];
-    onScroll: GlobalEventHandlers["onscroll"];
-    onSecurityPolicyViolation: GlobalEventHandlers["onsecuritypolicyviolation"];
-    onSeeked: GlobalEventHandlers["onseeked"];
-    onSeeking: GlobalEventHandlers["onseeking"];
-    onSelect: GlobalEventHandlers["onselect"];
-    onStalled: GlobalEventHandlers["onstalled"];
-    onSubmit: GlobalEventHandlers["onsubmit"];
-    onSuspend: GlobalEventHandlers["onsuspend"];
-    onTimeUpdate: GlobalEventHandlers["ontimeupdate"];
-    onToggle: GlobalEventHandlers["ontoggle"];
-    onTouchCancel: GlobalEventHandlers["ontouchcancel"];
-    onTouchEnd: GlobalEventHandlers["ontouchend"];
-    onTouchMove: GlobalEventHandlers["ontouchmove"];
-    onTouchStart: GlobalEventHandlers["ontouchstart"];
-    onTransitionCancel: GlobalEventHandlers["ontransitioncancel"];
-    onTransitionEnd: GlobalEventHandlers["ontransitionend"];
-    onTransitionRun: GlobalEventHandlers["ontransitionrun"];
-    onTransitionStart: GlobalEventHandlers["ontransitionstart"];
-    onVolumeChange: GlobalEventHandlers["onvolumechange"];
-    onWaiting: GlobalEventHandlers["onwaiting"];
-    onWheel: GlobalEventHandlers["onwheel"];
-}
-
-/** The CSS properties with camelCase keys. Values are strings, or numbers for certain natively supported style properties (like "width", "height", "opacity" and others). */
-interface CSSProperties extends Partial<Omit<CSSStyleDeclaration, "item" | "getPropertyPriority" | "getPropertyValue" | "removeProperty" | "setProperty" | CSSNumericPropertyNames> & Record<CSSNumericPropertyNames, string | number>> {
-    [index: number]: never;
-}
-/** Commonly used CSS properties that can receive numeric input natively. */
-type CSSNumericPropertyNames = "borderWidth" | "borderBottomWidth" | "borderLeftWidth" | "borderRightWidth" | "borderTopWidth" | "bottom" | "columnGap" | "flexGrow" | "flexShrink" | "fontWeight" | "gap" | "gridColumnEnd" | "gridColumnGap" | "gridColumnStart" | "gridRowEnd" | "gridRowGap" | "gridRowStart" | "height" | "inset" | "left" | "margin" | "marginBottom" | "marginLeft" | "marginRight" | "marginTop" | "maxWidth" | "maxHeight" | "minWidth" | "minHeight" | "offsetDistance" | "opacity" | "order" | "outlineWidth" | "padding" | "paddingTop" | "paddingBottom" | "paddingLeft" | "paddingRight" | "right" | "rowGap" | "scrollMargin" | "scrollMarginBlock" | "scrollMarginBlockEnd" | "scrollMarginBlockStart" | "scrollMarginBottom" | "scrollMarginInline" | "scrollMarginInlineEnd" | "scrollMarginInlineStart" | "scrollMarginLeft" | "scrollMarginRight" | "scrollMarginTop" | "scrollPadding" | "scrollPaddingBlock" | "scrollPaddingBlockEnd" | "scrollPaddingBlockStart" | "scrollPaddingBottom" | "scrollPaddingInline" | "scrollPaddingInlineEnd" | "scrollPaddingInlineStart" | "scrollPaddingLeft" | "scrollPaddingRight" | "scrollPaddingTop" | "stopOpacity" | "strokeWidth" | "strokeOpacity" | "tabIndex" | "tabSize" | "top" | "width" | "zIndex";
-
-/** All known HTML tag names. */
-type HTMLTags = keyof HTMLElementTagNameMap;
-/** The native HTML element type by tag name. */
-type HTMLElementType<Tag extends HTMLTags = HTMLTags> = HTMLElementTagNameMap[Tag];
-/** HTML element attributes by tag name with camelCase listener and aria attributes. */
-type HTMLAttributes<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes$1 | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
-/** HTML element attributes by tag name with lowercase listener and aria attributes. */
-type HTMLAttributes_lowercase<Tag extends HTMLTags = HTMLTags> = Partial<Omit<HTMLElementType<Tag>, CustomTypedAttributes$1 | keyof ARIAMixin> & HTMLAriaAttributes_lowercase>;
-/** HTML element attributes by tag name with both lowercase and camelCase listener keys. */
-type HTMLAttributes_mixedCase<Tag extends HTMLTags = HTMLTags> = HTMLAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
-type CustomTypedAttributes$1 = "style" | "class" | "className" | "textContent" | "innerHTML" | "outerHTML" | "outerText" | "innerText";
-interface HTMLAriaAttributes_lowercase {
-    "role": string;
-    "aria-activedescendant": string;
-    "aria-atomic": string;
-    "aria-autocomplete": string;
-    "aria-busy": string;
-    "aria-checked": string;
-    "aria-colcount": string;
-    "aria-colindex": string;
-    "aria-colspan": string;
-    "aria-controls": string;
-    "aria-current": string;
-    "aria-describedby": string;
-    "aria-description": string;
-    "aria-details": string;
-    "aria-disabled": string;
-    "aria-dropeffect": string;
-    "aria-errormessage": string;
-    "aria-expanded": string;
-    "aria-flowto": string;
-    "aria-grabbed": string;
-    "aria-haspopup": string;
-    "aria-hidden": string;
-    "aria-invalid": string;
-    "aria-keyshortcuts": string;
-    "aria-label": string;
-    "aria-labelledby": string;
-    "aria-level": string;
-    "aria-live": string;
-    "aria-modal": string;
-    "aria-multiline": string;
-    "aria-multiselectable": string;
-    "aria-orientation": string;
-    "aria-owns": string;
-    "aria-placeholder": string;
-    "aria-posinset": string;
-    "aria-pressed": string;
-    "aria-readonly": string;
-    "aria-relevant": string;
-    "aria-required": string;
-    "aria-roledescription": string;
-    "aria-rowcount": string;
-    "aria-rowindex": string;
-    "aria-rowspan": string;
-    "aria-selected": string;
-    "aria-setsize": string;
-    "aria-sort": string;
-    "aria-valuemax": string;
-    "aria-valuemin": string;
-    "aria-valuenow": string;
-    "aria-valuetext": string;
-}
-
-type SVGTags = keyof SVGElementTagNameMap;
-type SVGElementType<Tag extends SVGTags = SVGTags> = SVGElementTagNameMap[Tag] & SVGGlobalAttributes & (Tag extends keyof SVGManualAttributes ? SVGManualAttributes[Tag] : {});
-/** SVG element attributes by tag name with camelCase listener and aria attributes. */
-type SVGAttributes<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof GlobalEventHandlers>> & Partial<ListenerAttributesAll>;
-/** SVG element attributes by tag name with lowercase listener and aria attributes. */
-type SVGAttributes_lowercase<Tag extends SVGTags = SVGTags> = Partial<Omit<SVGElementType<Tag>, CustomTypedAttributes | keyof ARIAMixin> & SVGAriaAttributes>;
-/** SVG element attributes by tag name with both lowercase and camelCase listener and aria attributes. */
-type SVGAttributes_mixedCase<Tag extends SVGTags = SVGTags> = SVGAttributes_lowercase<Tag> & Partial<ListenerAttributesAll & ARIAMixin>;
-type CustomTypedAttributes = "style" | "class" | "className";
-type SVGGlobalAttributes = Partial<SVGPresentationalAttributes> & Partial<SVGStylingAttributes> & Partial<SVGNativeAttributes> & Partial<SVGGraphicalEventAttributes>;
-interface SVGManualAttributes {
-    a: {
-        "download"?: HTMLAnchorElement["download"];
-        "href"?: HTMLAnchorElement["href"];
-        "hreflang"?: HTMLAnchorElement["hreflang"];
-        "ping"?: SVGNativeAttributes["ping"];
-        "referrerpolicy"?: SVGNativeAttributes["referrerpolicy"];
-        "rel"?: SVGNativeAttributes["rel"];
-        "target"?: HTMLAnchorElement["target"];
-        "type"?: SVGNativeAttributes["type"];
-        "xlink:href"?: SVGNativeAttributes["xlink:href"];
-    };
-    circle: {
-        "cx"?: SVGNativeAttributes["cx"];
-        "cy"?: SVGNativeAttributes["cy"];
-        "r"?: SVGNativeAttributes["r"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    ellipse: {
-        "cx"?: SVGNativeAttributes["cx"];
-        "cy"?: SVGNativeAttributes["cy"];
-        "rx"?: SVGNativeAttributes["rx"];
-        "ry"?: SVGNativeAttributes["ry"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    g: {};
-    image: {
-        "x"?: SVGNativeAttributes["x"];
-        "y"?: SVGNativeAttributes["y"];
-        "width"?: SVGNativeAttributes["width"];
-        "height"?: SVGNativeAttributes["height"];
-        "href"?: HTMLAnchorElement["href"];
-        "xlink:href"?: SVGNativeAttributes["xlink:href"];
-        "preserveAspectRatio"?: SVGNativeAttributes["preserveAspectRatio"];
-        "crossorigin"?: SVGNativeAttributes["crossorigin"];
-    };
-    line: {
-        "x1"?: SVGNativeAttributes["x1"];
-        "y1"?: SVGNativeAttributes["y1"];
-        "x2"?: SVGNativeAttributes["x2"];
-        "y2"?: SVGNativeAttributes["y2"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    path: {
-        "d"?: SVGNativeAttributes["d"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    polyline: {
-        "points"?: SVGNativeAttributes["points"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    polygon: {
-        "points"?: SVGNativeAttributes["points"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    rect: {
-        "x"?: SVGNativeAttributes["x"];
-        "y"?: SVGNativeAttributes["y"];
-        "width"?: SVGNativeAttributes["width"];
-        "height"?: SVGNativeAttributes["height"];
-        "rx"?: SVGNativeAttributes["rx"];
-        "ry"?: SVGNativeAttributes["ry"];
-        "pathLength"?: SVGNativeAttributes["pathLength"];
-    };
-    use: {
-        "href"?: HTMLAnchorElement["href"];
-        "xlink:href"?: SVGNativeAttributes["xlink:href"];
-        "x"?: SVGNativeAttributes["x"];
-        "y"?: SVGNativeAttributes["y"];
-        "width"?: SVGNativeAttributes["width"];
-        "height"?: SVGNativeAttributes["height"];
-    };
-}
-interface SVGCoreAttributes {
-    "id": string;
-    "lang": string;
-    "tabindex": string;
-    "xml:base": string;
-    "xml:lang": string;
-    "xml:space": string;
-    "xmlns": string;
-    "xmlns:xlink": string;
-}
-interface SVGStylingAttributes {
-    "class": string;
-    "style": string;
-}
-interface SVGGraphicalEventAttributes {
-    onActivate: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onFocusIn: (this: GlobalEventHandlers, ev: UIEvent) => void;
-    onFocusOut: (this: GlobalEventHandlers, ev: UIEvent) => void;
-}
-interface SVGPresentationalAttributes {
-    "clip-path": string;
-    "clip-rule": number | string;
-    "color": string;
-    "color-interpolation": 'auto' | 'sRGB' | 'linearRGB' | 'inherit';
-    "color-rendering": number | string;
-    "cursor": number | string;
-    "display": number | string;
-    "fill": string;
-    "fill-opacity": number | string;
-    "fill-rule": 'nonzero' | 'evenodd' | 'inherit';
-    "filter": string;
-    "mask": string;
-    "opacity": number | string;
-    "pointer-events": number | string;
-    "shape-rendering": number | string;
-    "stroke": string;
-    "stroke-dasharray": number | string;
-    "stroke-dashoffset": number | string;
-    "stroke-linecap": 'butt' | 'round' | 'square' | 'inherit';
-    "stroke-linejoin": 'butt' | 'round' | 'square' | 'inherit';
-    "stroke-miterlimit": number | string;
-    "stroke-opacity": number | string;
-    "stroke-width": number | string;
-    "transform": string;
-    "vector-effect": number | string;
-    "visibility": number | string;
-}
-interface SVGAriaAttributes {
-    "aria-activedescendant": string;
-    "aria-atomic": string;
-    "aria-autocomplete": string;
-    "aria-busy": string;
-    "aria-checked": string;
-    "aria-colcount": string;
-    "aria-colindex": string;
-    "aria-colspan": string;
-    "aria-controls": string;
-    "aria-current": string;
-    "aria-describedby": string;
-    "aria-details": string;
-    "aria-disabled": string;
-    "aria-dropeffect": string;
-    "aria-errormessage": string;
-    "aria-expanded": string;
-    "aria-flowto": string;
-    "aria-grabbed": string;
-    "aria-haspopup": string;
-    "aria-hidden": string;
-    "aria-invalid": string;
-    "aria-keyshortcuts": string;
-    "aria-label": string;
-    "aria-labelledby": string;
-    "aria-level": string;
-    "aria-live": string;
-    "aria-modal": string;
-    "aria-multiline": string;
-    "aria-multiselectable": string;
-    "aria-orientation": string;
-    "aria-owns": string;
-    "aria-placeholder": string;
-    "aria-posinset": string;
-    "aria-pressed": string;
-    "aria-readonly": string;
-    "aria-relevant": string;
-    "aria-required": string;
-    "aria-roledescription": string;
-    "aria-rowcount": string;
-    "aria-rowindex": string;
-    "aria-rowspan": string;
-    "aria-selected": string;
-    "aria-setsize": string;
-    "aria-sort": string;
-    "aria-valuemax": string;
-    "aria-valuemin": string;
-    "aria-valuenow": string;
-    "aria-valuetext": string;
-    "role": string;
-}
-/** The collected native attributes for all svg elements combined - excluding the global attributes belonging to all. */
-interface SVGNativeAttributes extends SVGCoreAttributes {
-    "accent-height": number | string;
-    "accumulate": 'none' | 'sum';
-    "additive": 'replace' | 'sum';
-    "alignment-baseline": 'auto' | 'baseline' | 'before-edge' | 'text-before-edge' | 'middle' | 'central' | 'after-edge' | 'text-after-edge' | 'ideographic' | 'alphabetic' | 'hanging' | 'mathematical' | 'inherit';
-    "allow-reorder": 'no' | 'yes';
-    "alphabetic": number | string;
-    "amplitude": number | string;
-    "arabic-form": 'initial' | 'medial' | 'terminal' | 'isolated';
-    "ascent": number | string;
-    "attribute-name": string;
-    "attribute-type": string;
-    "auto-reverse": number | string;
-    "azimuth": number | string;
-    "baseFrequency": number | string;
-    "baseline-shift": number | string;
-    "baseProfile": number | string;
-    "bbox": number | string;
-    "begin": number | string;
-    "bias": number | string;
-    "by": number | string;
-    "calcMode": number | string;
-    "cap-height": number | string;
-    "clip": number | string;
-    "clip-path": string;
-    "clipPathUnits": number | string;
-    "clip-rule": number | string;
-    "color-interpolation": number | string;
-    "color-interpolation-filters": 'auto' | 'sRGB' | 'linearRGB' | 'inherit';
-    "color-profile": number | string;
-    "color-rendering": number | string;
-    "contentScriptType": number | string;
-    "contentStyleType": number | string;
-    "crossorigin": string;
-    "cursor": number | string;
-    "cx": number | string;
-    "cy": number | string;
-    "d": string;
-    "decelerate": number | string;
-    "descent": number | string;
-    "diffuseConstant": number | string;
-    "direction": number | string;
-    "display": number | string;
-    "divisor": number | string;
-    "dominant-baseline": number | string;
-    "dur": number | string;
-    "dx": number | string;
-    "dy": number | string;
-    "edgeMode": number | string;
-    "elevation": number | string;
-    "enable-background": number | string;
-    "end": number | string;
-    "exponent": number | string;
-    "external-resources-required": number | string;
-    "fill": string;
-    "fill-opacity": number | string;
-    "fill-rule": 'nonzero' | 'evenodd' | 'inherit';
-    "filter": string;
-    "filterRes": number | string;
-    "filterUnits": number | string;
-    "flood-color": number | string;
-    "flood-opacity": number | string;
-    "focusable": number | string;
-    "font-family": string;
-    "font-size": number | string;
-    "font-size-adjust": number | string;
-    "font-stretch": number | string;
-    "font-style": number | string;
-    "font-variant": number | string;
-    "font-weight": number | string;
-    "format": number | string;
-    "from": number | string;
-    "fx": number | string;
-    "fy": number | string;
-    "g1": number | string;
-    "g2": number | string;
-    "glyph-name": number | string;
-    "glyph-orientation-horizontal": number | string;
-    "glyph-orientation-vertical": number | string;
-    "glyphRef": number | string;
-    "gradientTransform": string;
-    "gradientUnits": string;
-    "hanging": number | string;
-    "height": number | string;
-    "horiz-adv-x": number | string;
-    "horiz-origin-x": number | string;
-    "ideographic": number | string;
-    "image-rendering": number | string;
-    "in2": number | string;
-    "in": string;
-    "intercept": number | string;
-    "k1": number | string;
-    "k2": number | string;
-    "k3": number | string;
-    "k4": number | string;
-    "k": number | string;
-    "kernelMatrix": number | string;
-    "kernelUnitLength": number | string;
-    "kerning": number | string;
-    "keyPoints": number | string;
-    "keySplines": number | string;
-    "keyTimes": number | string;
-    "lengthAdjust": number | string;
-    "letter-spacing": number | string;
-    "lighting-color": number | string;
-    "limitingConeAngle": number | string;
-    "local": number | string;
-    "marker-end": string;
-    "marker-mid": string;
-    "marker-start": string;
-    "markerHeight": number | string;
-    "markerUnits": number | string;
-    "markerWidth": number | string;
-    "mask": string;
-    "maskContentUnits": number | string;
-    "maskUnits": number | string;
-    "mathematical": number | string;
-    "mode": number | string;
-    "numOctaves": number | string;
-    "offset": number | string;
-    "opacity": number | string;
-    "operator": number | string;
-    "order": number | string;
-    "orient": number | string;
-    "orientation": number | string;
-    "origin": number | string;
-    "overflow": number | string;
-    "overline-position": number | string;
-    "overline-thickness": number | string;
-    "paint-order": number | string;
-    "panose1": number | string;
-    "pathLength": number | string;
-    "patternContentUnits": string;
-    "patternTransform": number | string;
-    "patternUnits": string;
-    "ping": string;
-    "pointer-events": number | string;
-    "points": string;
-    "pointsAtX": number | string;
-    "pointsAtY": number | string;
-    "pointsAtZ": number | string;
-    "preserveAlpha": number | string;
-    "preserveAspectRatio": string;
-    "primitiveUnits": number | string;
-    "r": number | string;
-    "radius": number | string;
-    "refX": number | string;
-    "refY": number | string;
-    "rel": string;
-    "rendering-intent": number | string;
-    "repeatCount": number | string;
-    "repeatDur": number | string;
-    "requiredExtensions": number | string;
-    "requiredFeatures": number | string;
-    "referrerpolicy": 'no-referrer' | 'no-referrer-when-downgrade' | 'same-origin' | 'origin' | 'strict-origin' | 'origin-when-cross-origin' | 'strict-origin-when-cross-origin' | 'unsafe-url';
-    "restart": number | string;
-    "result": string;
-    "rotate": number | string;
-    "rx": number | string;
-    "ry": number | string;
-    "scale": number | string;
-    "seed": number | string;
-    "shape-rendering": number | string;
-    "slope": number | string;
-    "spacing": number | string;
-    "specularConstant": number | string;
-    "specularExponent": number | string;
-    "speed": number | string;
-    "spreadMethod": string;
-    "startOffset": number | string;
-    "stdDeviation": number | string;
-    "stemh": number | string;
-    "stemv": number | string;
-    "stitchTiles": number | string;
-    "stop-color": string;
-    "stop-opacity": number | string;
-    "strikethrough-position": number | string;
-    "strikethrough-thickness": number | string;
-    "string": number | string;
-    "stroke": string;
-    "stroke-dasharray": string | number;
-    "stroke-dashoffset": string | number;
-    "stroke-linecap": 'butt' | 'round' | 'square' | 'inherit';
-    "stroke-linejoin": 'miter' | 'round' | 'bevel' | 'inherit';
-    "stroke-miterlimit": string | number;
-    "stroke-opacity": number | string;
-    "stroke-width": number | string;
-    "surfaceScale": number | string;
-    "systemLanguage": number | string;
-    "tableValues": number | string;
-    "targetX": number | string;
-    "targetY": number | string;
-    "text-anchor": string;
-    "text-decoration": number | string;
-    "text-rendering": number | string;
-    "textLength": number | string;
-    "to": number | string;
-    "transform": string;
-    "transform-origin": string;
-    "type": string;
-    "u1": number | string;
-    "u2": number | string;
-    "underline-position": number | string;
-    "underline-thickness": number | string;
-    "unicode": number | string;
-    "unicode-bidi": number | string;
-    "unicode-range": number | string;
-    "units-per-em": number | string;
-    "v-alphabetic": number | string;
-    "values": string;
-    "vector-effect": number | string;
-    "version": string;
-    "vert-adv-y": number | string;
-    "vert-origin-x": number | string;
-    "vert-origin-y": number | string;
-    "v-hanging": number | string;
-    "v-ideographic": number | string;
-    "viewBox": string;
-    "viewTarget": number | string;
-    "visibility": number | string;
-    "v-mathematical": number | string;
-    "width": number | string;
-    "widths": number | string;
-    "word-spacing": number | string;
-    "writing-mode": number | string;
-    "x1": number | string;
-    "x2": number | string;
-    "x": number | string;
-    "xChannelSelector": string;
-    "xHeight": number | string;
-    "xlink:actuate": string;
-    "xlink:arcrole": string;
-    "xlink:href": string;
-    "xlink:role": string;
-    "xlink:show": string;
-    "xlink:title": string;
-    "xlink:type": string;
-    "xml:base": string;
-    "xml:lang": string;
-    "xml:space": string;
-    "y1": number | string;
-    "y2": number | string;
-    "y": number | string;
-    "yChannelSelector": string;
-    "z": number | string;
-    "zoomAndPan": string;
-}
-
-type ListenerAttributeNames = keyof ListenerAttributesAll;
-type ListenerAttributes = {
-    [Name in keyof ListenerAttributesAll]?: ListenerAttributesAll[Name] | null;
-};
-type DOMTags = HTMLTags | SVGTags;
-type DOMElement = HTMLElement | SVGElement;
-type DOMAttributes<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes<Tag> : [Tag] extends [SVGTags] ? SVGAttributes<Tag> : Other;
-type DOMAttributes_lowercase<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes_lowercase<Tag> : [Tag] extends [SVGTags] ? SVGAttributes_lowercase<Tag> : Other;
-type DOMAttributes_mixedCase<Tag extends DOMTags = DOMTags, Other = never> = [Tag] extends [HTMLTags] ? HTMLAttributes_mixedCase<Tag> : [Tag] extends [SVGTags] ? SVGAttributes_mixedCase<Tag> : Other;
-type DOMAttributesBy = {
-    [Tag in DOMTags]: DOMAttributes<Tag>;
-};
-type DOMAttributesBy_lowercase = {
-    [Tag in DOMTags]: DOMAttributes_lowercase<Tag>;
-};
-type DOMAttributesBy_mixedCase = {
-    [Tag in DOMTags]: DOMAttributes_mixedCase<Tag>;
-};
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, CompareDataDepthMode, SignalsRecord, ContextSettings } from 'data-signals';
+import { DOMTags, DOMElement, DOMAttributes, DOMCleanProps, CSSProperties, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
+import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards } from 'mixin-types';
 
 declare class ContentBoundary extends BaseBoundary {
     /** The def whose children define our content - we are a fragment-like container. */
@@ -849,17 +197,23 @@ type ComponentInfoInterpretable = Partial<ComponentInfo> | {
 /** Robust component info reader from any kind of type: info object, component class type or instance, component function or spread function. Define BaseInfo to enforce the known outcome, eg. using ComponentInfoEmpty. */
 type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {}> = BaseInfo & (Anything extends {
     _Info?: Partial<ComponentInfo>;
-} | undefined ? (Anything & {})["_Info"] : Anything extends {
+} | undefined ? (Anything & {
+    _Info?: {};
+})["_Info"] : Anything extends {
     constructor: {
         _Info?: Partial<ComponentInfo>;
     };
-} | undefined ? (Anything & {})["constructor"]["_Info"] : Anything extends ClassType<{
+} | undefined ? (Anything & {
+    constructor: {
+        _Info?: {};
+    };
+})["constructor"]["_Info"] : Anything extends ClassType<{
     constructor: {
         _Info?: Partial<ComponentInfo>;
     };
 }> | undefined ? (InstanceTypeFrom<Anything> & {
     ["constructor"]: {
-        _Info: {};
+        _Info?: {};
     };
 })["constructor"]["_Info"] : Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> : Anything extends Partial<ComponentInfo> ? Anything : {});
 /** Read merged info from multiple anythings inputted as an array. */
@@ -874,13 +228,17 @@ type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, any> = 
     constructor: {
         _Required?: ComponentInfoInterpretable;
     };
-} | undefined ? ReadComponentInfo<(Anything & {})["constructor"]["_Required"], BaseInfo> : Anything extends ClassType<{
+} | undefined ? ReadComponentInfo<(Anything & {
+    constructor: {
+        _Required?: {};
+    };
+})["constructor"]["_Required"], BaseInfo> : Anything extends ClassType<{
     constructor: {
         _Required?: ComponentInfoInterpretable;
     };
 }> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & {
     ["constructor"]: {
-        _Required: {};
+        _Required?: {};
     };
 })["constructor"]["_Required"], BaseInfo> : Anything extends ((...args: any[]) => any | void) | undefined ? Anything extends (Base: ComponentTypeAny) => ComponentTypeAny ? ReadComponentInfo<Parameters<Anything>[0], BaseInfo> : Parameters<(Anything & {})> extends [Record<string, any> | undefined, {
     constructor: {
@@ -905,7 +263,7 @@ type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentTy
  */
 type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info> | SpreadFunc<Info["props"] & {}>;
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-type ComponentInstanceType<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceType<CompType> : Fallback;
+type ComponentInstanceType<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceTypeFrom<CompType> : Fallback;
 /** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
 type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"];
 /** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
@@ -1092,7 +450,8 @@ interface HostSettings {
      */
     noRenderValuesMode: boolean | any[];
     /** For svg content, the namespaceURI argument to be passed into createElementNS(namespaceURI, tag).
-     * If none given, hard coded default is: "http://www.w3.org/2000/svg" */
+     * If empty, hard coded default is: "http://www.w3.org/2000/svg"
+     */
     renderSVGNamespaceURI: string;
     /** When using MixDOM.Element to insert nodes, and swaps them, whether should apply (true), and if so whether should read first ("read").
      * Defaults to true, which means will apply based on scratch, but not read before it. */
@@ -1224,7 +583,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     static getDefaultSettings(): HostSettings;
 }
 /** Create a new host and start rendering into it. */
-declare const newHost: <Contexts extends ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | undefined) => Host<Contexts>;
+declare function newHost<Contexts extends ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null, settings?: HostSettingsUpdate | null, contexts?: Contexts): Host<Contexts>;
 
 type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "devLogWarnings">;
 declare class HostRender {
@@ -1264,9 +623,7 @@ declare class HostRender {
     /** Core handler to create a single dom node based on a treeNode info. */
     private createDOMNodeBy;
     static SIMPLE_TAGS: string[];
-    static SPECIAL_PROPS: Record<string, "other" | "render" | undefined>;
     static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
-    static LISTENER_PROPS: Record<keyof ListenerAttributesAll, (e: Event) => void>;
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      *
      * ```
@@ -1343,21 +700,10 @@ declare class HostRender {
      *      * In dom sense, we can skip these "would move to the same point" before actual dom moving, but renderInfos should be created - as they are automatically by the basic flow.
      */
     static updateDOMChainBy(fromTreeNode: MixDOMTreeNode, domNode: Node | null, fromSelf?: boolean): void;
-    /** Read the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
-    static readFromDOM(domNode: HTMLElement | SVGElement | Node): MixDOMProcessedDOMProps;
     /** Returns a single html element.
      * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
      */
     static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
-    /** Apply properties to dom elements for the given treeNode. Returns [ appliedProps, domElement, diffs? ]. */
-    static domApplyProps(treeNode: MixDOMTreeNodeDOM, logWarnings?: boolean): [MixDOMProcessedDOMProps, Element | SVGElement | null, MixDOMDOMDiffs?];
-    /**
-     * - With "-" as replaceBy, functions like this: "testProp" => "test-prop", and "TestProp" => "-test-prop".
-     * - This behaviour mirrors how element.dataset[prop] = value works. For example: `data.TestProp = true`   =>   `<div data--test-prop="true" />`
-     */
-    static decapitalizeString(str: string, replaceBy?: string): string;
-    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering. */
-    static readAsString(treeNode: MixDOMTreeNode): string;
     /** Find a suitable virtual item from the structure.
      * - Tries the given vItem, or if used its children.
      * - Can use an optional suggester that can suggest some other virtual item or a direct dom node.
@@ -1404,7 +750,7 @@ type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
     willUnmount: () => void;
 };
-type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
+type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<any> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
     [SignalName in keyof CompSignals]: (comp: Comp & Info["class"], ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
 };
 type ComponentExternalSignals<Comp extends Component = Component> = {
@@ -1518,12 +864,10 @@ declare const PseudoEmptyRemote: ComponentRemoteType<{}>;
 
 /** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
 declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentShadowSignals<Info>> {
-    /** The currently instanced components that use our custom class as their constructor. */
+    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
     components: Set<Component<Info>>;
     /** Default update modes. Can be overridden by the component's updateModes. */
     updateModes?: Partial<MixDOMUpdateCompareModesBy>;
-    /** The instance is constructed when a new component func is created. When they are instanced they are added to our .components collection. */
-    constructor();
     /** Call this to trigger an update on the instanced components. */
     update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
@@ -1534,8 +878,10 @@ declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> exten
  * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
 */
 declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
 /** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
+declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
 
 /** Type for the ComponentShadowAPI signals. */
 type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
@@ -1551,6 +897,7 @@ type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((pr
     Info?: Info;
     api: ComponentShadowAPI<Info>;
 };
+/** The static class type for ComponentShadow. */
 interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
     api: ComponentShadowAPI<Info>;
 }
@@ -1630,13 +977,14 @@ declare function createWired<ParentProps extends Record<string, any> = {}, Build
     props: MixedProps;
 }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
 
-/** Wired can be a func with { api }. */
+/** Wired can be a function with `{ api }` assigned. The access is the same: `MyWiredCompOrFunc.api`. */
 type ComponentWiredFunc<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> = ((props: ParentProps, component: ComponentWired<ParentProps>) => MixDOMRenderOutput | MixDOMDoubleRenderer<ParentProps, MixedProps>) & {
     api: ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
 };
 /** There is no actual pre-existing class for ComponentWired. But for typing, we can provide the info for the static side. */
 interface ComponentWiredType<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowType<{
     props: ParentProps;
+    state: MixedProps;
 }> {
     api: ComponentShadowAPI<{
         props: ParentProps;
@@ -1644,8 +992,9 @@ interface ComponentWiredType<ParentProps extends Record<string, any> = {}, Build
     }> & ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
 }
 /** There is no actual class for ComponentWired. Instead a new class is created when createWired is used. */
-interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends Component<{
+interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadow<{
     props: ParentProps;
+    state: MixedProps;
 }> {
     ["constructor"]: ComponentWiredType<ParentProps, BuildProps, MixedProps>;
 }
@@ -1790,91 +1139,68 @@ declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeA
 declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny, J extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I, hoc10: (i: I) => J): SpreadFunc<ReadComponentInfo<J, ComponentInfoEmpty>["props"] & {}>;
 
 type ComponentFuncCtxShortcut<Info extends Partial<ComponentInfo> = {}> = (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
-/** There are two ways you can use this:
- * 1. Call this to give basic Component features with advanced typing being empty.
- *      * For example: `class MyMix extends ComponentMixin(MyBase) {}`
- * 2. If you want to define Props, State, Signals, Timers and Contexts, use this simple trick instead:
- *      * For example: `class MyMix extends (ComponentMixin as ClassMixer<ComponentType<{ props: MyProps; timers: MyTimers; }>>)(MyBase) {}`
- * - Note that the Info["class"] only works for functional components. In class form, you simply extend the class or mixin with a custom class or mixin.
+/** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins, see: [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - To read typing of the base class use one of the below:
+ *      1. Provide it manually using `typeof BaseClass`. For example: `mixinComponent<Info, typeof BaseClass>(BaseClass)`.
+ *      2. Use `AsMixin` to auto-read the typing from the BaseClass. For example: `mixinComponent as AsMixin<Component<Info>>(BaseClass)`.
+ *
+ * ```
+ *
+ *
+ * // ... some examples here ... //
+ *
+ *
+ *
+ * ```
+ *
  */
-declare const ComponentMixin: AsMixin<ComponentType<{}>, any[]>;
+declare function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<ComponentType<Info> & BaseClass, Component<Info> & InstanceType<BaseClass>, [
+    props: Info["props"] & {},
+    boundary: SourceBoundary,
+    ...args: any[]
+]>;
 /** Functional type for component fed with ComponentInfo. */
 type ComponentFunc<Info extends Partial<ComponentInfo> = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
     _Info?: Info;
 };
 /** Class type (vs. instance) for component fed with ComponentInfo. */
-interface ComponentType<Info extends Partial<ComponentInfo> = {}> {
+interface ComponentType<Info extends Partial<ComponentInfo> = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, Component<Info> & Info["class"], [props: Info["props"] & {}, boundary: SourceBoundary, ...args: any[]]> {
     /** Class type. */
     MIX_DOM_CLASS: string;
     /** May feature a ComponentShadowAPI, it's put here to make typing easier. */
     api?: ComponentShadowAPI<Info>;
-    new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info> & Info["class"];
     /** This is only provided for typing related technical reasons. There's no actual _Info static member on the javascript side. */
     _Info?: Info;
 }
-declare const Component_base: {
-    new (props: MixDOMPreComponentOnlyProps<{}>, boundary?: SourceBoundary | undefined, ...passArgs: any[]): {
-        readonly boundary: SourceBoundary;
-        readonly props: {};
-        readonly _lastState?: {} | undefined;
-        state: {};
-        updateModes: Partial<MixDOMUpdateCompareModesBy>;
-        constantProps?: Partial<Record<never, number | true | MixDOMUpdateCompareMode>> | undefined;
-        timers?: Map<any, number | NodeJSTimeout> | undefined;
-        readonly wired?: Set<ComponentWiredType<{}, {}, {}> | ComponentWiredFunc<{}, {}, {}>> | undefined;
-        contextAPI?: ComponentContextAPI<{}> | undefined;
-        /** This initializes the contextAPI instance (once). */
-        initContextAPI(): void;
-        isMounted(): boolean;
-        getLastState(fallbackToCurrent?: boolean): {} | null;
-        getHost<Contexts extends ContextsAllType = {}>(): Host<Contexts>;
-        queryElement(selector: string, withinBoundaries?: boolean, overHosts?: boolean): Element | null;
-        queryElements(selector: string, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean): Element[];
-        findElements(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): Node[];
-        findComponents<Comp extends ComponentTypeAny<{}> = ComponentTypeAny<{}>>(maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): Comp[];
-        findTreeNodes(types?: SetLike<MixDOMTreeNodeType> | undefined, maxCount?: number, withinBoundaries?: boolean, overHosts?: boolean, validator?: ((treeNode: MixDOMTreeNode) => any) | undefined): MixDOMTreeNode[];
-        setTimer(timerId: any, callback: () => void, timeout: number): void;
-        hasTimer(timerId: any): boolean;
-        clearTimers(...timerIds: any[]): void;
-        setUpdateModes(modes: Partial<MixDOMUpdateCompareModesBy>, extend?: boolean): void;
-        setConstantProps(constProps: never[] | Partial<Record<never, number | true | MixDOMUpdateCompareMode>> | null, extend?: boolean, overrideEach?: number | MixDOMUpdateCompareMode | null): void;
-        setState(newState: {} | Pick<{}, never>, forceUpdate?: boolean | "all" | undefined, forceUpdateTimeout?: number | null | undefined, forceRenderTimeout?: number | null | undefined): void;
-        setInState(property: never, value: any, forceUpdate?: boolean | "all" | undefined, forceUpdateTimeout?: number | null | undefined, forceRenderTimeout?: number | null | undefined): void;
-        triggerUpdate(forceUpdate?: boolean | "all" | undefined, forceUpdateTimeout?: number | null | undefined, forceRenderTimeout?: number | null | undefined): void;
-        addWired(Wired: ComponentWiredType<{}, {}, {}> | ComponentWiredFunc<{}, {}, {}>): void;
-        removeWired(Wired: ComponentWiredType<{}, {}, {}> | ComponentWiredFunc<{}, {}, {}>): void;
-        afterRefresh(renderSide?: boolean, forceUpdateTimeout?: number | null | undefined, forceRenderTimeout?: number | null | undefined): Promise<void>;
-        render(_props: {}, _lastState: {}): MixDOMRenderOutput | MixDOMDoubleRenderer<{}, {}>;
-    };
-    MIX_DOM_CLASS: string;
-};
+declare const Component_base: ClassType<{}, any[]>;
 /** Standalone Component class. */
-declare class Component<Info extends Partial<ComponentInfo> = {}, Props extends Record<string, any> = NonNullable<Info["props"]>, State extends Record<string, any> = NonNullable<Info["state"]>> extends Component_base {
-    ["constructor"]: ComponentType<Info>;
-    constructor(props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Props, boundary?: SourceBoundary, ...passArgs: any[]);
+declare class Component<Info extends Partial<ComponentInfo> = {}> extends Component_base {
+    static MIX_DOM_CLASS: string;
 }
-interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Record<string, any> = NonNullable<Info["props"]>, State extends Record<string, any> = NonNullable<Info["state"]>> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
+interface Component<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
+    ["constructor"]: ComponentType<Info>;
     /** Fresh props from the parent. */
-    readonly props: Props;
+    readonly props: Info["props"] & {};
     /** If the state has changed since last render, this contains the previous state. */
-    readonly _lastState?: State;
+    readonly _lastState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
-    state: State;
+    state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
     timers?: Map<Info["timers"] & {}, number | NodeJSTimeout>;
     /** If any is undefined / null, then uses the default from host.settings. */
     updateModes: Partial<MixDOMUpdateCompareModesBy>;
     /** If constantProps is defined, then its keys defines props that must not change, and values how the comparison is done for each.
      * This affects the def pairing process by disallowing pairing if conditions not met, which in turn results in unmount and remount instead of just updating props (and potentially moving). */
-    constantProps?: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>>;
+    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>>;
     /** ContextAPI for the component. You can use it to access contextual features. By default inherits the named contexts from the Host, but you can also override them locally. */
     contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
     /** Ref to the dedicated SourceBoundary - it's technical side of a Component. */
     readonly boundary: SourceBoundary;
     /** Any wired component classes created by us. */
     readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
-    /** The constructor is typed as ComponentType. */
-    ["constructor"]: ComponentType<Info>;
+    /** This initializes the contextAPI instance (once). */
+    initContextAPI(): void;
     /** This returns a promise that is resolved after the host's refresh cycle has finished.
      * - By default delays until the "update" cycle (renderSide = false). If renderSide is true, then is resolved after the "render" cycle (after updates).
      */
@@ -1885,8 +1211,8 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
      * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
-    getLastState(fallbackToCurrent?: true): State;
-    getLastState(fallbackToCurrent?: boolean): State | null;
+    getLastState(fallbackToCurrent?: true): Info["state"] & {};
+    getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
     getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts>;
     /** Get the first dom element within by a selectors within the host (like document.querySelector). Should rarely be used, but it's here if needed. */
@@ -1910,12 +1236,12 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     /** Modify the constantProps member that defines which props must not change (and how) without a remount. If you set the mode to `true` it means "changed" (= 0 depth).
      * You can also override the mode for each if you just want to use the keys of another dictionary.
      * By default extends the given constant props, if you want to reset put extend to `false`. If you want to clear, leave the constProps empty (null | [] | {}) as well. */
-    setConstantProps(constProps: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>> | (keyof Props)[] | null, extend?: boolean, overrideEach?: MixDOMUpdateCompareMode | number | null): void;
+    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDataDepthMode | number | null): void;
     /** Set many properties in the state at once. Can optionally define update related timing. */
-    setState<Key extends keyof State>(partialState: Pick<State, Key> | State, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    setState(newState: State, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState(newState: Info["state"], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Set one property in the state with typing support. Can optionally define update related timing. */
-    setInState<Key extends keyof State>(property: Key, value: State[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setInState<Key extends keyof (Info["state"] & {})>(property: Key, value: (Info["state"] & {})[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Trigger an update manually. Normally you never need to use this. Can optionally define update related timing */
     triggerUpdate(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Add a wired component to this component's refresh cycle. Create the wired component using the `createWired` method. */
@@ -1924,7 +1250,7 @@ interface Component<Info extends Partial<ComponentInfo> = {}, Props extends Reco
     removeWired(Wired: ComponentWiredFunc): void;
     /** The most important function of any component: the render function. If not using functional rendering, override this manually on the class.
      */
-    render(props: Props, state: State): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Props, State>;
+    render(props: Info["props"] & {}, state: Info["state"] & {}): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 }
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. */
 declare function createComponent<Info extends Partial<ComponentInfo> = {}>(func: (component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string): ComponentFunc<Info>;
@@ -2157,7 +1483,7 @@ interface MixDOMTreeNodeBase {
     sourceBoundary: SourceBoundary | null;
     /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
     boundary?: MixDOMBoundary | null;
-    /** The def tied to this particular treeNode. */
+    /** The applied def tied to this particular treeNode. */
     def?: MixDOMDefApplied;
 }
 interface MixDOMTreeNodeBaseWithDef extends MixDOMTreeNodeBase {
@@ -2282,7 +1608,7 @@ declare const newRef: <Type extends Node | ComponentTypeEither<{}> = Node | Comp
 type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends Record<string, any> = {}> = (props: Props, state: State) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 type MixDOMBoundary = SourceBoundary | ContentBoundary;
 type MixDOMSourceBoundaryId = string;
-type MixDOMPseudoTag<Props extends Record<string, any> = {}> = ([Props] extends [PseudoFragmentProps] ? typeof PseudoFragment<Props> : never) | ([Props] extends [PseudoElementProps] ? typeof PseudoElement<HTMLTags | SVGTags, Props> : never) | ([Props] extends [PseudoPortalProps] ? typeof PseudoPortal<Props> : never) | ([Props] extends [PseudoEmptyProps] ? typeof PseudoEmpty<Props> : never);
+type MixDOMPseudoTag<Props extends Record<string, any> = {}> = ([Props] extends [PseudoFragmentProps] ? typeof PseudoFragment<Props> : never) | ([Props] extends [PseudoElementProps] ? typeof PseudoElement<DOMTags, Props> : never) | ([Props] extends [PseudoPortalProps] ? typeof PseudoPortal<Props> : never) | ([Props] extends [PseudoEmptyProps] ? typeof PseudoEmpty<Props> : never);
 type MixDOMComponentTag<Props extends Record<string, any> = {}> = ComponentTypeAny<{
     props: Props;
 }> | MixDOMPseudoTag<Props>;
@@ -2334,21 +1660,14 @@ interface MixDOMPreDOMProps extends MixDOMPreBaseProps {
     _signals?: Partial<RefDOMSignals> | null;
 }
 /** This includes all the internal dom props (_key, _ref, ...) as well as common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
-interface MixDOMCommonDOMProps {
-    class?: string;
-    className?: string;
-    style?: CSSProperties | string;
-    data?: Record<string, any>;
-}
+type MixDOMPreDOMTagProps<Tag extends string = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag>;
 /** These are any DOM props excluding internal props (like _key, _ref, ...), but also including HTML and SVG attributes (including listeners) by inputting Tag. */
-type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
-/** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary. */
-type MixDOMProcessedDOMProps = {
-    className?: string;
-    style?: CSSProperties;
-    data?: Record<string, any>;
-};
+type MixDOMDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
+/** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
+ * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.
+ * - So, for DOM related, the rest of the props are found in { attributes }, while for non-DOM related the props are directly there.
+ */
+type MixDOMProcessedDOMProps = DOMCleanProps;
 type MixDOMContentNull = null | undefined;
 type MixDOMContentValue = string | number;
 type MixDOMContentSimple = MixDOMContentValue | Node;
@@ -2361,21 +1680,13 @@ interface MixDOMComponentUpdates<Props extends Record<string, any> = {}, State =
     state?: State;
     force?: boolean | "all";
 }
-/** Defines how often components should render after updates (how onShouldUpdate works).
- * - "always" means they will always re-render. You should use this only for debugging.
- * - "changed" means they will render if the reference has changed.
- * - "shallow" means they will render if any prop (of an object/array) has changed. This is the default for most.
- * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
- * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
- */
-type MixDOMUpdateCompareMode = "never" | "always" | "changed" | "shallow" | "double" | "deep";
 /** Defines how often components should update for each updatable type: props, state, context.
  * - If type not defined, uses the default value for it.
  * - Note that the pure checks only check those types that have just been changed.
  */
 interface MixDOMUpdateCompareModesBy {
-    props: MixDOMUpdateCompareMode | number;
-    state: MixDOMUpdateCompareMode | number;
+    props: CompareDataDepthMode | number;
+    state: CompareDataDepthMode | number;
 }
 /** Differences made to a dom element. Note that this never includes tag changes, because it requires creating a new element. */
 interface MixDOMDOMDiffs {
@@ -2542,7 +1853,8 @@ interface MixDOMDefFragment extends MixDOMDefBase {
     /** Scope map is used only on the applied def side.
      * - This is used to isolate the scopes for the pairing process.
      * - For example, any spread function outputs, and any content pass copies in them, should be isolated.
-     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it. */
+     * - This means, that when the root of the isolation is paired with a new target, the inner pairing will use this scope only - and nothing else can use it.
+     */
     scopeMap?: Map<MixDOMDefKeyTag, MixDOMDefApplied[]>;
 }
 interface MixDOMDefPass extends MixDOMDefBase {
@@ -2605,26 +1917,22 @@ interface MixDOMDefAppliedPseudo extends DefPseudo {
     hasPassWithin?: true;
 }
 
-/** The intrinsic attributes for JSX in camelCase (for listeners and aria props). */
+/** The intrinsic attributes for JSX in native (for listeners and aria props). Recommended when wanting to match traditional string like HTML code inputting (can often just copy-paste the string, and works as TSX directly). */
+type IntrinsicAttributesBy_native = {
+    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
+} & {
+    [Tag in keyof DOMAttributesBy_native]: MixDOMPreDOMProps;
+} & DOMAttributesBy_native;
+/** The intrinsic attributes for JSX in camelCase (for listeners and aria props). Recommended as a default. */
 type IntrinsicAttributesBy_camelCase = {
     [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
 } & {
-    [Tag in keyof DOMAttributesBy]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
+    [Tag in keyof DOMAttributesBy]: MixDOMPreDOMProps;
 } & DOMAttributesBy;
-/** The intrinsic attributes for JSX in lowercase (for listeners and aria props). */
-type IntrinsicAttributesBy_lowercase = {
-    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
-} & {
-    [Tag in keyof DOMAttributesBy_lowercase]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
-} & DOMAttributesBy_lowercase;
-/** The intrinsic attributes for JSX in both: lowercase and camelCase (for listeners and aria props). */
-type IntrinsicAttributesBy_mixedCase = {
-    [CompOrEl: string]: MixDOMPreProps | MixDOMPreComponentProps;
-} & {
-    [Tag in keyof DOMAttributesBy_mixedCase]: MixDOMPreDOMProps & MixDOMCommonDOMProps;
-} & DOMAttributesBy_mixedCase;
+/** The intrinsic attributes for JSX in both: native and camelCase (for listeners and aria props). Not typically recommended, but can of course be used. (It's usually best to pick either native or camelCase way and stick to it.) */
+type IntrinsicAttributesBy_mixedCase = IntrinsicAttributesBy_camelCase & IntrinsicAttributesBy_native;
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use lowercase, use `JSX_lowercase`, or both with `JSX_mixedCase`.
+ * - Note that the JSX_camelCase namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use native, use `JSX_nativeCase`, or both with `JSX_mixedCase`.
  *
  * ```
 import { JSX_camelCase } from "mix-dom";
@@ -2654,19 +1962,19 @@ declare namespace JSX_camelCase {
     }
 }
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _lowercase_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
+ * - Note that the JSX namespace uses _native_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
  *
  * ```
-import { JSX_lowercase } from "mix-dom";
+import { JSX_nativeCase } from "mix-dom";
 declare global {
     namespace JSX {
-        interface IntrinsicElements extends JSX_lowercase.IntrinsicElements {}
-        interface IntrinsicAttributes extends JSX_lowercase.IntrinsicAttributes {}
+        interface IntrinsicElements extends JSX_nativeCase.IntrinsicElements {}
+        interface IntrinsicAttributes extends JSX_nativeCase.IntrinsicAttributes {}
     }
 }
 ```
  */
-declare namespace JSX_lowercase {
+declare namespace JSX_nativeCase {
     /** This gives support for:
      * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
      *      * Note however that the "_signals" prop is component specific, so uses the initial props on constructor or func.
@@ -2675,7 +1983,7 @@ declare namespace JSX_lowercase {
      * - For each dom tag (= HTML & SVG tags), adds their attributes including listeners.
      *      * In addition, for each dom tag adds support for "_signals" related to dom changes.
      */
-    interface IntrinsicElements extends IntrinsicAttributesBy_lowercase {
+    interface IntrinsicElements extends IntrinsicAttributesBy_native {
     }
     /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
      * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable".
@@ -2684,7 +1992,7 @@ declare namespace JSX_lowercase {
     }
 }
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX namespace uses _lowercase_ and _camelCase_ for DOM attributes related to listeners and aria. To use only camelCase use `JSX_camelCase`, for only lowercase use `JSX_mixedCase`.
+ * - Note that the JSX namespace uses _native_ and _camelCase_ for DOM attributes related to listeners and aria. To use only camelCase use `JSX_camelCase`, for only native use `JSX_mixedCase`.
  *
  * ```
 import { JSX_mixedCase } from "mix-dom";
@@ -2716,21 +2024,6 @@ declare namespace JSX_mixedCase {
 
 declare const MixDOMContent: MixDOMDefTarget;
 declare const MixDOMContentCopy: MixDOMDefTarget;
-
-/** Parse style string to a dictionary with camelCase keys. Value is string or undefined. */
-declare function parseStyle(cssText: string): CSSProperties;
-/** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
- * - Each item in the classNames can be:
- *     1. ValidName (single className string),
- *     2. Array<ValidName>,
- *     3. Record<ValidName, any>.
- *     + If you want to use the validation only for Arrays and Records but not Strings, add 2nd parameter `string` to the type: `classNames<ValidName, string>`
- * - Unfortunately, the name validation inputted here only works for Array and Record types, and single strings.
- * - To use concatenated class name strings (eg. "bold italic"), you should:
- *     1. Declare a validator by: `const classNames: ValidateNames<ValidName> = MixDOM.classNames;`
- *     2. Then use it like this: `const okName = classNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
- */
-declare function classNames<ValidNames extends string = string, SingleName extends string = ValidNames>(...classNames: Array<MixDOMPreClassName<ValidNames, SingleName> | "" | false | 0 | null | undefined>): string;
 
 /** Create a rendering definition. Supports receive direct JSX compiled output. */
 declare function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDOMPreDOMTagProps<DOMTag> | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
@@ -2788,8 +2081,8 @@ declare const MixDOM: {
      * - This is very rarely useful, but in the case you want to display the passed content multiple times,
      *   this allows to distinguish from the real content pass: `{ MixDOM.Content }` vs. `{ MixDOM.copyContent("some-key") }` */
     copyContent: typeof newContentCopyDef;
+    mixinComponent: typeof mixinComponent;
     Component: typeof Component;
-    ComponentMixin: mixin_types.AsMixin<ComponentType<{}>, any[]>;
     Host: typeof Host;
     Ref: typeof Ref;
     /** Fragment represent a list of render output instead of stuff under one root.
@@ -2818,7 +2111,7 @@ declare const MixDOM: {
      */
     EmptyRemote: ComponentRemoteType<{}>;
     /** Create a Host instance to orchestrate rendering. You need one to start using MixDOM. */
-    newHost: <Contexts extends data_signals.ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null | undefined, settings?: HostSettingsUpdate | null | undefined, contexts?: Contexts | undefined) => Host<Contexts>;
+    newHost: typeof newHost;
     /** Create a Ref instance. Refs help to get a reference to elements and/or components. */
     newRef: <Type extends Node | ComponentTypeEither<{}> = Node | ComponentTypeEither<{}>>() => Ref<Type>;
     /** Create a Context instance. The class is directly the same as in `data-signals`.
@@ -2830,7 +2123,7 @@ declare const MixDOM: {
      * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
      * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
      */
-    newContexts: <Contexts_1 extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts_1 & string]: Contexts_1[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts_1;
+    newContexts: <Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name], {}>; }, AllData extends Record<string, Record<string, any>> = { [Name_1 in keyof Contexts & string]: Contexts[Name_1]["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings>) => Contexts;
     /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
     component: typeof createComponent;
     /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
@@ -2841,7 +2134,7 @@ declare const MixDOM: {
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowCtx: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadow<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
+    shadowCtx: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
@@ -2955,24 +2248,6 @@ declare const MixDOM: {
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      */
     readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary) => string;
-    /** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
-     * - Each item in the classNames can be:
-     *     1. ValidName (single className string),
-     *     2. Array<ValidName>,
-     *     3. Record<ValidName, any>.
-     *     + If you want to use the validation only for Arrays and Records but not Strings, add 2nd parameter `string` to the type: `CleanClassName<ValidName, string>`
-     * - Unfortunately, the name validation inputted here only works for Array and Record types, and single strings.
-     * - To use concatenated class name strings (eg. "bold italic"), you should:
-     *     1. Declare a validator by: `const cleanNames: ValidateNames<ValidName> = MixDOM.classNames;`
-     *     2. Then use it like this: `const okName = cleanNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
-     */
-    classNames: typeof classNames;
-    /** Convert a style cssText string into a dictionary with capitalized keys.
-     * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
-     * - The dictionary format is used for easy detection of changes.
-     *      * As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.)
-     */
-    parseStyle: typeof parseStyle;
 };
 
-export { CSSNumericPropertyNames, CSSProperties, Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixin, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, DOMAttributes, DOMAttributesBy, DOMAttributesBy_lowercase, DOMAttributesBy_mixedCase, DOMAttributes_lowercase, DOMAttributes_mixedCase, DOMElement, DOMTags, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, HTMLAttributes, HTMLAttributes_lowercase, HTMLAttributes_mixedCase, HTMLElementType, HTMLTags, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_lowercase, JSX_mixedCase, ListenerAttributeNames, ListenerAttributes, ListenerAttributesAll, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMCommonDOMProps, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreClassName, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareMode, MixDOMUpdateCompareModesBy, MixDOMWithContent, NameValidator, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SVGAttributes, SVGAttributes_lowercase, SVGAttributes_mixedCase, SVGElementType, SVGTags, SpreadFunc, SpreadFuncWith, ValidateNames, WithContentInfo, classNames, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, newContext, newContexts, newDef, newDefHTML, newHost, newRef, parseStyle };
+export { Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInstanceType, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_mixedCase, JSX_nativeCase, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMDiffs, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SpreadFunc, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, mixinComponent, newContext, newContexts, newDef, newDefHTML, newHost, newRef };

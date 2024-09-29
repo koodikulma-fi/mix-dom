@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { askListeners, callListeners, areEqual, CompareDataDepthEnum, RefreshCycle } from "data-signals";
+import { askListeners, callListeners, areEqual, CompareDataDepthEnum, CompareDataDepthMode, RefreshCycle } from "data-signals";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -13,7 +13,6 @@ import {
     MixDOMChangeInfos,
     MixDOMDefTarget,
     MixDOMRenderOutput,
-    MixDOMUpdateCompareMode,
 } from "../typing";
 // Routines.
 import { newDefFrom, rootDOMTreeNodes } from "../static/index";
@@ -550,7 +549,7 @@ export class HostServices {
         // Loop changed.
         for (const type of types) {
             // Prepare.
-            const mode: MixDOMUpdateCompareMode | number = (component.updateModes && component.updateModes[type]) ?? (shadowUpdateModes && shadowUpdateModes[type]) ?? settingsUpdateModes[type];
+            const mode: CompareDataDepthMode | number = (component.updateModes && component.updateModes[type]) ?? (shadowUpdateModes && shadowUpdateModes[type]) ?? settingsUpdateModes[type];
             const nMode = typeof mode === "number" ? mode : CompareDataDepthEnum[mode] as number || 0;
             // Always or never.
             if (nMode < -1) {

@@ -3,17 +3,12 @@
 
 // Libraries.
 import { askListeners, callListeners } from "data-signals";
+import { applyDOMProps, createDOMElement, readFromDOM, DOMTags } from "dom-types";
 // Typing.
 import {
-    HTMLTags,
-    SVGTags,
-    DOMTags,
-    ListenerAttributeNames,
     MixDOMTreeNode,
     MixDOMTreeNodeDOM,
     MixDOMTreeNodeType,
-    MixDOMDOMDiffs,
-    MixDOMProcessedDOMProps,
     MixDOMContentValue,
     MixDOMRenderInfo,
     MixDOMDefType,
@@ -22,7 +17,7 @@ import {
     MixDOMHydrationSuggester,
 } from "../typing";
 // Routines.
-import { getClassNameDiffs, getDictionaryDiffs, parseStyle, rootDOMTreeNodes } from "../static/index";
+import { rootDOMTreeNodes } from "../static/index";
 // Common.
 import { Ref } from "../common/index";
 // Only typing (local).
@@ -262,7 +257,7 @@ export class HostRender {
                     else {
                         // Read from dom.
                         if (reapply)
-                            treeNode.domProps = HostRender.readFromDOM(domNode);
+                            treeNode.domProps = readFromDOM(domNode);
                         // Add info.
                         renderInfo.update = true;
                     }
@@ -330,13 +325,12 @@ export class HostRender {
      */
     public applyToDOM(renderInfos: MixDOMRenderInfo[]): void {
 
-        // Shortcuts.
-        const settings = this.settings;
 
         // - DEVLOG - //
         //
         // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting DEVLOG in __routinesApply.cleanUpDefs.
         // console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos.map(info => ({ ...info, treeNode: info.create ? info.treeNode : { ...info.treeNode, def: { ...info.treeNode.def } }})));
+
 
         // In disabled mode - just update bookkeeping.
         if (this.paused) {
@@ -349,6 +343,7 @@ export class HostRender {
         }
 
         // Prepare.
+        const settings = this.settings;
         /** Moving is done in reverse order, so we collect the movers here. */
         let toMove: Array<MixDOMRenderInfo> | null = null;
         /** This is used to skip unnecessary dom removals, in the case that the a parent in direct parent chain was just removed. */
@@ -409,7 +404,7 @@ export class HostRender {
 
             // Refresh.
             if (renderInfo.refresh && treeNode.domNode && treeNode["domProps"]) {
-                (treeNode as MixDOMTreeNodeDOM).domProps = renderInfo.refresh === "read" ? HostRender.readFromDOM(treeNode.domNode) : {};
+                (treeNode as MixDOMTreeNodeDOM).domProps = renderInfo.refresh === "read" ? readFromDOM(treeNode.domNode) : {};
                 doUpdate = true;
             }
 
@@ -486,12 +481,10 @@ export class HostRender {
                             // Remove from bookkeeping.
                             this.externalElements.delete(oldEl);
                             // Remove event listeners.
-                            if (tNode.domProps && oldEl instanceof Element) {
-                                for (const prop in tNode.domProps) {
-                                    const listenerProp = HostRender.LISTENER_PROPS[prop];
-                                    if (listenerProp)
-                                        oldEl.removeEventListener(listenerProp, tNode.domProps[prop]);
-                                }
+                            if (tNode.domProps?.listeners && oldEl instanceof Element) {
+                                const listeners = tNode.domProps.listeners;
+                                for (const prop in listeners)
+                                    listeners[prop] && oldEl.removeEventListener(prop, listeners[prop]!);
                             }
                             // Remove from dom.
                             if (oldParent)
@@ -499,7 +492,7 @@ export class HostRender {
                         }
                         // Reapply.
                         if (tNode.domProps) {
-                            tNode.domProps = newEl && (settings.renderDOMPropsOnSwap === "read") ? HostRender.readFromDOM(newEl) : {};
+                            tNode.domProps = newEl && (settings.renderDOMPropsOnSwap === "read") ? readFromDOM(newEl) : {};
                             doUpdate = true;
                         }
                     }
@@ -591,9 +584,12 @@ export class HostRender {
             if (didCreate || doUpdate || renderInfo.update) {
                 // For dom nodes.
                 if (treeNode.type === "dom") {
-                    // Modify dom props.
-                    const [ appliedProps, domElement, diffs ] = HostRender.domApplyProps(treeNode, settings.devLogWarnings);
-                    treeNode.domProps = appliedProps;
+                    // Parse.
+                    const domElement = treeNode.domNode instanceof Element ? treeNode.domNode : null;
+                    const newProps = treeNode.def.props || {};
+                    // Apply and assign new.
+                    const diffs = applyDOMProps(treeNode.domNode instanceof Element ? treeNode.domNode : null, newProps, treeNode.domProps || {}, settings.devLogWarnings);
+                    treeNode.domProps = newProps;
                     // Call update.
                     if (diffs && renderInfo.update) {
                         if (domElement) {
@@ -768,9 +764,7 @@ export class HostRender {
             return HostRender.domNodeFrom(simpleContent.toString(), (origTag as DOMTags) || settings.renderHTMLDefTag, true);
         // HTML or SVG element.
         if (origTag)
-            return !this.inBrowser ? null : origTag === "svg" || treeNode.parent && treeNode.parent.domNode && treeNode.parent.domNode["ownerSVGElement"] !== undefined ?
-                document.createElementNS(settings.renderSVGNamespaceURI || "http://www.w3.org/2000/svg", origTag as SVGTags) :
-                document.createElement(origTag as HTMLTags);
+            return !this.inBrowser ? null : createDOMElement(origTag, treeNode.parent?.domNode, settings.renderSVGNamespaceURI);
 
         // Tagless.
         // .. Note, that because there's always a def and treeNode for the simple content itself (with tag ""),
@@ -800,6 +794,7 @@ export class HostRender {
             }
         }
         // Create new domNode.
+        // .. Note, that we're creating it as HTML at this point of the flow. The common case was handled above with createDOMElement.
         if (!domNode) {
             // Cannot.
             if (!this.inBrowser)
@@ -818,10 +813,7 @@ export class HostRender {
     // - Static - //
 
     static SIMPLE_TAGS: string[] = ["img"];
-    static SPECIAL_PROPS: Record<string, "other" | "render" | undefined> = { innerHTML: "render", outerHTML: "render", textContent: "render", innerText: "render", outerText: "render", style: "other", data: "other", className: "other" };
     static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
-    static LISTENER_PROPS = [
-    "Abort","Activate","AnimationCancel","AnimationEnd","AnimationIteration","AnimationStart","AuxClick","Blur","CanPlay","CanPlayThrough","Change","Click","Close","ContextMenu","CueChange","DblClick","Drag","DragEnd","DragEnter","DragLeave","DragOver","DragStart","Drop","DurationChange","Emptied","Ended","Error","Focus","FocusIn","FocusOut","GotPointerCapture","Input","Invalid","KeyDown","KeyPress","KeyUp","Load","LoadedData","LoadedMetaData","LoadStart","LostPointerCapture","MouseDown","MouseEnter","MouseLeave","MouseMove","MouseOut","MouseOver","MouseUp","Pause","Play","Playing","PointerCancel","PointerDown","PointerEnter","PointerLeave","PointerMove","PointerOut","PointerOver","PointerUp","Progress","RateChange","Reset","Resize","Scroll","SecurityPolicyViolation","Seeked","Seeking","Select","Stalled","Submit","Suspend","TimeUpdate","Toggle","TouchCancel","TouchEnd","TouchMove","TouchStart","TransitionCancel","TransitionEnd","TransitionRun","TransitionStart","VolumeChange","Waiting","Wheel"].reduce((acc,curr) => (acc["on" + curr]=curr.toLowerCase(),acc), {}) as Record<ListenerAttributeNames, (e: Event) => void>;
 
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      * 
@@ -1011,32 +1003,6 @@ export class HostRender {
         }
     }
 
-    /** Read the domProps (for MixDOMTreeNodeDOM) from a domNode. Skips listeners, but supports class, style and data. */
-    public static readFromDOM(domNode: HTMLElement | SVGElement | Node): MixDOMProcessedDOMProps {
-        // Prepare.
-        const domProps: MixDOMProcessedDOMProps = {};
-        if (!(domNode instanceof Element))
-            return domProps;
-        // Attributes.
-        // .. This includes className as class, but we convert it back to className for fluidity with our flow.
-        for (const prop of domNode.getAttributeNames())
-            // Convert class to className, otherwise reuse keys directly from what was applied in DOM - we assume it's clean.
-            domProps[prop === "class" ? "className" : prop] = domNode.getAttribute(prop);
-        // Style.
-        const cssText = (domNode as HTMLElement | SVGElement).style.cssText;
-        if (cssText)
-            domProps.style = parseStyle(cssText);
-        // Data.
-        const data = (domNode as HTMLElement).dataset;
-        if (data && Object.keys(data).length) {
-            domProps.data = {};
-            for (const prop in data)
-                domProps.data[prop] = data[prop];
-        }
-        // Return collected.
-        return domProps;
-    }
-
     /** Returns a single html element.
      * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
      */
@@ -1046,246 +1012,6 @@ export class HostRender {
             return null;
         dummy.innerHTML = innerHTML;
         return keepTag ? dummy : dummy.children[1] ? dummy : dummy.children[0];
-    }
-
-    // /** Returns a list of html elements. */
-    // static domNodesFrom (innerHTML: string): Node[] {
-    //     const dummy = document.createElement("div");
-    //     dummy.innerHTML = innerHTML;
-    //     return [...dummy.children];
-    // }
-    // <-- Unused.
-
-    /** Apply properties to dom elements for the given treeNode. Returns [ appliedProps, domElement, diffs? ]. */
-    public static domApplyProps(treeNode: MixDOMTreeNodeDOM, logWarnings: boolean = false): [ MixDOMProcessedDOMProps, Element | SVGElement | null, MixDOMDOMDiffs? ] {
-
-        // Parse.
-        const domElement = treeNode.domNode instanceof Element ? treeNode.domNode : null;
-        const appliedProps: MixDOMProcessedDOMProps = {};
-
-        // Collect all.
-        const oldProps = treeNode.domProps || {};
-        const nextProps = treeNode.def.props || {};
-        const allDiffs = getDictionaryDiffs(oldProps, nextProps);
-        if (!allDiffs)
-            return [ nextProps, domElement ];
-
-        // Loop all.
-        const diffs: MixDOMDOMDiffs = {};
-        for (const prop in allDiffs) {
-
-            // Special cases.
-            const specialProp = HostRender.SPECIAL_PROPS[prop];
-            if (specialProp) {
-                // Not renderable.
-                if (specialProp === "render") {
-                    if (logWarnings)
-                        console.warn("__HostRender.domApplyProps: Warning: Is using an ignored dom prop: ", prop, " for treeNode: ", treeNode);
-                }
-                // Specialities: className, style and data.
-                else {
-                    // Classname.
-                    if (prop === "className") {
-                        const classDiffs = getClassNameDiffs(oldProps.className, nextProps.className);
-                        if (classDiffs) {
-                            // Diffs.
-                            diffs.classNames = classDiffs;
-                            // Apply.
-                            if (domElement)
-                                for (const name in classDiffs)
-                                    domElement.classList[classDiffs[name] ? "add" : "remove"](name);
-                            // Bookkeeping.
-                            nextProps.className ? appliedProps.className = nextProps.className : delete appliedProps.className;
-                        }
-                    }
-                    // The prop is "style" or "data".
-                    else {
-                        // Get diffs.
-                        const nextVal = nextProps[prop];
-                        const subDiffs = getDictionaryDiffs(oldProps[prop] || {}, nextVal || {});
-                        if (subDiffs) {
-                            // Diffs.
-                            diffs[prop] = subDiffs;
-                            // Apply.
-                            if (domElement) {
-                                if (prop === "data") {
-                                    const dMap: DOMStringMap | undefined = (domElement as HTMLElement).dataset;
-                                    if (dMap)
-                                        for (const subProp in subDiffs)
-                                            subDiffs[subProp] !== undefined ? dMap[subProp] = subDiffs[subProp] : delete dMap[subProp];
-                                }
-                                // For styles, we use the very flexible element.style[prop] = value. If value is null, then will remove.
-                                // .. This way, we support both ways to input styles: "backgroundColor" and "background-color".
-                                else {
-                                    const s: CSSStyleDeclaration | undefined = (domElement as HTMLElement).style;
-                                    if (s)
-                                        for (const subProp in subDiffs)
-                                            s[subProp] = subDiffs[subProp] != null ? subDiffs[subProp] : null;
-                                }
-                            }
-                            // Bookkeeping.
-                            nextVal ? appliedProps[prop] = nextVal : delete appliedProps[prop];
-                        }
-                    }
-                }
-                // Skip in any case.
-                continue;
-            }
-            // Prepare.
-            const val = allDiffs[prop];
-            const hasValue = val !== undefined;
-            const listenerProp = HostRender.LISTENER_PROPS[prop];
-            // Listener.
-            if (listenerProp) {
-                // Diffs.
-                if (!diffs.listeners)
-                    diffs.listeners = {};
-                diffs.listeners[prop] = val;
-                // Apply.
-                if (domElement) {
-                    // Remove old, if had.
-                    const oldListener = oldProps[prop];
-                    if (oldListener)
-                        domElement.removeEventListener(listenerProp, oldListener);
-                    // Add new.
-                    if (hasValue)
-                        domElement.addEventListener(listenerProp, val);
-                }
-            }
-            // Normal case - set/remove attribute.
-            // .. Note, the value will be stringified automatically.
-            else {
-                // Diffs.
-                if (!diffs.attributes)
-                    diffs.attributes = {};
-                // Set attribute diff, with aria prop conversion to HTML ready mode.
-                // .. We just assume anything starting with "aria" that is meant for a DOM element is ARIA related.
-                diffs.attributes[prop] = val;
-                // Apply.
-                if (domElement)
-                    hasValue ? domElement.setAttribute(prop, val) : domElement.removeAttribute(prop);
-            }
-            // Bookkeeping.
-            hasValue ? appliedProps[prop] = val : delete appliedProps[prop];
-        }
-
-        // Return info for the actually applied situation as well as diffs for each type.
-        for (const _prop in diffs)
-            return [ appliedProps, domElement, diffs ];
-        // No diffs.
-        return [ appliedProps, domElement];
-    }
-
-
-    // - Server side rendering specialities - //
-
-    // Thanks to: https://stackoverflow.com/questions/24758284/how-to-change-camelcase-to-slug-case-or-kabob-case-via-regex-in-javascript
-    /**
-     * - With "-" as replaceBy, functions like this: "testProp" => "test-prop", and "TestProp" => "-test-prop".
-     * - This behaviour mirrors how element.dataset[prop] = value works. For example: `data.TestProp = true`   =>   `<div data--test-prop="true" />`
-     */
-    public static decapitalizeString(str: string, replaceBy: string = ""): string {
-        return str.replace(/([A-Z])/g, replaceBy + "$1").toLowerCase();
-    }
-
-    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering. */
-    public static readAsString(treeNode: MixDOMTreeNode): string {
-
-        // Get def.
-        const def = treeNode.def;
-        if (!def)
-            return "";
-
-        // Read content.
-        let tag = def.tag;
-        let dom = "";
-        // Not dom type - just return the contents inside.
-        if (typeof tag !== "string") {
-            for (const tNode of treeNode.children)
-                dom += HostRender.readAsString(tNode);
-            return dom;
-        }
-
-        // Prepare dom type.
-        let element: Node | null = null;
-        // Tagless - text node.
-        if (!tag) {
-            const content = def.domContent;
-            if (content)
-                content instanceof Node ? element = content : dom += content.toString();
-        }
-        // PseudoElement - get the tag.
-        else if (tag === "_")
-            element = def.domElement || null;
-        // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
-        if (!tag && !element)
-            return dom;
-
-        // Read from element.
-        let domProps = (treeNode as MixDOMTreeNodeDOM).domProps;
-        if (element) {
-            if (element instanceof Element)
-                tag = element.tagName.toLowerCase() as DOMTags || "";
-            if (!tag)
-                return element.textContent || "";
-            // Read props from element.
-            const elDomProps = HostRender.readFromDOM(def.domElement as Element);
-            // Merge the props together - for conflicts use higher preference for what was just read from dom.
-            const { className, style, data, ...attributes } = elDomProps;
-            if (className)
-                domProps.className = domProps.className ? domProps.className + " " + className : className;
-            if (style) {
-                domProps.style = domProps.style || {};
-                for (const prop in style)
-                    domProps.style[prop] = style[prop];
-            }
-            if (data) {
-                domProps.data = domProps.data || {};
-                for (const prop in data)
-                    domProps.data[prop] = data[prop];
-            }
-            for (const prop in attributes)
-                domProps[prop] = attributes[prop];
-        }
-        // Start tag.
-        const { className, style, data, ...attributes } = domProps;
-        dom += "<" + tag;
-        // Add props.
-        // .. Class.
-        if (className)
-            dom += ' class="' + className + '"';
-        // .. Style.
-        if (style) {
-            let s = "";
-            for (const prop in style)
-                s += prop + ": " + style[prop] + ";";
-            if (s)
-                dom += ' style="' + s + '"';
-        }
-        // .. Data.
-        if (data) {
-            for (const prop in data)
-                dom += ' data-' + HostRender.decapitalizeString(prop, "-") + '="' + data[prop].toString() + '"';
-        }
-        // .. Other attributes - skipping listeners and special.
-        for (let prop in attributes)
-            if (!HostRender.LISTENER_PROPS[prop] && !HostRender.SPECIAL_PROPS[prop])
-                dom += ' ' + prop + '="' + attributes[prop].toString() + '"';
-
-        // Close the tag.
-        if (HostRender.SIMPLE_TAGS[tag])
-            dom += "/>";
-        else {
-            // Close the initial tag.
-            dom += ">";
-            // Add contents.
-            for (const tNode of treeNode.children)
-                dom += HostRender.readAsString(tNode);
-            // Close the tag.
-            dom += '</' + tag + '>';
-        }
-
-        return dom;
     }
 
     /** Find a suitable virtual item from the structure.

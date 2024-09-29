@@ -15,10 +15,7 @@ import { Component, ComponentType } from "./Component";
 
 // - Helpers - //
 
-const checkRecursively = (def: MixDOMDefApplied): boolean => {
-    const e = def.contentPass?.envelope;
-    return e && hasContentInDefs(e.applied.childDefs, checkRecursively) as boolean || false;
-};
+const checkRecursively = (def: MixDOMDefApplied): boolean => !!(def.contentPass?.envelope && hasContentInDefs(def.contentPass.envelope.applied.childDefs, checkRecursively));
 
 
 // - WithContent component - //

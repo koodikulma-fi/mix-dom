@@ -2,18 +2,10 @@
 // - Imports - //
 
 // Library.
-import { ClassType, AsMixin } from "mixin-types";
-import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout } from "data-signals";
+import { ClassType, AsMixin, AsClass } from "mixin-types";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, CompareDataDepthMode, SignalManType } from "data-signals";
 // Typing.
-import {
-    MixDOMDoubleRenderer,
-    MixDOMRenderOutput,
-    MixDOMUpdateCompareModesBy,
-    MixDOMTreeNodeType,
-    MixDOMTreeNode,
-    MixDOMUpdateCompareMode,
-    MixDOMPreComponentOnlyProps,
-} from "../typing";
+import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMPreComponentOnlyProps } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, treeNodesWithin } from "../static/index";
 // Boundaries.
@@ -40,11 +32,32 @@ type ComponentFuncCtxShortcut<Info extends Partial<ComponentInfo> = {}> = (compo
 
 // - Mixin - //
 
-function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends Record<string, any> = NonNullable<Info["props"]>, State extends Record<string, any> = NonNullable<Info["state"]>>(Base: ClassType) {
+/** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins, see: [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - To read typing of the base class use one of the below:
+ *      1. Provide it manually using `typeof BaseClass`. For example: `mixinComponent<Info, typeof BaseClass>(BaseClass)`.
+ *      2. Use `AsMixin` to auto-read the typing from the BaseClass. For example: `mixinComponent as AsMixin<Component<Info>>(BaseClass)`.
+ * 
+ * ```
+ * 
+ * 
+ * // ... some examples here ... //
+ * 
+ * 
+ * 
+ * ```
+ * 
+ */
+export function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+    // Static.
+    ComponentType<Info> & BaseClass,
+    // Instanced.
+    Component<Info> & InstanceType<BaseClass>,
+    // Constructor args.
+    [props: Info["props"] & {}, boundary: SourceBoundary, ...args: any[]]
+> {
 
-    // A bit surprisingly, using this way of typing (combined with the ComponentMixin definition below), everything works perfectly.
-    // .. The only caveat is that within here, we don't have the base class available.
-    return class _Component extends (mixinSignalMan(Base) as any as ClassType) {
+    return class Component extends (mixinSignalMan(Base) as ClassType) {
 
 
         // - Static side - //
@@ -63,11 +76,11 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
         // - Members - //
 
         public readonly boundary: SourceBoundary;
-        public readonly props: Props;
-        public readonly _lastState?: State;
-        public state: State;
+        public readonly props: Record<string, any>;
+        public readonly _lastState?: Record<string, any>;
+        public state: Record<string, any>;
         public updateModes: Partial<MixDOMUpdateCompareModesBy>;
-        public constantProps?: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>>;
+        public constantProps?: Partial<Record<string, CompareDataDepthMode | number | true>>;
         public timers?: Map<any, number | NodeJSTimeout>;
         public readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
 
@@ -76,7 +89,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
 
         // - Construction - //
 
-        constructor(props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Props, boundary?: SourceBoundary, ...passArgs: any[]) {
+        constructor(props: Record<string, any>, boundary?: SourceBoundary, ...passArgs: any[]) {
             // We are a mixin.
             super(...passArgs);
             // Set from args.
@@ -111,7 +124,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
             return this.boundary.isMounted === true;
         }
 
-        public getLastState(fallbackToCurrent: boolean = true): State | null {
+        public getLastState(fallbackToCurrent: boolean = true): Record<string, any> | null {
             return this._lastState || fallbackToCurrent && this.state || null;
         }
 
@@ -196,7 +209,7 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
                 this.updateModes[type] = modes[type];
         }
 
-        public setConstantProps(constProps: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>> | (keyof Props)[] | null, extend: boolean = true, overrideEach: MixDOMUpdateCompareMode | number | null = null): void {
+        public setConstantProps(constProps: Partial<Record<string, CompareDataDepthMode | number | true>> | string[] | null, extend: boolean = true, overrideEach: CompareDataDepthMode | number | null = null): void {
             // Reset or initialize.
             if (!extend || !this.constantProps)
                 this.constantProps = {};
@@ -217,11 +230,11 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
                 delete this.constantProps;
         }
 
-        public setState(newState: Pick<State, keyof State> | State, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-            this.boundary.updateBy({ state: { ...this.state, ...newState } as State }, forceUpdate, forceUpdateTimeout, forceRenderTimeout);
+        public setState(newState: Record<string, any>, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
+            this.boundary.updateBy({ state: { ...this.state, ...newState } }, forceUpdate, forceUpdateTimeout, forceRenderTimeout);
         }
 
-        public setInState(property: keyof State, value: any, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
+        public setInState(property: string, value: any, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
             this.boundary.updateBy({ state: { ...this.state, [property]: value } }, forceUpdate, forceUpdateTimeout, forceRenderTimeout);
         }
 
@@ -267,19 +280,10 @@ function _ComponentMixin<Info extends Partial<ComponentInfo> = {}, Props extends
 
         // - Render - //
 
-        public render(_props: Props, _lastState: State): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Props, State> { return null; }
+        public render(_props: Record<string, any>, _lastState: Record<string, any>): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer { return null; }
 
-    }
+    } as any; // We're detached from the return type.
 }
-
-/** There are two ways you can use this:
- * 1. Call this to give basic Component features with advanced typing being empty.
- *      * For example: `class MyMix extends ComponentMixin(MyBase) {}`
- * 2. If you want to define Props, State, Signals, Timers and Contexts, use this simple trick instead:
- *      * For example: `class MyMix extends (ComponentMixin as ClassMixer<ComponentType<{ props: MyProps; timers: MyTimers; }>>)(MyBase) {}`
- * - Note that the Info["class"] only works for functional components. In class form, you simply extend the class or mixin with a custom class or mixin.
- */
-export const ComponentMixin = _ComponentMixin as unknown as AsMixin<ComponentType>;
 
 
 // - Class - //
@@ -289,38 +293,37 @@ export type ComponentFunc<Info extends Partial<ComponentInfo> = {}> =
     // ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"]) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
     ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
 /** Class type (vs. instance) for component fed with ComponentInfo. */
-export interface ComponentType<Info extends Partial<ComponentInfo> = {}> {
+export interface ComponentType<Info extends Partial<ComponentInfo> = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, Component<Info> & Info["class"], [props: Info["props"] & {}, boundary: SourceBoundary, ...args: any[]]> {
     /** Class type. */
     MIX_DOM_CLASS: string; // "Component"
     /** May feature a ComponentShadowAPI, it's put here to make typing easier. */
     api?: ComponentShadowAPI<Info>; // Too deep. Either ["constructor"] or api here.
     // We are a static class, and when instanced output a remote flow source.
     // new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info>;
-    new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info> & Info["class"];
+    // new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info> & Info["class"];
 
     // Typing info.
     /** This is only provided for typing related technical reasons. There's no actual _Info static member on the javascript side. */
     _Info?: Info;
 }
 /** Standalone Component class. */
-export class Component<Info extends Partial<ComponentInfo> = {}, Props extends Record<string, any> = NonNullable<Info["props"]>, State extends Record<string, any> = NonNullable<Info["state"]>> extends _ComponentMixin(Object) {
+export class Component<Info extends Partial<ComponentInfo> = {}> extends (mixinComponent(Object) as any as ClassType) {
+    // // Type the constructor as a method. Needed for TSX.
+    // constructor(props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Props, boundary?: SourceBoundary, ...passArgs: any[]) { super(props, boundary, ...passArgs); }
+
+    public static MIX_DOM_CLASS: string = "Component"; // For some reason, we need to re-define the static type here.
+}
+export interface Component<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
+
     // Type the constructor as property. Needed for our info typing.
     ["constructor"]: ComponentType<Info>; // Let's hold the info on the static side, to keep things clean on the instance.
-    // Type the constructor as a method. Needed for TSX.
-    constructor(props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Props, boundary?: SourceBoundary, ...passArgs: any[]) { super(props, boundary, ...passArgs); }
-}
-export interface Component<
-    Info extends Partial<ComponentInfo> = {},
-    Props extends Record<string, any> = NonNullable<Info["props"]>,
-    State extends Record<string, any> = NonNullable<Info["state"]>
-> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
 
     /** Fresh props from the parent. */
-    readonly props: Props;
+    readonly props: Info["props"] & {};
     /** If the state has changed since last render, this contains the previous state. */
-    readonly _lastState?: State;
+    readonly _lastState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
-    state: State;
+    state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
     timers?: Map<Info["timers"] & {}, number | NodeJSTimeout>;
 
@@ -329,7 +332,7 @@ export interface Component<
 
     /** If constantProps is defined, then its keys defines props that must not change, and values how the comparison is done for each.
      * This affects the def pairing process by disallowing pairing if conditions not met, which in turn results in unmount and remount instead of just updating props (and potentially moving). */
-    constantProps?: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>>;
+    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>>;
     /** ContextAPI for the component. You can use it to access contextual features. By default inherits the named contexts from the Host, but you can also override them locally. */
     contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
 
@@ -339,10 +342,13 @@ export interface Component<
     /** Any wired component classes created by us. */
     readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
 
-    /** The constructor is typed as ComponentType. */
-    ["constructor"]: ComponentType<Info>;
 
+    // - Internal - //
 
+    /** This initializes the contextAPI instance (once). */
+    initContextAPI(): void;
+
+        
     // - Extend signal delay handling - //
 
     /** This returns a promise that is resolved after the host's refresh cycle has finished.
@@ -359,8 +365,8 @@ export interface Component<
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered. 
      * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
-    getLastState(fallbackToCurrent?: true): State;
-    getLastState(fallbackToCurrent?: boolean): State | null;
+    getLastState(fallbackToCurrent?: true): Info["state"] & {};
+    getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
     getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts>;
     /** Get the first dom element within by a selectors within the host (like document.querySelector). Should rarely be used, but it's here if needed. */
@@ -393,14 +399,14 @@ export interface Component<
     /** Modify the constantProps member that defines which props must not change (and how) without a remount. If you set the mode to `true` it means "changed" (= 0 depth).
      * You can also override the mode for each if you just want to use the keys of another dictionary. 
      * By default extends the given constant props, if you want to reset put extend to `false`. If you want to clear, leave the constProps empty (null | [] | {}) as well. */
-    setConstantProps(constProps: Partial<Record<keyof Props, MixDOMUpdateCompareMode | number | true>> | (keyof Props)[] | null, extend?: boolean, overrideEach?: MixDOMUpdateCompareMode | number | null): void;
+    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDataDepthMode | number | null): void;
 
     // State.
     /** Set many properties in the state at once. Can optionally define update related timing. */
-    setState<Key extends keyof State>(partialState: Pick<State, Key> | State, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    setState(newState: State, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState(newState: Info["state"], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Set one property in the state with typing support. Can optionally define update related timing. */
-    setInState<Key extends keyof State>(property: Key, value: State[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setInState<Key extends keyof (Info["state"] & {})>(property: Key, value: (Info["state"] & {})[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     
     // Force update.
     /** Trigger an update manually. Normally you never need to use this. Can optionally define update related timing */
@@ -408,37 +414,7 @@ export interface Component<
 
 
     // - Wired component - //
-
-    // /** Creates a wired component (function) and attaches it to the .wired set for automatic updates.
-    //  * - The wired component is an intermediary component to help produce extra props to an inner component.
-    //  *      * It receives its parent props normally, and then uses its `state` for the final props that will be passed to the inner component (as its `props`).
-    //  * - About arguments:
-    //  *      1. The optional Builder function builds the common external props for all wired instances. These are added to the component's natural props.
-    //  *      2. The optional Mixer function builds unique props for each wired instance. If used, the common props are fed to it and the output of the mixer instead represents the final props to add.
-    //  *      3. The only mandatory argument is the component to be used in rendering, can be a spread func, too. It's the one that receives the mixed props: from the tree flow and from the wiring source by handled by Mixer and Builder functions.
-    //  *      4. Finally you can also define the name of the component (useful for debugging).
-    //  * - Technically this method creates a component function (but could as well be a class extending Component).
-    //  *      - The important thing is that it's a unique component func/class and it has `api` member that is of `WiredAPI` type (extending `ComponentShadowAPI`).
-    //  *      - When the component is instanced, its static class side contains the same `api` which serves as the connecting interface between the driver and all instances.
-    //  *      - This class can then allow to set and refresh the common props, and trigger should-updates for all the instances and use signals.
-    //  *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
-    //  * - Note that when creates a wired component through this method (on a Component component), it's added to the .wired set and automatically triggered for updates whenever this component is checked for should-updates.
-    //  */
-    // createWired<
-    //     ParentProps extends Record<string, any> = {},
-    //     BuildProps extends Record<string, any> = {},
-    //     MixedProps extends Record<string, any> = ParentProps & BuildProps,
-    //     Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
-    //     Mixer extends (parentProps: ParentProps, addedProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, addedProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps,
-    //     >(mixer: Mixer | BuildProps | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-    // createWired<
-    //     ParentProps extends Record<string, any> = {},
-    //     BuildProps extends Record<string, any> = {},
-    //     MixedProps extends Record<string, any> = ParentProps & BuildProps,
-    //     Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
-    //     Mixer extends (parentProps: ParentProps, addedProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, addedProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps,
-    // >(builder: Builder | BuildProps | null, mixer: Mixer | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-
+    
     /** Add a wired component to this component's refresh cycle. Create the wired component using the `createWired` method. */
     addWired(Wired: ComponentWiredFunc): void;
     /** Remove a wired component to this component's refresh cycle. */
@@ -449,7 +425,7 @@ export interface Component<
 
     /** The most important function of any component: the render function. If not using functional rendering, override this manually on the class.
      */
-    render(props: Props, state: State): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Props, State>;
+    render(props: Info["props"] & {}, state: Info["state"] & {}): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 
 }
 

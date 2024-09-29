@@ -2,12 +2,8 @@
 // - Imports - //
 
 // Libraries.
-import { SignalsRecord, Context } from "data-signals";
-// Local.
-import { CSSProperties } from "./CSSTypes";
-import { SVGTags } from "./SVGTypes";
-import { HTMLTags } from "./HTMLTypes";
-import { DOMTags, DOMAttributes, ListenerAttributes } from "./DOMTypes";
+import { SignalsRecord, Context, CompareDataDepthMode } from "data-signals";
+import { DOMCleanProps, DOMTags, DOMAttributes, CSSProperties } from "dom-types";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
@@ -32,7 +28,7 @@ export type MixDOMSourceBoundaryId = string;
 
 export type MixDOMPseudoTag<Props extends Record<string, any> = {}> =
     | ([Props] extends [PseudoFragmentProps] ? typeof PseudoFragment<Props> : never)
-    | ([Props] extends [PseudoElementProps] ? typeof PseudoElement<HTMLTags | SVGTags, Props> : never)
+    | ([Props] extends [PseudoElementProps] ? typeof PseudoElement<DOMTags, Props> : never)
     | ([Props] extends [PseudoPortalProps] ? typeof PseudoPortal<Props> : never)
     | ([Props] extends [PseudoEmptyProps] ? typeof PseudoEmpty<Props> : never)
 ;
@@ -96,22 +92,19 @@ export interface MixDOMPreDOMProps extends MixDOMPreBaseProps {
     _signals?: Partial<RefDOMSignals> | null;
 }
 /** This includes all the internal dom props (_key, _ref, ...) as well as common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-export type MixDOMPreDOMTagProps<Tag extends DOMTags = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+export type MixDOMPreDOMTagProps<Tag extends string = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag>;
 
 
 // - POST Props - //
 
-export interface MixDOMCommonDOMProps { 
-    class?: string;
-    className?: string;
-    style?: CSSProperties | string;
-    data?: Record<string, any>;
-}
 /** These are any DOM props excluding internal props (like _key, _ref, ...), but also including HTML and SVG attributes (including listeners) by inputting Tag. */
-export type MixDOMDOMProps<Tag extends DOMTags = DOMTags> = DOMAttributes<Tag, {}> & ListenerAttributes & MixDOMCommonDOMProps;
+export type MixDOMDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
 
-/** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary. */
-export type MixDOMProcessedDOMProps = { className?: string; style?: CSSProperties; data?: Record<string, any>; };
+/** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
+ * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.
+ * - So, for DOM related, the rest of the props are found in { attributes }, while for non-DOM related the props are directly there.
+ */
+export type MixDOMProcessedDOMProps = DOMCleanProps;
 
 
 // - Render output types - //
@@ -132,21 +125,13 @@ export interface MixDOMComponentUpdates<Props extends Record<string, any> = {}, 
     force?: boolean | "all";
 }
 
-/** Defines how often components should render after updates (how onShouldUpdate works).
- * - "always" means they will always re-render. You should use this only for debugging.
- * - "changed" means they will render if the reference has changed.
- * - "shallow" means they will render if any prop (of an object/array) has changed. This is the default for most.
- * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
- * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
- */
-export type MixDOMUpdateCompareMode = "never" | "always" | "changed" | "shallow" | "double" | "deep";
 /** Defines how often components should update for each updatable type: props, state, context.
  * - If type not defined, uses the default value for it.
  * - Note that the pure checks only check those types that have just been changed.
  */
 export interface MixDOMUpdateCompareModesBy {
-    props: MixDOMUpdateCompareMode | number;
-    state: MixDOMUpdateCompareMode | number;
+    props: CompareDataDepthMode | number;
+    state: CompareDataDepthMode | number;
 }
 
 

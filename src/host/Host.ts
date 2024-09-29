@@ -3,9 +3,9 @@
 
 // Library.
 import { ContextsAllType, SetLike } from "data-signals";
+import { readAsString, DOMTags } from "dom-types";
 // Typing.
 import {
-    DOMTags,
     MixDOMTreeNode,
     MixDOMRenderInfo,
     MixDOMRenderOutput,
@@ -26,7 +26,6 @@ import { SourceBoundary } from "../boundaries/index";
 // Local.
 import { HostShadowAPI } from "./HostShadowAPI";
 import { HostContextAPI } from "./HostContextAPI";
-import { HostRender } from "./HostRender";
 import { HostServices } from "./HostServices";
 // Only typing (distant).
 import { ComponentTypeAny } from "../components/typesVariants";
@@ -138,7 +137,8 @@ export interface HostSettings {
     noRenderValuesMode: boolean | any[];
 
     /** For svg content, the namespaceURI argument to be passed into createElementNS(namespaceURI, tag).
-     * If none given, hard coded default is: "http://www.w3.org/2000/svg" */
+     * If empty, hard coded default is: "http://www.w3.org/2000/svg"
+     */
     renderSVGNamespaceURI: string;
 
     /** When using MixDOM.Element to insert nodes, and swaps them, whether should apply (true), and if so whether should read first ("read").
@@ -437,7 +437,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
 
     /** Read the whole rendered contents as a html string. Typically used with settings.disableRendering (and settings.renderTimeout = null). */
     public readAsString(): string {
-        return HostRender.readAsString(this.rootBoundary.treeNode);
+        return readAsString(this.rootBoundary.treeNode);
     }
     /** Get the root dom node (ours or by a nested boundary) - if has many, the first one (useful for insertion). */
     public getRootElement(): Node | null {
@@ -559,10 +559,10 @@ export class Host<Contexts extends ContextsAllType = {}> {
 // - Shortcut - //
 
 /** Create a new host and start rendering into it. */
-export const newHost = <Contexts extends ContextsAllType = {}>(
+export function newHost<Contexts extends ContextsAllType = {}>(
     content?: MixDOMRenderOutput,
     container?: HTMLElement | null,
     settings?: HostSettingsUpdate | null,
     contexts?: Contexts,
     // shadowAPI?: HostShadowAPI | null
-) => new Host<Contexts>(content, container, settings, contexts); //, shadowAPI);
+): Host<Contexts> { return new Host<Contexts>(content, container, settings, contexts); } //, shadowAPI);

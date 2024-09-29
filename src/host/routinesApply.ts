@@ -3,6 +3,7 @@
 
 // Libraries.
 import { callListeners } from "data-signals";
+import { equalDOMProps, getDictionaryDiffs } from "dom-types";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -19,7 +20,7 @@ import {
     MixDOMTreeNodeBoundary,
 } from "../typing";
 // Routines.
-import { allDefsIn, equalDOMProps, getDictionaryDiffs, newAppliedDef, newDefFrom, rootDOMTreeNodes } from "../static/index";
+import { allDefsIn, newAppliedDef, newDefFrom, rootDOMTreeNodes } from "../static/index";
 // Common.
 import { Ref, MixDOMContent } from "../common/index";
 // Boundaries.
@@ -416,16 +417,14 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
         let contentChanged = false;
 
         // Props.
-        // .. They are for types: "element", "dom" and "boundary".
-        // .. Also for "content" if has .domHTMLMode = true.
+        // .. They are for types: "element", "dom" and "boundary". Also for "content" if has .domHTMLMode = true.
+        // .. Note that we don't do any should-update like check in here, but just update the props reference.
         if (toDef.props) {
-            if (aDef.props !== toDef.props) {
-                // Add to pre-updates.
-                if (treeNode.boundary)
-                    treeNode.boundary._outerDef.props = toDef.props;
-                // Update.
-                aDef.props = toDef.props || {};
-            }
+            // Add to pre-updates.
+            if (treeNode.boundary)
+                treeNode.boundary._outerDef.props = toDef.props;
+            // Update.
+            aDef.props = toDef.props || {};
         }
 
         // Apply special properties and detect swaps.

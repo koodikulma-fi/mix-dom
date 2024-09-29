@@ -3,14 +3,15 @@
 
 // Libraries.
 import { Context, ContextSettings, SetLike, SignalsRecord } from "data-signals";
+import { readAsString } from "dom-types";
 // Typing.
 import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/index";
 // Routines.
-import { classNames, parseStyle, domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDefHTML, treeNodesWithin } from "./static/index";
+import { domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDefHTML, treeNodesWithin } from "./static/index";
 // Common.
 import { MixDOMContent, MixDOMContentCopy, newRef, Ref } from "./common/index";
 // Host.
-import { HostRender, newHost, Host } from "./host/index";
+import { newHost, Host } from "./host/index";
 // Components.
 import {
     // Pseudos.
@@ -25,7 +26,7 @@ import {
     // Component.
     createComponent,
     Component,
-    ComponentMixin,
+    mixinComponent,
     ComponentTypeAny,
     createComponentCtx,
     // Shadow.
@@ -54,7 +55,6 @@ import {
 
 // Def.
 export { newDef, newDefHTML } from "./static/routinesDefs";
-export { classNames, parseStyle } from "./static/routinesDOM";
 
 // Add shortcuts.
 /** Create a Context instance. The class is directly the same as in `data-signals`.
@@ -125,11 +125,13 @@ export const MixDOM = {
     copyContent: newContentCopyDef,
 
 
-    // - Class shortcuts - //
+    // - Mixin & class shortcuts - //
+
+    // Mixins.
+    mixinComponent,
 
     // Main classes.
     Component,
-    ComponentMixin,
     Host,
     Ref,
 
@@ -327,27 +329,7 @@ export const MixDOM = {
      */
     readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
-        return treeNode ? HostRender.readAsString(treeNode) : "";
+        return treeNode ? readAsString(treeNode) : "";
     },
-
-    // HTML attribute cleaners.
-    /** Returns a string to be used as class name (with no duplicates and optional nested TypeScript verification).
-     * - Each item in the classNames can be:
-     *     1. ValidName (single className string),
-     *     2. Array<ValidName>,
-     *     3. Record<ValidName, any>.
-     *     + If you want to use the validation only for Arrays and Records but not Strings, add 2nd parameter `string` to the type: `CleanClassName<ValidName, string>`
-     * - Unfortunately, the name validation inputted here only works for Array and Record types, and single strings.
-     * - To use concatenated class name strings (eg. "bold italic"), you should:
-     *     1. Declare a validator by: `const cleanNames: ValidateNames<ValidName> = MixDOM.classNames;`
-     *     2. Then use it like this: `const okName = cleanNames("bold italic", ["bold"], {"italic": false, "bold": true})`;
-     */
-    classNames: classNames,
-    /** Convert a style cssText string into a dictionary with capitalized keys.
-     * - For example: "background-color: #aaa" => { backgroundColor: "#aaa" }.
-     * - The dictionary format is used for easy detection of changes.
-     *      * As we want to respect any external changes and just modify based on our own. (For style, class and any attributes.)
-     */
-    parseStyle: parseStyle,
 
 };

@@ -1,6 +1,8 @@
 
 // - Imports - //
 
+// Libraries.
+import { areEqualBy } from "data-signals";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -11,7 +13,7 @@ import {
     MixDOMDefKeyTag,
 } from "../typing";
 // Routines.
-import { allDefsIn, equalDictionariesBy, newAppliedDef } from "../static/index";
+import { allDefsIn, newAppliedDef } from "../static/index";
 // Boundaries.
 import { ContentBoundary, SourceBoundary } from "../boundaries/index";
 // Local.
@@ -427,7 +429,7 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                     continue;
                 // Not matching by constant props.
                 if (defType === "boundary" && def.treeNode?.boundary?.component?.constantProps &&
-                    !equalDictionariesBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
+                    !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
                     continue;
                 // Accepted.
                 aDef = def;
@@ -450,7 +452,7 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                         continue;
                     // Not matching by constant props.
                     if (defType === "boundary" && def.treeNode?.boundary?.component?.constantProps &&
-                        !equalDictionariesBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
+                        !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
                         continue;
                     // Accepted.
                     aDef = def;

@@ -1,8 +1,10 @@
 
 // - Imports - //
 
+// Libraries.
+import { DOMTags } from "dom-types";
 // Typing.
-import { DOMTags, MixDOMPreDOMTagProps, MixDOMRenderOutput, MixDOMDefTarget } from "../typing";
+import { MixDOMPreDOMTagProps, MixDOMRenderOutput, MixDOMDefTarget } from "../typing";
 // Host.
 import { MixDOMCloneNodeBehaviour } from "../host/index";
 // Only typing (local).

@@ -100,14 +100,14 @@ export type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {
     // Direct info from anything that fits the info type.
     // .. In practice this applies to fully typed component functions.
     // .. It could/should also apply to component class types, but doesn't - seems it's due to having mixin support at Component level.
-    Anything extends { _Info?: Partial<ComponentInfo>; } | undefined ? (Anything & {})["_Info"] :
+    Anything extends { _Info?: Partial<ComponentInfo>; } | undefined ? (Anything & { _Info?: {}; })["_Info"] :
 
     // From class instance through its constructor.
-    Anything extends { constructor: { _Info?: Partial<ComponentInfo>; }; } | undefined ? (Anything & {})["constructor"]["_Info"] :
+    Anything extends { constructor: { _Info?: Partial<ComponentInfo>; }; } | undefined ? (Anything & { constructor: { _Info?: {}; }; })["constructor"]["_Info"] :
     
     // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
     // .. Note that if we were to directly add static _Info on the _Component mixin base, it would not contain the correctly typed info.
-    Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info: {}; }; })["constructor"]["_Info"] :
+    Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info?: {}; }; })["constructor"]["_Info"] :
 
     // Func without info - infer from parameters.
     Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> :
@@ -140,10 +140,10 @@ export type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, 
     Anything extends { _Required?: ComponentInfoInterpretable; } | undefined ? ReadComponentInfo<(Anything & {})["_Required"], BaseInfo> :
 
     // From class instance through its constructor.
-    Anything extends { constructor: { _Required?: ComponentInfoInterpretable }; } | undefined ? ReadComponentInfo<(Anything & {})["constructor"]["_Required"], BaseInfo> :
+    Anything extends { constructor: { _Required?: ComponentInfoInterpretable }; } | undefined ? ReadComponentInfo<(Anything & { constructor: { _Required?: {}; }; })["constructor"]["_Required"], BaseInfo> :
     
     // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
-    Anything extends ClassType<{ constructor: { _Required?: ComponentInfoInterpretable } }> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & { ["constructor"]: { _Required: {}; }; })["constructor"]["_Required"], BaseInfo> :
+    Anything extends ClassType<{ constructor: { _Required?: ComponentInfoInterpretable } }> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & { ["constructor"]: { _Required?: {}; }; })["constructor"]["_Required"], BaseInfo> :
 
     // Func without info - infer from parameters.
     Anything extends ((...args: any[]) => any | void) | undefined ?
