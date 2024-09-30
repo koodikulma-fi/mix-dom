@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Library.
-import { orderedIndex } from "data-signals";
+import { orderedIndex } from "data-memo";
 // Typing.
 import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Routines.

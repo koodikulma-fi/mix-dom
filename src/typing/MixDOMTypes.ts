@@ -2,7 +2,8 @@
 // - Imports - //
 
 // Libraries.
-import { SignalsRecord, Context, CompareDataDepthMode } from "data-signals";
+import { CompareDataDepthMode } from "data-memo";
+import { SignalsRecord, Context } from "data-signals";
 import { DOMCleanProps, DOMTags, DOMAttributes, CSSProperties } from "dom-types";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";

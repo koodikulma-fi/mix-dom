@@ -1,5 +1,6 @@
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, CompareDataDepthMode, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, SignalsRecord, ContextSettings } from 'data-signals';
 import { DOMTags, DOMElement, DOMAttributes, DOMCleanProps, CSSProperties, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
+import { CompareDataDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards } from 'mixin-types';
 
 declare class ContentBoundary extends BaseBoundary {

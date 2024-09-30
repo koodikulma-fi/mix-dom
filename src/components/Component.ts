@@ -2,8 +2,9 @@
 // - Imports - //
 
 // Library.
-import { ClassType, AsMixin, AsClass } from "mixin-types";
-import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, CompareDataDepthMode, SignalManType } from "data-signals";
+import { ClassType, AsClass } from "mixin-types";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType } from "data-signals";
+import { CompareDataDepthMode } from "data-memo";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMPreComponentOnlyProps } from "../typing";
 // Routines.
