@@ -3,7 +3,7 @@
 
 // Library.
 import { ContextsAllType, SetLike } from "data-signals";
-import { readAsString, DOMTags } from "dom-types";
+import { DOMTags } from "dom-types";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -30,6 +30,7 @@ import { HostServices } from "./HostServices";
 // Only typing (distant).
 import { ComponentTypeAny } from "../components/typesVariants";
 import { ComponentCtx } from "../components/ComponentContextAPI";
+import { HostRender } from "./HostRender";
 
 
 // - Typing - //
@@ -437,7 +438,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
 
     /** Read the whole rendered contents as a html string. Typically used with settings.disableRendering (and settings.renderTimeout = null). */
     public readAsString(): string {
-        return readAsString(this.rootBoundary.treeNode);
+        return HostRender.readAsString(this.rootBoundary.treeNode);
     }
     /** Get the root dom node (ours or by a nested boundary) - if has many, the first one (useful for insertion). */
     public getRootElement(): Node | null {
@@ -545,7 +546,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
             renderTextHandler: null,
             renderSVGNamespaceURI: "http://www.w3.org/2000/svg",
             renderDOMPropsOnSwap: true,
-            // - DEVLOG - //
+            // - DEV-LOG - //
             // Dev log.
             devLogWarnings: false,
         };

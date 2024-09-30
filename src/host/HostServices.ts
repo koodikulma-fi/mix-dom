@@ -2,7 +2,8 @@
 // - Imports - //
 
 // Libraries.
-import { askListeners, callListeners, areEqual, CompareDataDepthEnum, CompareDataDepthMode, RefreshCycle } from "data-signals";
+import { areEqual, CompareDataDepthEnum, CompareDataDepthMode } from "data-memo";
+import { askListeners, callListeners, RefreshCycle } from "data-signals";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -80,8 +81,8 @@ export class HostServices {
         this.host = host;
         this.bIdCount = 0;
         this.renderer = new HostRender(host.settings, host.groundedTree); // Should be constructed after assigning settings and groundedTree.
-        this.updateCycle = new RefreshCycle<HostUpdateCycleInfo>(() => ({ updates: new Set() }));
-        this.renderCycle = new RefreshCycle<HostRenderCycleInfo>(() => ({ rCalls: [], rInfos: [] }));
+        this.updateCycle = new RefreshCycle<HostUpdateCycleInfo>({ initPending: () => ({ updates: new Set() }) });
+        this.renderCycle = new RefreshCycle<HostRenderCycleInfo>({ initPending: () => ({ rCalls: [], rInfos: [] }), autoRenewPromise: true });
         (this.constructor as typeof HostServices).initializeCyclesFor(this);
     }
 
@@ -216,12 +217,12 @@ export class HostServices {
 
     /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
     public updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-        // Set render timeout.
-        if (forceRenderTimeout !== undefined)
-            this.renderCycle.extend(forceRenderTimeout); // Note. We just _extend_ here - we won't resolve nor trigger the cycle instantly.
         // Set update timeout.
         if (forceUpdateTimeout !== undefined)
             this.updateCycle.extend(forceUpdateTimeout); // Note. We just _extend_ here - we won't resolve nor trigger the cycle instantly.
+        // Set render timeout.
+        if (forceRenderTimeout !== undefined)
+            this.renderCycle.extend(forceRenderTimeout); // Note. We just _extend_ here - we won't resolve nor trigger the cycle instantly.
     }
 
     /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
@@ -448,6 +449,20 @@ export class HostServices {
 
     /** Initialize cycles. */
     public static initializeCyclesFor(services: HostServices): void {
+
+        // - DEV-LOG - //
+        //
+        // Useful for debugging the large scale flow.
+        //
+        // services.updateCycle.listenTo("onStart", () => console.log("--- RefreshCycle: HOST-SERVICES 1. UPDATE - onStart ---"));
+        // services.renderCycle.listenTo("onStart", () => console.log("--- RefreshCycle: HOST-SERVICES 2. RENDER - onStart ---"));
+        // services.updateCycle.listenTo("onResolve", () => console.log("--- RefreshCycle: HOST-SERVICES 1. UPDATE - onResolve ---"));
+        // services.renderCycle.listenTo("onResolve", () => console.log("--- RefreshCycle: HOST-SERVICES 2. RENDER - onResolve ---"));
+        // services.updateCycle.listenTo("onRefresh", () => console.log("--- RefreshCycle: HOST-SERVICES 1. UPDATE - onRefresh ---"));
+        // services.renderCycle.listenTo("onRefresh", () => console.log("--- RefreshCycle: HOST-SERVICES 2. RENDER - onRefresh ---"));
+        // services.updateCycle.listenTo("onFinish", () => console.log("--- RefreshCycle: HOST-SERVICES 1. UPDATE - onFinish ---"));
+        // services.renderCycle.listenTo("onFinish", () => console.log("--- RefreshCycle: HOST-SERVICES 2. RENDER - onFinish ---"));
+
         // Hook up cycle interconnections.
         // .. Do the actual running.
         services.updateCycle.listenTo("onRefresh", (pending, resolvePromise) => (services.constructor as typeof HostServices).runUpdates(services, pending, resolvePromise));
@@ -456,10 +471,7 @@ export class HostServices {
         services.updateCycle.listenTo("onFinish", () => {
             // Trigger with default timing. (If was already active, won't do anything.)
             services.renderCycle.trigger(services.host.settings.renderTimeout);
-            // Note that in case renderCycle had been set to instant resolution, it's already been solved by the time of this comment line.
         });
-        // .. Make sure to start "update" when "render" is started.
-        services.renderCycle.listenTo("onStart", () => services.updateCycle.trigger(services.host.settings.updateTimeout));
         // .. Make sure "update" is always resolved right before "render".
         services.renderCycle.listenTo("onResolve", () => services.updateCycle.resolve());
     }
@@ -468,7 +480,6 @@ export class HostServices {
      * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
      */
     public static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
-
         // Prevent multi-running during.
         // .. We'll handle them during a single run instead - by running the while loop (below) again, not a moment before.
         if (services._whileUpdating)
@@ -479,6 +490,12 @@ export class HostServices {
             
             // Renew id and while-updating marker.
             services._whileUpdating = {};
+
+            // - DEV-LOG - //
+            //
+            // Useful part of info in the mid scale.
+            //
+            // console.log("--- Inner update: HOST-SERVICES 1. UPDATE - SUB CYCLE ---");
 
             // Collect output.
             let renderInfos: MixDOMRenderInfo[] = [];

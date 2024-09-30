@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { areEqualBy } from "data-signals";
+import { areEqualBy } from "data-memo";
 // Typing.
 import {
     MixDOMTreeNode,

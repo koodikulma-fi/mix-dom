@@ -3,7 +3,7 @@
 
 // Libraries.
 import { askListeners, callListeners } from "data-signals";
-import { applyDOMProps, createDOMElement, readFromDOM, DOMTags } from "dom-types";
+import { applyDOMProps, createDOMElement, readDOMProps, DOMTags, readDOMString } from "dom-types";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -257,7 +257,7 @@ export class HostRender {
                     else {
                         // Read from dom.
                         if (reapply)
-                            treeNode.domProps = readFromDOM(domNode);
+                            treeNode.domProps = readDOMProps(domNode);
                         // Add info.
                         renderInfo.update = true;
                     }
@@ -326,9 +326,9 @@ export class HostRender {
     public applyToDOM(renderInfos: MixDOMRenderInfo[]): void {
 
 
-        // - DEVLOG - //
+        // - DEV-LOG - //
         //
-        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting DEVLOG in __routinesApply.cleanUpDefs.
+        // This tiny log is super useful when debugging (especially with preCompareDOMProps = true). Also consider uncommenting DEV-LOG in __routinesApply.cleanUpDefs.
         // console.log("__HostRender.applyToDOM: Dev-log: Received rendering infos" + (this.paused ? " (while paused)" : "") + ": ", renderInfos.map(info => ({ ...info, treeNode: info.create ? info.treeNode : { ...info.treeNode, def: { ...info.treeNode.def } }})));
 
 
@@ -404,7 +404,7 @@ export class HostRender {
 
             // Refresh.
             if (renderInfo.refresh && treeNode.domNode && treeNode["domProps"]) {
-                (treeNode as MixDOMTreeNodeDOM).domProps = renderInfo.refresh === "read" ? readFromDOM(treeNode.domNode) : {};
+                (treeNode as MixDOMTreeNodeDOM).domProps = renderInfo.refresh === "read" ? readDOMProps(treeNode.domNode) : {};
                 doUpdate = true;
             }
 
@@ -492,7 +492,7 @@ export class HostRender {
                         }
                         // Reapply.
                         if (tNode.domProps) {
-                            tNode.domProps = newEl && (settings.renderDOMPropsOnSwap === "read") ? readFromDOM(newEl) : {};
+                            tNode.domProps = newEl && (settings.renderDOMPropsOnSwap === "read") ? readDOMProps(newEl) : {};
                             doUpdate = true;
                         }
                     }
@@ -1066,6 +1066,64 @@ export class HostRender {
 
         // None found.
         return null;
+    }
+
+        
+    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
+     * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
+     *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
+     */
+    public static readAsString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: string[] | null | undefined = ["img"]): string {
+
+        // Get def.
+        const def = treeNode.def;
+        if (!def)
+            return "";
+
+        // Read content.
+        let tag = def.tag;
+        let dom = "";
+        // Not dom type - just return the contents inside.
+        if (typeof tag !== "string") {
+            if (treeNode.children)
+                for (const tNode of treeNode.children)
+                    dom += HostRender.readAsString(tNode, onlyClosedTagsFor);
+            return dom;
+        }
+
+        // Get element for special reads.
+        let element: Node | null = null;
+        // .. Tagless - text node.
+        if (!tag) {
+            const content = def.domContent;
+            if (content)
+                content instanceof Node ? element = content : dom += content.toString();
+        }
+        // .. PseudoElement - get the tag.
+        else if (tag === "_") {
+            tag = "";
+            element = def.domElement || null;
+        }
+        // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
+        if (!tag && !element)
+            return dom;
+
+        // Read as a string, and any kids recursively inside first (referring to HostRender.readAsString).
+        dom += readDOMString(
+            // Tag (string).
+            tag,
+            // Cleaned dom props.
+            (treeNode as MixDOMTreeNodeDOM).domProps,
+            // Content inside: string or `true` (to force opened tags).
+            (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readAsString(kidNode, onlyClosedTagsFor), "") : "") || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
+            // Element for reading further info.
+            element || (treeNode.def?.domContent instanceof Node ? treeNode.def.domContent : null)
+        );
+
+        // Return the combined string.
+        return dom;
     }
 
     /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */

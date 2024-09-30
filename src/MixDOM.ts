@@ -3,7 +3,6 @@
 
 // Libraries.
 import { Context, ContextSettings, SetLike, SignalsRecord } from "data-signals";
-import { readAsString } from "dom-types";
 // Typing.
 import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/index";
 // Routines.
@@ -11,7 +10,7 @@ import { domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDe
 // Common.
 import { MixDOMContent, MixDOMContentCopy, newRef, Ref } from "./common/index";
 // Host.
-import { newHost, Host } from "./host/index";
+import { newHost, Host, HostRender } from "./host/index";
 // Components.
 import {
     // Pseudos.
@@ -329,7 +328,7 @@ export const MixDOM = {
      */
     readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
-        return treeNode ? readAsString(treeNode) : "";
+        return treeNode ? HostRender.readAsString(treeNode) : "";
     },
 
 };

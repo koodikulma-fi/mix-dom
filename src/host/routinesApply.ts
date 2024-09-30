@@ -754,9 +754,9 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
 
 export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs: boolean = true, destroyAllDOM: boolean = true): MixDOMChangeInfos {
     
-    // - DEVLOG - //
+    // - DEV-LOG - //
     //
-    // This tiny log can be very useful when debugging. Also consider uncommenting DEVLOG in __HostRender.applyToDOM.
+    // This tiny log can be very useful when debugging. Also consider uncommenting DEV-LOG in __HostRender.applyToDOM.
     // console.log("__routinesApply.cleanUpDefs: Dev-log: Clean up unused defs: ", [...unusedDefs].map(def => ({...def, treeNode: def.treeNode ? { ...def.treeNode } : undefined })));
 
     // Loop each and destroy accordingly.
@@ -1099,7 +1099,7 @@ export function applyClosureRefresh(closure: ContentClosure, forceUpdate: boolea
     //         const treeNode = def.treeNode;
     //         if (!treeNode)
     //             continue;
-    //         // - DEVLOG - //
+    //         // - DEV-LOG - //
     //         // Log.
     //         console.log("__ContentClosure.applyRefresh dev-log - clean up treeNode (no true pass): ", treeNode);
     //         // Dom node.

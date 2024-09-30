@@ -180,7 +180,7 @@ export class SourceBoundary extends BaseBoundary {
                 this._renderState = "active";
                 return this.render(iRecursion);
             }
-            // - DEVLOG - //
+            // - DEV-LOG - //
             else {
                 if (settings.devLogWarnings) {
                     console.warn("__SourceBoundary.render: Warning: The component tried to render for over " + ((iRecursion + 1).toString()) + " times.",

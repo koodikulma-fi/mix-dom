@@ -1,6 +1,6 @@
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, CompareDataDepthMode, SignalsRecord, ContextSettings } from 'data-signals';
-import { DOMTags, DOMElement, DOMAttributes, DOMCleanProps, CSSProperties, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
-import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards } from 'mixin-types';
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, NodeJSTimeout, CompareDataDepthMode, SignalManType, SignalsRecord, ContextSettings } from '../../../data-signals/dist/data-signals.module.js';
+import { DOMTags, DOMElement, DOMAttributes, DOMCleanProps, CSSProperties, DOMAttributesBy_native, DOMAttributesBy } from '../../../dom-types/dist/dom-types';
+import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards } from '../../../mixin-types/dist/mixin-types';
 
 declare class ContentBoundary extends BaseBoundary {
     /** The def whose children define our content - we are a fragment-like container. */
@@ -713,13 +713,6 @@ declare class HostRender {
      * - DEV. NOTE. This is a bit SKETCHY.
      */
     static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMHydrationItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMHydrationItem[]>>, excludedNodes?: Set<Node> | null, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): MixDOMHydrationItem | Node | null;
-    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
-     * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
-     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
-     *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
-     *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
-     */
-    static readAsString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: string[] | null | undefined): string;
     /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
     private static isVirtualItemOk;
 }
