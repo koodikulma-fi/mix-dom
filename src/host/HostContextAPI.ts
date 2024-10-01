@@ -94,7 +94,7 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
 
     // - Getting / Calling indirect (component) listeners - //
 
-    public static getListenersFor(contextAPI: HostContextAPI, ctxName: string, signalName?: string): SignalListener[] | undefined {
+    public static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined {
         // All within a context.
         const ctxSignalName = ctxName + "." + (signalName || "");
         const ctxComponents = [...contextAPI.host.contextComponents];

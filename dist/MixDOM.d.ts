@@ -78,7 +78,7 @@ interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
 }
 declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     awaitDelay(): Promise<void>;
-    static getListenersFor(contextAPI: HostContextAPI, ctxName: string, signalName?: string): SignalListener[] | undefined;
+    static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined;
     static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys?: true | string[]): void;
 }
 
