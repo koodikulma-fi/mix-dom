@@ -3,8 +3,9 @@
 
 // Libraries.
 import { callListeners, SignalListener, SignalListenerFlags, SignalMan, SignalManType } from "data-signals";
+import { DOMDiffProps } from "dom-types";
 // Typing.
-import { MixDOMTreeNode, MixDOMDOMDiffs, MixDOMContentSimple } from "../typing";
+import { MixDOMTreeNode, MixDOMContentSimple } from "../typing";
 // Routines.
 import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
@@ -25,7 +26,7 @@ export type RefDOMSignals<Type extends Node = Node> = {
     /** Called when a reffed dom element has been mounted: rendered into the dom for the first time. */
     domDidMount: (domNode: Type) => void;
     /** Called when a reffed dom element updates (not on the mount run). */
-    domDidUpdate: (domNode: Type, diffs: MixDOMDOMDiffs) => void;
+    domDidUpdate: (domNode: Type, diffs: DOMDiffProps) => void;
     /** Called when the html content of a dom element has changed. */
     domDidContent: (domNode: Type, simpleContent: MixDOMContentSimple | null) => void;
     /** Called when a reffed dom element has been moved in the tree. */

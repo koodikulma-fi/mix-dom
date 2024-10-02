@@ -17,6 +17,8 @@
 
 // All common typing.
 export * from "./typing/index";
+// SourceBoundary for constructor args.
+export { SourceBoundary } from "./boundaries/SourceBoundary";
 // All from common (Ref and MixDOMContent).
 export * from "./common/index";
 // Host and HostContextAPI from Host.

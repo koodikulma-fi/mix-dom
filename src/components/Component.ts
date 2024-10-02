@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Library.
-import { ClassType, AsClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types";
 import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType } from "data-signals";
 import { CompareDataDepthMode } from "data-memo";
 // Typing.
@@ -14,7 +14,7 @@ import { SourceBoundary } from "../boundaries/index";
 // Host.
 import { Host } from "../host/index";
 // Local typing.
-import { ComponentInfo } from "./typesInfo";
+import { ComponentInfoPartial } from "./typesInfo";
 import { ComponentSignals } from "./typesSignals";
 import { ComponentTypeAny } from "./typesVariants";
 // Local class.
@@ -27,8 +27,8 @@ import { ComponentShadowAPI } from "./ComponentShadowAPI";
 // - Local typing - //
 
 // Internal helpers - not exported.
-type ComponentFuncShortcut<Info extends Partial<ComponentInfo> = {}> = (component: Component<Info> & Info["class"]) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
-type ComponentFuncCtxShortcut<Info extends Partial<ComponentInfo> = {}> = (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
+type ComponentFuncShortcut<Info extends ComponentInfoPartial = {}> = (component: Component<Info> & Info["class"]) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
+type ComponentFuncCtxShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 
 
 // - Mixin - //
@@ -38,24 +38,113 @@ type ComponentFuncCtxShortcut<Info extends Partial<ComponentInfo> = {}> = (compo
  * - To read typing of the base class use one of the below:
  *      1. Provide it manually using `typeof BaseClass`. For example: `mixinComponent<Info, typeof BaseClass>(BaseClass)`.
  *      2. Use `AsMixin` to auto-read the typing from the BaseClass. For example: `mixinComponent as AsMixin<Component<Info>>(BaseClass)`.
+ * - Note that this feature can be used for the concept of Component mixing in the class form.
+ *      * However, you can also mix components in the functional form. See more at MixDOM.mixin, MixDOM.mixFuncs and other related methods.
  * 
  * ```
  * 
+ * // - Basic typed example - //
  * 
- * // ... some examples here ... //
+ * // Base class with static type.
+ * interface MyBaseType extends ClassType<MyBase> {
+ *     SOME_STATIC: boolean;
+ * }
+ * class MyBase { something: boolean = false; static SOME_STATIC: boolean = false; }
+ * 
+ * // Create some mixed components. (Should define render method, too.)
+ * // .. Typing.
+ * type MyInfo = { props: { test: boolean; }; };
+ * // .. Without base class.
+ * const MyComponent = mixinComponent<MyInfo>(Object);
+ * class MyComponentClass extends mixinComponent<MyInfo>(Object) {}
+ * // .. With typed base class.
+ * const MyComponentWith1 = mixinComponent<MyInfo, typeof MyBase>(MyBase);
+ * const MyComponentWith2 = mixinComponent<MyInfo, MyBaseType>(MyBase);
+ * const MyComponentWith3 = (mixinComponent as AsMixin<Component<MyInfo>>)(MyBase);
+ * const MyComponentWith4 = (mixinComponent as ReMixin<ComponentType<MyInfo>>)(MyBase);
+ * 
+ * // Test static typing. (All found as expected.)
+ * MyComponent.MIX_DOM_CLASS
+ * MyComponentClass.MIX_DOM_CLASS
+ * MyComponentWith1.MIX_DOM_CLASS
+ * MyComponentWith1.SOME_STATIC
+ * MyComponentWith2.MIX_DOM_CLASS
+ * MyComponentWith2.SOME_STATIC
+ * MyComponentWith3.MIX_DOM_CLASS
+ * MyComponentWith3.SOME_STATIC
+ * MyComponentWith4.MIX_DOM_CLASS
+ * MyComponentWith4.SOME_STATIC
+ * 
+ * // Test props.
+ * const Test: SpreadFunc = () =>
+ *     <>
+ *         <MyComponent test={false} />
+ *         <MyComponentClass test={false} />
+ *         <MyComponentWith1 test={false} />
+ *         <MyComponentWith2 test={false} />
+ *         <MyComponentWith3 test={false} />
+ *         <MyComponentWith4 test={false} />
+ *     </>;
  * 
  * 
+ * // - Advanced typed example - //
+ * //
+ * // Note. For advanced examples and guidelines, see `mixin-types` documentation:
+ * // https://www.npmjs.com/package/mixin-types
+ * 
+ * // To use generics (mixed with custom info).
+ * // .. 
+ * type MyGenInfo = { state: { enabled: boolean; }; props: { more?: boolean; }; };
+ * interface MyGenComponentType<Info extends ComponentInfoPartial = {}>
+ * 	    extends ComponentType<Info & MyGenInfo> {}
+ * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
+ * 	    extends Component<Info & MyGenInfo>, MyBase {}
+ * class MyGenComponent<Info = {}> extends
+ *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+ * 		
+ *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
+ * 		myThing?: Info;
+ * 		constructor(props: (Info & MyGenInfo)["props"], boundary?: SourceBoundary, ...args: any[]) {
+ * 			super(props, boundary, ...args);
+ * 			this.state = {
+ * 				enabled: false,
+ * 			};
+ * 		}
+ * 		test(): void {
+ * 			// Recognized correctly.
+ * 			this.something = false;
+ * 			this.constructor.MIX_DOM_CLASS;
+ * 			// The base class needs some help here.
+ * 			(this.constructor as MyGenComponentType & MyBaseType).SOME_STATIC;
+ * 		}
+ * 		render() {		
+ * 			return <div>{this.state.enabled ? "yes" : "no"}</div>;
+ * 		}
+ * 	}
+ * 
+ * // Test static typing. (All found as expected.)
+ * MyGenComponent.MIX_DOM_CLASS
+ * MyGenComponent.SOME_STATIC
+ * 
+ * // Test interface typing - automated from what's inside the class declaration.
+ * type TestMyThing = MyGenComponent<MyInfo>["myThing"]; // MyInfo | undefined
+ * 
+ * // Test props.
+ * const TestMore: SpreadFunc = () =>
+ *     <>
+ *         <MyGenComponent<MyInfo> test={false} more={true} />
+ *     </>;
  * 
  * ```
  * 
  */
-export function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
     ComponentType<Info> & BaseClass,
     // Instanced.
     Component<Info> & InstanceType<BaseClass>,
     // Constructor args.
-    [props: Info["props"] & {}, boundary: SourceBoundary, ...args: any[]]
+    [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]]
 > {
 
     return class Component extends (mixinSignalMan(Base) as ClassType) {
@@ -63,15 +152,7 @@ export function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseCla
 
         // - Static side - //
 
-        // // Typing info.
-        // /** This is only provided for typing related technical reasons. There's no actual _Info member on the javascript side. */
-        // public static _Info?: Info;
-        //
-        // <-- Note that holding this here wouldn't help in practice. It's because in here we don't actually have the final typed Info.
-
         public static MIX_DOM_CLASS = "Component";
-
-        // ["constructor"]: ComponentType<Info>;
 
 
         // - Members - //
@@ -84,7 +165,6 @@ export function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseCla
         public constantProps?: Partial<Record<string, CompareDataDepthMode | number | true>>;
         public timers?: Map<any, number | NodeJSTimeout>;
         public readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
-
         public contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
 
 
@@ -289,32 +369,37 @@ export function mixinComponent<Info extends Partial<ComponentInfo> = {}, BaseCla
 
 // - Class - //
 
-/** Functional type for component fed with ComponentInfo. */
-export type ComponentFunc<Info extends Partial<ComponentInfo> = {}> = 
-    // ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"]) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
+/** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). */
+export type ComponentFunc<Info extends ComponentInfoPartial = {}> = 
     ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
+
 /** Class type (vs. instance) for component fed with ComponentInfo. */
-export interface ComponentType<Info extends Partial<ComponentInfo> = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, Component<Info> & Info["class"], [props: Info["props"] & {}, boundary: SourceBoundary, ...args: any[]]> {
+export interface ComponentType<Info extends ComponentInfoPartial = {}> extends AsClass<
+    // Static.
+    SignalManType<ComponentSignals<Info> & Info["signals"]>,
+    // Instance.
+    Component<Info> & Info["class"],
+    // Constructor args.
+    [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]]>
+{
+    // Static members.
     /** Class type. */
     MIX_DOM_CLASS: string; // "Component"
-    /** May feature a ComponentShadowAPI, it's put here to make typing easier. */
-    api?: ComponentShadowAPI<Info>; // Too deep. Either ["constructor"] or api here.
-    // We are a static class, and when instanced output a remote flow source.
-    // new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info>;
-    // new (props: Info["props"] & {}, boundary?: SourceBoundary): Component<Info> & Info["class"];
+    /** May feature a ComponentShadowAPI. It's potential existence is pre-typed here to make typing easier. */
+    api?: ComponentShadowAPI<Info>; // Could consider `ComponentShadowAPI<any>` here.
 
     // Typing info.
-    /** This is only provided for typing related technical reasons. There's no actual _Info static member on the javascript side. */
+    /** This is only provided for typing related technical reasons. There's no actual _Info static member on the JS side. */
     _Info?: Info;
 }
-/** Standalone Component class. */
-export class Component<Info extends Partial<ComponentInfo> = {}> extends (mixinComponent(Object) as any as ClassType) {
-    // // Type the constructor as a method. Needed for TSX.
-    // constructor(props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Props, boundary?: SourceBoundary, ...passArgs: any[]) { super(props, boundary, ...passArgs); }
 
-    public static MIX_DOM_CLASS: string = "Component"; // For some reason, we need to re-define the static type here.
-}
-export interface Component<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
+/** Standalone Component class.
+ * - Provides the basic features for rendering into the MixDOM system, orchestrator by the containing Host.
+ * - Use the `render(props, state)` method to render the contents - the method is called automatically by the flow (calling it manually has no meaning).
+ */
+export class Component<Info extends ComponentInfoPartial = {}> extends
+    (mixinComponent(Object) as any as ReClass<ComponentType, {}, [props: Record<string, any>, boundary?: SourceBoundary, ...args: any[]]>) { }
+export interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
 
     // Type the constructor as property. Needed for our info typing.
     ["constructor"]: ComponentType<Info>; // Let's hold the info on the static side, to keep things clean on the instance.
@@ -433,8 +518,8 @@ export interface Component<Info extends Partial<ComponentInfo> = {}> extends Sig
 // - Create component function - //
 
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. */
-export function createComponent<Info extends Partial<ComponentInfo> = {}>(func: (component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string): ComponentFunc<Info>;
-export function createComponent<Info extends Partial<ComponentInfo> = {}>(func: ComponentFuncShortcut<Info> | ComponentFuncCtxShortcut<Info>, name: string = func.name) {
+export function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string): ComponentFunc<Info>;
+export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentFuncCtxShortcut<Info>, name: string = func.name) {
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name dynamically. However, its mostly useful for classes, as the functions are named outside (= afterwards).
     return { [name]: 
         func.length > 1 ?
@@ -444,6 +529,6 @@ export function createComponent<Info extends Partial<ComponentInfo> = {}>(func: 
 }
 
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. */
-export const createComponentCtx = <Info extends Partial<ComponentInfo> = {}>(func: ComponentFuncCtxShortcut<Info>, name: string = func.name): ComponentFuncCtx<Info> =>
+export const createComponentCtx = <Info extends ComponentInfoPartial = {}>(func: ComponentFuncCtxShortcut<Info>, name: string = func.name): ComponentFuncCtx<Info> =>
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name dynamically.
     ({ [name]: function (_props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentFuncCtxShortcut<Info>)(component, contextAPI); }})[name] as ComponentFuncCtx<Info>;

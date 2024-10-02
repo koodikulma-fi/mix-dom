@@ -44,6 +44,15 @@ export interface ComponentInfo<
      */
     contexts: Contexts;
 }
+/** Partial version of the ComponentInfo. */
+export interface ComponentInfoPartial<
+    Props extends Record<string, any> = {},
+    State extends Record<string, any> = {},
+    Class extends Record<string, any> = {},
+    Signals extends Record<string, (...args: any[]) => any> = {},
+    Timers extends any = any,
+    Contexts extends ContextsAllType = {}
+> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {}
 
 /** Empty component info type. */
 export type ComponentInfoEmpty = {

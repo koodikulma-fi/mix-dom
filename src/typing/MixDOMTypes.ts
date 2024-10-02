@@ -136,23 +136,6 @@ export interface MixDOMUpdateCompareModesBy {
 }
 
 
-// - DOM diffs - //
-
-/** Differences made to a dom element. Note that this never includes tag changes, because it requires creating a new element. */
-export interface MixDOMDOMDiffs {
-    /** If no attributes, no changes in general attributes. If value in the dictionary is undefined means removed. */
-    attributes?: Record<string, any>;
-    /** If no listeners, no changes in listeners. If value in the dictionary is undefined means removed. */
-    listeners?: Record<string, any>;
-    /** If no style, no changes in styles. If value in the dictionary is undefined means removed. */
-    style?: CSSProperties;
-    /** If no data, no changes in data attribute. If value in the dictionary is undefined means removed. */
-    data?: Record<string, any>;
-    /** If no classNames, no changes in class names. The keys are class names: for each, if true class name was added, if false name was removed. */
-    classNames?: Record<string, boolean>;
-}
-
-
 // - Change & render infos - //
 
 /** This info is used for executing rendering changes to dom for a given appliedDef (which is modified during the process).

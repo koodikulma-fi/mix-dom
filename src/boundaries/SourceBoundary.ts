@@ -24,8 +24,10 @@ import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRem
 
 // - Class -//
 
-/** This is what "contains" a component.
- * .. It's the common interface for technical as well as advanced API interfacing. */
+/** This is what "contains" a Component instance.
+ * - It's a technical boundary between a Component and its Host's update flow orchestration.
+ * - Each component receives its boundary as the 2nd constructor argument: `(props, boundary)`.
+ */
 export class SourceBoundary extends BaseBoundary {
 
 

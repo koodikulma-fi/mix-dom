@@ -11,7 +11,7 @@ import { ComponentTypeEither } from "./typesVariants";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { Component, ComponentFunc, ComponentType, createComponent, createComponentCtx } from "./Component";
 // Only typing (local).
-import { ComponentShadow, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
+import { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
 
 
 // - Class - //
@@ -65,7 +65,7 @@ export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extend
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info>;
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
-export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither, signals?: Partial<ComponentShadowSignals> | null, name: string = funcOrClass.name): ComponentShadowType<Info> | ComponentShadowFunc<Info> {
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name: string = funcOrClass.name): ComponentShadowType<Info> | ComponentShadowFunc<Info> {
     // Exceptionally we also support feeding in a class here. To add support for being a shadow.
     const Shadow = funcOrClass["MIX_DOM_CLASS"] ? { [name]: class extends (funcOrClass as ComponentType) {} }[name] as ComponentShadowType<Info> : createComponent(funcOrClass as any, name) as ComponentShadowFunc<Info>;
     Shadow.api = new ComponentShadowAPI();
