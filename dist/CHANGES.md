@@ -2,7 +2,7 @@
 
 ## v4.0.0
 
-### Splitted library to `mix-dom` + `data-signals` + `mixin-types`
+### Splitted library to `mixin-types` + `data-signals` + `data-memo` + `dom-types` + `mix-dom`
 The `mix-dom` library now uses `data-signals` and `mixin-types` (also used by `data-signals`) to provide non-rendering related core features.
 - The [mixin-types](https://www.npmjs.com/package/mixin-types) is simply used (in typing) by `data-signals` for the mixin base classes and joining them together for `Context` and `ContextAPI`.
   - At `mix-dom` layer, `mixin-types` is used in similar sense for the `Component` class - to allow creating component mixins easily.
@@ -43,6 +43,11 @@ The `mix-dom` library now uses `data-signals` and `mixin-types` (also used by `d
       - The static side still has `Remote.Content` pass member, but it's actually a def for a component to render all feeds - not a real content pass.
       - Both sides (instanced and static) provide `WithContent` component and the common `ContentCopy`, `contentCopy`, `hasContent` and such.
   - Internally, this makes the feature more powerful while simplifies its core functionality (= less code needed).
+- Renamed the older `rehydrate` concept to `reassimilate` (DOM), while adding new `remount` and `remountWith` methods for mirroring server side rendering.
+  - The arguments are the same as they were for `reassimilate` and `reassimilateWith`, just the name changed.
+  - The new `remount` method has similar arguments to `reassimilate` but instead remounts the app root while assimilating new DOM structure.
+    * The `remountWith` method is equivalent to React's `hydrateRoot` (though with the first 2 args in flipped order).
+  - The somewhat related `readAsString` method has been renamed to `readDOMString` (to emphasize what is read).
 
 ### Minor changes / enhancements
 - In Component class:
@@ -76,7 +81,7 @@ declare global {
 }
 ```
 
-### Tiny refines / fixes
+### Tiny fixes & refines
 - Tiny refines in relation to content passing special cases in very specific circumstances.
 - Fixing a special case in relation to parsing style from string (to only split by the first ":", not any further).
 

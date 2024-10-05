@@ -12,12 +12,13 @@ import {
     MixDOMTreeNodeType,
     MixDOMTreeNodeDOM,
     MixDOMTreeNodeBoundary,
-    MixDOMHydrationSuggester,
-    MixDOMHydrationValidator,
+    MixDOMAssimilateSuggester,
+    MixDOMAssimilateValidator,
     MixDOMUpdateCompareModesBy,
     MixDOMTreeNodeHost,
     MixDOMDefBoundary,
     MixDOMDefApplied,
+    MixDOMDefTarget,
 } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, newAppliedDef, rootDOMTreeNodes, treeNodesWithin } from "../static/index";
@@ -147,7 +148,7 @@ export interface HostSettings {
     renderDOMPropsOnSwap: boolean | "read";
 
     /** This is useful for server side functionality. (Defaults to false, as most of the times you're using MixDOM on client side.)
-     * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readAsString() or MixDOM.readAsString(treeNode) to get the html string.
+     * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readDOMString() or MixDOM.readDOMString(treeNode) to get the html string.
      * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates. */
     disableRendering: boolean;
 
@@ -396,13 +397,13 @@ export class Host<Contexts extends ContextsAllType = {}> {
     }
 
 
-    // - Pausing & hydration - //
+    // - Pausing & reassimilation - //
 
-    /** Pause the rendering. Resume it by calling resume(), rehydrate() or rehydrateWith(). */
+    /** Pause the rendering. Resume it by calling resume(), reassimilate() or reassimilateWith(). */
     public pause(): void {
         this.services.renderer.pause();
     }
-    /** Resume rendering - triggers rehydration. */
+    /** Resume rendering - triggers reassimilation. */
     public resume(): void {
         this.services.renderer.resume();
     }
@@ -410,35 +411,212 @@ export class Host<Contexts extends ContextsAllType = {}> {
     public isPaused(): boolean {
         return this.services.renderer.paused;
     }
-    /** This rehydrates the rendered defs with actual dom elements iterating down the groundedTree and the container (defaults to the host's container element).
-     * - It supports reusing custom html elements from a custom "container" element as well. Note it should be the _containing_ element.
-     * - In readAllMode will re-read the current dom props from the existing ones as well. Defaults to false.
-     * - In smuggleMode will replace the existing elements with better ones from "from" - otherwise only tries to fill missing ones. Defaults to false.
-     * - In destroyOthersMode will destroy the other unused elements found in the container. Defaults to false. Note. This can be a bit dangerous.
-     * - This also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+    /** Reassimilates actual (unknown) dom elements into existing state of the Host (= its treeNode/def structure from the root down) without remounting.
+     * - The method supports reusing custom DOM elements from within the given "container" element - it should be the element that _contains_ the Host's root element. (Defaults to the Host's container element.)
+     * - The method also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+     *      * Works internally by: 1. pause, 2. update, 3. resume & reassimilate.
+     *      * Note that this is different from the `remount` flow, even though both use the same core methods (and has thus very similar arguments).
+     * @param container Optionally define the container for assimilation. If none given defaults to the `host.groundedTree.domNode`.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     *      - Note that unlike in `remount` flow, any text content will always be re-updated - so readFromDOM only affects pre-reading attributes here.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * 
+     * 
+     * ```
+     * 
+     * // - Example to showcase the core feature (not practical) - //
+     * 
+     * // Get container and read DOM output as a string.
+     * const elContainer = host.getContainerElement();
+     * 
+     * // After the line below, the DOM is gone. (Assuming the host had a container element.)
+     * // .. However, our host and components are still alive, though unaware of this external destruction.
+     * if (elContainer)
+     *     elContainer.innerHTML = "";
+     * 
+     * // After the line below, the DOM has been recreated - or actually only the root element moved back.
+     * // .. The other elements are also evaluated for updates, but likely nothing needed.
+     * // .. Note that the component life cycles remain unaffected, though of course Ref calls and such are triggered.
+     * host.reassimilate(); // Could also feed (elContainer) here. Same as default 1st arg.
+     * 
+     * // We could actually put some DOM elements in and call `host.reassimilate(elContainer, true, true)`.
+     * // .. This would try to smuggle the DOM elements (2nd true), and read info from them (1st true).
+     *
+     * ```
      */
-    public rehydrate(container: Node | null = null, readAllMode: boolean = false, smuggleMode: boolean = false, destroyOthersMode: boolean = false, validator?: MixDOMHydrationValidator, suggester?: MixDOMHydrationSuggester): void {
-        // Hydrate (and resume).
-        this.services.renderer.rehydrate(container || this.groundedTree.domNode, readAllMode, smuggleMode, destroyOthersMode, validator, suggester);
+    public reassimilate(container: Node | null = null, readFromDOM: boolean = false, smuggleMode: boolean = false, removeUnused: boolean = false, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void {
+        // Reassimilate (and resume).
+        this.services.renderer.reassimilate(container || this.groundedTree.domNode, readFromDOM, smuggleMode, removeUnused, validator, suggester);
     }
-    /** This accepts new render content to update the groundedTree first and then rehydrates accordingly. See rehydrate method for details of the other arguments.
-     * - Functions synchronously, so applies all updates and rendering immediately.
-     * - Note that like rehydrate this also resumes paused state. (And works by: 1. pause, 2. update, 3. rehydrate.) */
-    public rehydrateWith(content: MixDOMRenderOutput, container: Node | null = null, readAllMode: boolean = false, smuggleMode: boolean = false, destroyOthersMode: boolean = false, validator?: MixDOMHydrationValidator, suggester?: MixDOMHydrationSuggester): void {
+    /** This accepts new render content to update the groundedTree first and then reassimilates accordingly.
+     * - Functions synchronously, so applies all updates and rendering immediately, and resumes paused rendering.
+     * - See `reassimilate` method for more information.
+     * @param content Define the new render content to update the groundedTree with.
+     * @param container Optionally define the container for assimilation. If none given defaults to the `host.groundedTree.domNode`.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     *      - Note that unlike in `remount` flow, any text content will always be re-updated - so readFromDOM only affects pre-reading attributes here.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     */
+    public reassimilateWith(content: MixDOMRenderOutput, container: Node | null = null, readFromDOM: boolean = false, smuggleMode: boolean = false, removeUnused: boolean = false, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void {
         // Pause rendering.
         this.pause();
         // Update immediately.
         this.updateRoot(content, null, null);
-        // Resume by rehydrating.
-        this.services.renderer.rehydrate(container || this.groundedTree.domNode, readAllMode, smuggleMode, destroyOthersMode, validator, suggester);
+        // Resume by reassimilation.
+        this.services.renderer.reassimilate(container || this.groundedTree.domNode, readFromDOM, smuggleMode, removeUnused, validator, suggester);
     }
 
+    /** Remounts the whole Host, optionally assimilating the DOM structure found inside the given container element.
+     * - The assimilation part comes in when mounting the DOM elements, as can reuse/smuggle/assimilate the DOM nodes from the container.
+     * - Extra notes:
+     *      * If you're using data in Contexts to drive your app state, you will likely end up with the same main state for the app. Of course any local state and DOM state (like scrolling position and focus) are lost.
+     *      * This method is similar to React's `hydrateRoot` in its core functioning, though without defining content. (Use `remountWith` for that instead.)
+     *      * Unlike in `reassimilate` flow, there's no default `container` and `removeUnused` defaults to `true`, as otherwise any mismatches would leave the DOM tree in a messy state.
+     *          - The flow is also different in that `remount` performs a full remount on the components (vs. partial smuggling of DOM elements to existing state).
+     * @param container Optionally define the container for DOM reassimilation while mounting. If null, won't try to reuse DOM elements. If given, should often be equivalent to `host.getContainerElement()`.
+     * @param readFromDOM Whether re-reads the current dom props ("attributes") and/or text content ("content") from the reused DOM elements. Defaults to false. If true, reads both.
+     *      - Note. If some text contents were not correctly re-rendered (after remounting with DOM reassimilation), try setting readFromDOM to "content" (or true).
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * 
+     * ```
+     * 
+     * // - Example to showcase the core feature (not practical) - //
+     * 
+     * // Get container and read DOM output as a string.
+     * const elContainer = host.getContainerElement();
+     * const htmlStr = host.readDOMString();
+     * 
+     * // After the line below, the DOM looks the same, but nothing JS related works.
+     * // .. Of course, assuming the host has a container - most often has on the client side.
+     * if (elContainer)
+     *     elContainer.innerHTML = htmlStr;
+     * 
+     * // After the line below, the component structure in the host has been remounted, and DOM reassimilated.
+     * // .. Before executing the line below, you can go and modify the DOM and see how the mods are retained (if could match).
+     * host.remount(elContainer);
+     *
+     * // Notes about the above line.
+     * // .. If the state is somewhat similar to what it was, the process has likely has reused many if not all nodes.
+     * // .... Most likely places of inconsistencies are related to text nodes: eg. whether two simple adjacent texts were joined as 1 or left as 2.
+     * // .... To account for text content inconsistencies, set readFromDOM to "content" (or true).
+     * // .. If container given, the method actually outputs info about usage `Record<"created" | "reused" | "unused", Set<Node>>`, otherwise `null`.
+     * // .... This is useful for debugging, in case things don't look right while the new app state is similar to old.
+
+     * ```
+     */
+    public remount(container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; };
+    public remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
+    public remount(container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | null {
+        return this.remountWith(this.services.getRootDef(true), container, readFromDOM, removeUnused, validator, suggester);
+    }
+
+    /** Remounts the whole Host, optionally assimilating into given DOM structure (found inside the container, if given).
+     * - The assimilation part comes in when mounting the DOM elements, as can reuse/smuggle/assimilate the DOM nodes from the container.
+     * - See `remount` method for more information.
+     * @param content Optionally define new render content. If null|undefined, then reuses the current root def as the content.
+     * @param container Optionally define the container for DOM reassimilation while mounting. If null, won't try to reuse DOM elements. If given, should often be equivalent to `host.getContainerElement()`.
+     * @param readFromDOM Whether re-reads the current dom props ("attributes") and/or text content ("content") from the reused DOM elements. Defaults to false. If true, reads both.
+     *      - Note. If some text contents were not correctly re-rendered (after remounting with DOM reassimilation), try setting readFromDOM to "content" (or true).
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * 
+     * ```
+     * 
+     * // - Showcasing `remountWith` for hydration purposes - //
+     * 
+     * // As a quick example of usage for DOM hydration purposes:
+     * const container = document.querySelector("#app-root");
+     * const host = new Host(null, container);          // Don't render content yet.
+     * host.remountWith(contentFromSrv, container);     // Rehydrate the DOM.
+     * 
+     * // Note. The `contentFromSrv` is likely a simple def like: `<App />`.
+     * // .. It comes from the server side rendering.
+     * // .. To dummy-test the feature on a living app, get the container and contentFromSrv like this:
+     * const container = host.getContainerElement();    // Current container element.
+     * const contentFromSrv = host.getRootDef();        // Current root def (copy).
+     * 
+     * // You could then clear the DOM and try to rehydrating it.
+     * const domString = host.readDOMString();          // Current DOM structure as a string.
+     * container.innerHTML = domString;                 // Apply new DOM from string.
+     * host.remountWith(contentFromSrv, container);     // Rehydrate the DOM.
+     * 
+     * ```
+     * 
+     */
+    public remountWith(content: MixDOMRenderOutput, container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; };
+    public remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
+    public remountWith(content: MixDOMRenderOutput, container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | null {
+    
+        // Idea.
+        // 1. Pre-map: Build a MixDOMAssimilateItem map from the container node, if given.
+        // 2. Unmount: Unmount everything.
+        // 3. Set as sourceRemount from the assimilation info.
+        // 4. Run a full re-mount on the whole tree.
+        //      * Upon receiving `{ create }` infos, the renderer tries to reuse the elements if sourceRemount exists.
+        //      * While looping down the received create infos, it iterates down the MixDOMAssimilateItem map by any matching hits.
+        //      * Upon finding a match (for `{ create }`) it uses the existing DOM element and by readFromDOM (defaults to true) reads the attributes.
+        //      * The process also includes removing unused removeUnused set to true.
+        // 5. Delete the sourceRemount info.
+
+        // 0. Handle argument defaults.
+        if (content == null)
+            content = this.services.getRootDef(true);
+
+        // 1. Pre-map.
+        const vInfo = container && HostRender.createVirtualItemsFor(container);
+    
+        // 2. Unmount everything.
+        this.clearRoot(true, null, null);
+    
+        // 3. Set sourceRemount.
+        const renderer = this.services.renderer;
+        const created = new Set<Node>();
+        const reused = new Set<Node>();
+        const unused = new Set<Node>();
+        const sRemount = renderer.sourceRemount = vInfo ? {
+            ...vInfo,
+            reused,
+            created,
+            unused,
+            readFromDOM,
+            removeUnused,
+            validator,
+            suggester,
+        } : undefined;
+    
+        // 4. Run a re-mount.
+        this.services.updateRoot(content, null, null); // We actually feed the old rootDef, not render info - but it will be recognized.
+    
+        // 5. Delete sourceRemount info.
+        delete renderer.sourceRemount;
+
+        // Return.
+        return sRemount ? { created: sRemount.created!, reused: sRemount.reused!, unused: sRemount.unused! } : null;
+    }
+    
     
     // - Getters - //
 
     /** Read the whole rendered contents as a html string. Typically used with settings.disableRendering (and settings.renderTimeout = null). */
-    public readAsString(): string {
-        return HostRender.readAsString(this.rootBoundary.treeNode);
+    public readDOMString(): string {
+        return HostRender.readDOMString(this.rootBoundary.treeNode);
+    }
+    /** Get a (shallow) copy of the root def. Use this only for technical special cases and only as _readonly_ - do not mutate the def. Should not be needed in normal circumstances. */
+    public getRootDef(): MixDOMDefTarget | null {
+        return this.services.getRootDef(true);
+    }
+    /** Get the element that contains the Host. */
+    public getContainerElement(): Node | null {
+        return this.groundedTree.domNode;
     }
     /** Get the root dom node (ours or by a nested boundary) - if has many, the first one (useful for insertion). */
     public getRootElement(): Node | null {

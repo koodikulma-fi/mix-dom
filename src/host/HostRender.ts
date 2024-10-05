@@ -12,9 +12,11 @@ import {
     MixDOMContentValue,
     MixDOMRenderInfo,
     MixDOMDefType,
-    MixDOMHydrationItem,
-    MixDOMHydrationValidator,
-    MixDOMHydrationSuggester,
+    MixDOMAssimilateItem,
+    MixDOMAssimilateValidator,
+    MixDOMAssimilateSuggester,
+    MixDOMRemountInfo,
+    MixDOMReassimilateInfo,
 } from "../typing";
 // Routines.
 import { rootDOMTreeNodes } from "../static/index";
@@ -47,13 +49,19 @@ export type HostRenderSettings = Pick<HostSettings,
 export class HostRender {
 
 
-    // - Instanced - //
+    // - Static members - //
+
+    /** These implies which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
+    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
+
+
+    // - Instanced members - //
 
     /** Detect if is running in browser or not. */
     public inBrowser: boolean;
     /** Root for pausing. */
-    public hydrationRoot: MixDOMTreeNode | null;
-    /** Pausing. When resumes, rehydrates. */
+    public assimilationRoot: MixDOMTreeNode | null;
+    /** Pausing. When resumes, reassimilates. */
     public paused: boolean;
     /** When paused, if has any infos about removing elements, we store them - so that we can call unmount (otherwise the treeNode ref is lost). */
     public pausedPending?: MixDOMRenderInfo[];
@@ -61,9 +69,11 @@ export class HostRender {
     public settings: HostRenderSettings;
     /** To keep track of featured external dom elements. */
     public externalElements: Set<Node>;
+    /** Temporary information for remount feature - can be set externally. When applyDOM is called, the feature is triggered to pre-modify the groundedTree. */
+    public sourceRemount?: MixDOMRemountInfo;
 
-    constructor(settings: HostRenderSettings, hydrationRoot?: MixDOMTreeNode) {
-        this.hydrationRoot = hydrationRoot || null;
+    constructor(settings: HostRenderSettings, assimilationRoot?: MixDOMTreeNode) {
+        this.assimilationRoot = assimilationRoot || null;
         this.paused = settings.disableRendering;
         this.settings = settings;
         this.externalElements = new Set();
@@ -78,7 +88,7 @@ export class HostRender {
         this.paused = true;
     }
 
-    /** Resume the renderer after pausing. Will rehydrate dom elements and reapply changes to them. 
+    /** Resume the renderer after pausing. Will reassimilate dom elements and reapply changes to them. 
      * Note that calling resume will unpause rendering even when settings.disableRendering is set to true. */
     public resume(): void {
         // Was not paused.
@@ -86,201 +96,123 @@ export class HostRender {
             return;
         // Resume - even if settings say disableRendering.
         this.paused = false;
-        if (this.hydrationRoot)
-            this.rehydrate(null, true);
+        if (this.assimilationRoot)
+            this.reassimilate(null, true);
     }
 
 
-    // - Hydrate - //
+    // - Ressimilate DOM structure - //
 
-    /** This rehydrates the rendered defs with actual dom elements.
-     * - It supports reusing custom html elements from within the given "container" element - it should be the _containing_ element. You should most often use the host's container element.
-     * - In smuggleMode will replace the existing elements with better ones from "from" - otherwise only tries to fill missing ones.
-     * - In destroyOthersMode will destroy the unused elements found in the container.
-     * - In readAllMode will re-read the current dom props from the existing ones as well.
-     * - This also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+    /** Reassimilates actual (unknown) dom elements into existing state of the Host (= its treeNode/def structure from the root down) without remounting.
+     * - The method supports reusing custom DOM elements from within the given "container" element - it should be the _containing_ element. You should most often use the element that _contains_ the host.
+     * - The method also resumes rendering if was paused - unless is disableRendering is set to true in Host's settings.
+     * @param container Optionally define the container for assimilation. If none given, won't use most of the features in the other arguments.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Destroy the other unused elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
      */
-    public rehydrate(container: Node | null = null, readAllMode: boolean = false, smuggleMode: boolean = false, destroyOthersMode: boolean = false, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): void {
+    public reassimilate(container: Node | null = null, readFromDOM: boolean = false, smuggleMode: boolean = false, removeUnused: boolean = false, validator?: MixDOMAssimilateValidator | null, suggester?: MixDOMAssimilateSuggester | null): void {
 
-        // Must have a hydration root.
-        const rootTreeNode = this.hydrationRoot;
-        if (!rootTreeNode) {
-            if (this.settings.devLogWarnings)
-                console.warn("__HostRender.rehydrate: Warning: No hydration root assigned. ", this);
-            return;
-        }
 
         // Idea.
-        // 1. Pre-map: Build a MixDOMHydrationItem map from the container node, if given.
-        // 2. Apply: Loop over the treeNode structure (only targeting "dom" treeNode types), and
+        // 0. Validate: Check prerequisites.
+        // 1. Pre-map: Build a MixDOMAssimilateItem map from the container node, if given.
+        // 2. Pre-apply: Loop over the treeNode structure (only targeting "dom" treeNode types), and
         //    * Fill any missing elements (and assign parent-children relations), creating new if has to. In smuggleMode try better alternatives for existing, too.
         //    * For any replaced elements, reapply the dom props (by reading, diffing changes and applying).
-        //      .. If in readAllMode, reapply them for existing ones, too (presumably after having being paused).
-        //    * While we loop down, we iterate down the MixDOMHydrationItem map by any matching hits.
+        //      .. If in readFromDOM, reapply them for existing ones, too (presumably after having being paused).
+        //    * While we loop down, we iterate down the MixDOMAssimilateItem map by any matching hits.
+        // 3. Destroy: Remove unused elements.
+        // 4. Apply: Resume rendering and apply the info from part 2 into DOM.
+
+
+        // - 0. Validate - //
+
+        // Must have a assimilation root.
+        const rootTreeNode = this.assimilationRoot;
+        if (!rootTreeNode) {
+            if (this.settings.devLogWarnings)
+                console.warn("__HostRender.reassimilate: Warning: No assimilation root assigned. ", this);
+            return;
+        }
 
 
         // - 1. Pre build info by the container element - //
 
-        // Prepare.
-        let vDom: MixDOMHydrationItem | null = null;
-        const vKeyedByTags: Partial<Record<DOMTags, MixDOMHydrationItem[]>> = {};
+        // Create virtual mapping.
+        const vInfo: MixDOMReassimilateInfo = container ? HostRender.createVirtualItemsFor(container) : {};
 
-        // Get info if element provided.
-        if (container) {
-            // Create virtual item root.
-            vDom = {
-                tag: (container as Element).tagName?.toLowerCase() as DOMTags || "",
-                node: container,
-                parent: null,
-                used: true  // We mark it as used, as it's assumed to be the container - not an actual match for local structure.
-                            // .. Note. We could drop it now that we use excludedNodes extensively.
-            };
-            // Add kids recursively.
-            if (container.childNodes[0]) {
-                // Prepare loop.
-                let loopPairs: [elements: Node[], parent: MixDOMHydrationItem][] = [[ [...container.childNodes], vDom ]];
-                let info: typeof loopPairs[number];
-                let i = 0;
-                // Loop kids recursively.
-                while (info = loopPairs[i]) {
-                    // Prepare.
-                    i++;
-                    const [nodes, parent] = info;
-                    if (!parent.children)
-                        parent.children = [];
-                    // Loop kids.
-                    let newLoopPairs: typeof loopPairs = [];
-                    for (const node of nodes) {
-                        // Create item.
-                        const item: MixDOMHydrationItem = {
-                            tag: (node as Element).tagName?.toLowerCase() as DOMTags || "",
-                            node,
-                            parent
-                        };
-                        // Handle keyed.
-                        const key = node instanceof Element ? node.getAttribute("_key") : null;
-                        if (key != null) {
-                            // Define key.
-                            item.key = key;
-                            // Add to keyed items collection (organized by tags).
-                            (vKeyedByTags[item.tag] || (vKeyedByTags[item.tag] = [])).push(item);
-                        }
-                        // Add item to virtual dom.
-                        parent.children.push(item);
-                        // Add kids.
-                        if (node.childNodes[0])
-                            newLoopPairs.push( [ [...node.childNodes], item ]);
-                    }
-                    // Add to loop nodes.
-                    if (newLoopPairs[0]) {
-                        loopPairs = newLoopPairs.concat(loopPairs.slice(i));
-                        i = 0;
-                    }
-                }
-            }
-        }
-
-
-        // - 2. Loop over the treeNode structure and rehydrate - //
+        // Add callbacks.
+        vInfo.validator = validator;
+        vInfo.suggester = suggester;
 
         // Prepare excluded.
         // .. Note. This excluded protection is sketchy. Could maybe use getApprovedNodeShould, and maybe protect from other hosts, too.
         // .. On the other hand, there's not much point about extensive protection against misuse. So...
-        const excludedNodes = new Set(this.externalElements);
-        if (container)
-            excludedNodes.add(container);
+        const excludedNodes = vInfo.reused = new Set(container ? [...this.externalElements, container] : this.externalElements);
+
+
+        // - 2. Loop over the treeNode structure and get reassimilated info - //
+
         // Prepare looping.
-        type LoopTreeItem = [ treeNode: MixDOMTreeNode, vItem: MixDOMHydrationItem | null ];
-        let loopTree: LoopTreeItem[] = [[ rootTreeNode, vDom ]];
-        let loopItem: LoopTreeItem | undefined;
-        let i = 0;
         const toApply: MixDOMRenderInfo[] = [];
-        // Loop recursively.
-        while (loopItem = loopTree[i]) {
-            
-            // Prepare.
-            i++;
-            let [treeNode, vItem] = loopItem;
-            
-            // Very importantly, we only target dom types - others are just intermediary steps in the tree for us.
-            if (treeNode.type === "dom") {
-
-                // Fetch a suitable virtual item or dom node.
-                let domNode = treeNode.domNode;
-                const vNewItem = HostRender.getTreeNodeMatch(treeNode, vItem, vKeyedByTags, excludedNodes, validator, suggester);
-                // Override.
-                if (vNewItem) {
-                    let newDomNode: Node | null = null;
-                    // Node.
-                    if (vNewItem instanceof Node)
-                        newDomNode = vNewItem;
-                    // Virtual item.
-                    else {
-                        vItem = vNewItem;
-                        vItem.used = true;
-                        newDomNode = vItem.node;
-                    }
-                    // Update local reference.
-                    if (newDomNode && (!treeNode.domNode || smuggleMode))
-                        domNode = newDomNode;
-                }
-                if (domNode)
-                    excludedNodes.add(domNode);
-
-                // Gather render infos.
-                // .. Note that we're dealing with a "dom" type of treeNode, so the .domNode ref actually belongs to the treeNode.
-                const renderInfo: MixDOMRenderInfo = { treeNode };
-                let reapply = readAllMode;
-                // Create / Swap.
-                if (domNode !== treeNode.domNode) {
-                    reapply = true;
-                    // Didn't have - create.
-                    if (!treeNode.domNode)
-                        renderInfo.create = true;
-                    // Had already and has a new one - swap them.
-                    // .. We'll also check if should move. If so, it will be done first (with the old element) and then simply their kids are swapped.
-                    else if (domNode)
-                        renderInfo.swap = domNode;
-                    // Otherwise had before but now doesn't - should perhaps remove.
-                    // .. However that shouldn't really happen here logically speaking (in small nor big scale).
-                }
-                // The node is the same (or will be swapped), add updates as for existing.
-                if (!renderInfo.create && domNode) {
-                    // Move. Should move if the parent is not the same or nextSibling not same.
-                    const [ parent, nextSibling ] = HostRender.findInsertionNodes(treeNode);
-                    if (domNode.parentNode !== parent || domNode.nextSibling !== nextSibling)
-                        renderInfo.move = true;
-                    // Update content for a simple node like TextNode.
-                    if (treeNode.def.MIX_DOM_DEF === "content")
-                        renderInfo.content = true;
-                    // Update props.
-                    else {
-                        // Read from dom.
-                        if (reapply)
-                            treeNode.domProps = readDOMProps(domNode);
-                        // Add info.
-                        renderInfo.update = true;
-                    }
-                }
-                // Should render.
-                if (renderInfo.create || renderInfo.swap || renderInfo.move || renderInfo.update || renderInfo.content)
-                    toApply.push(renderInfo);
+        for (const [treeNode, , newDomNode] of HostRender.getVirtualDomPairs(rootTreeNode, vInfo, false)) {
+            // Fetch a suitable virtual item or dom node.
+            let domNode = treeNode.domNode;
+            // Update local reference.
+            if (newDomNode && (!treeNode.domNode || smuggleMode))
+                domNode = newDomNode;
+            // Add to reused - for exclusion.
+            if (domNode)
+                excludedNodes.add(domNode);
+            // Gather render infos.
+            // .. Note that we're dealing with a "dom" type of treeNode, so the .domNode ref actually belongs to the treeNode.
+            const renderInfo: MixDOMRenderInfo = { treeNode };
+            let reapply = readFromDOM;
+            // Create / Swap.
+            if (domNode !== treeNode.domNode) {
+                reapply = true;
+                // Didn't have - create.
+                if (!treeNode.domNode)
+                    renderInfo.create = true;
+                // Had already and has a new one - swap them.
+                // .. We'll also check if should move. If so, it will be done first (with the old element) and then simply their kids are swapped.
+                else if (domNode)
+                    renderInfo.swap = domNode;
+                // Otherwise had before but now doesn't - should perhaps remove.
+                // .. However that shouldn't really happen here logically speaking (in small nor big scale).
             }
-
-            // Add to loop.
-            if (treeNode.children[0]) {
-                loopTree = treeNode.children.map(tNode => [ tNode, vItem ] as LoopTreeItem).concat(loopTree.slice(i));
-                i = 0;
+            // The node is the same (or will be swapped), add updates as for existing.
+            if (!renderInfo.create && domNode) {
+                // Move. Should move if the parent is not the same or nextSibling not same.
+                const [ parent, nextSibling ] = HostRender.findInsertionNodes(treeNode);
+                if (domNode.parentNode !== parent || domNode.nextSibling !== nextSibling)
+                    renderInfo.move = true;
+                // Update content for a simple node like TextNode.
+                if (treeNode.def.MIX_DOM_DEF === "content")
+                    renderInfo.content = true;
+                // Update props.
+                else {
+                    // Read from dom.
+                    if (reapply)
+                        treeNode.domProps = readDOMProps(domNode);
+                    // Add info.
+                    renderInfo.update = true;
+                }
             }
+            // Should render.
+            if (renderInfo.create || renderInfo.swap || renderInfo.move || renderInfo.update || renderInfo.content)
+                toApply.push(renderInfo);
         }
 
-        // Mark that is no longer paused.
-        if (!this.settings.disableRendering)
-            this.paused = false;
-        
+
+        // - 3. Destroy unused (optional) - //
+
         // Destroy other nodes (directly).
         // .. Must be done before applying to dom, so that we won't have to pre-protect the newly created ones.
-        if (destroyOthersMode && container) {
+        if (removeUnused && container) {
             // If the container is the container of the host, then we shall destroy only within.
             let loopDom: Node[] = container === rootTreeNode.domNode ?
                 rootDOMTreeNodes(rootTreeNode.children[0], true).map(tNode => tNode.domNode).filter(n => n) as Node[]
@@ -302,6 +234,13 @@ export class HostRender {
             }
         }
 
+
+        // - 4. Resume and apply - //
+
+        // Mark that is no longer paused.
+        if (!this.settings.disableRendering)
+            this.paused = false;
+        
         // Apply to dom.
         if (toApply[0])
             this.applyToDOM(toApply);
@@ -313,7 +252,6 @@ export class HostRender {
             if (toRemove[0])
                 this.applyToDOM(toRemove);
         }
-
     }
 
 
@@ -324,6 +262,11 @@ export class HostRender {
      * - Except emptyMove's should be prepended to the start, and destructions appended to the end (<- happens automatically due to clean up being after).
      */
     public applyToDOM(renderInfos: MixDOMRenderInfo[]): void {
+
+        // Remount feature.
+        const rSource = this.sourceRemount;
+        if (rSource && this.assimilationRoot)
+            HostRender.onRemount(rSource, this.assimilationRoot);
 
 
         // - DEV-LOG - //
@@ -350,6 +293,9 @@ export class HostRender {
         let newlyKilled: Array<Node> | null = null;
         /** For salvaging dom nodes. */
         let salvaged: Array<Node> | null = null;
+
+        type ToCallInfo = [isMountCall: boolean, treeNode: MixDOMRenderInfo["treeNode"], domParent: Node | null, domSibling: Node | null];
+        let toCallMove: ToCallInfo[] | null = null;
 
         // Loop each renderInfo.
         for (const renderInfo of renderInfos) {
@@ -400,7 +346,12 @@ export class HostRender {
 
             // Prepare.
             let doUpdate = false;
-            let didCreate = false;
+            /** 0: Not created.
+             * 1: Created. 
+             * 2: Created by smuggling. 
+             * 3: Created by smuggling, and needs to re-apply text content if text node.
+             */
+            let didCreate: 0 | 1 | 2 | 3 = 0;
 
             // Refresh.
             if (renderInfo.refresh && treeNode.domNode && treeNode["domProps"]) {
@@ -410,23 +361,30 @@ export class HostRender {
 
             // Create.
             if (renderInfo.create) {
-                switch(treeNode.type) {
-                    // Normal case - refers to a dom tag.
-                    case "dom":
-                        // Create.
-                        const domNode = this.createDOMNodeBy(treeNode);
-                        if (domNode) {
-                            // Update ref.
-                            treeNode.domNode = domNode;
-                            // Add to smart bookkeeping.
-                            didCreate = true;
-                            // newlyCreated.push(domNode);
-                        }
-                        break;
-                    // QPortal - just define the domNode ref.
-                    case "portal":
-                        treeNode.domNode = treeNode.def.domPortal || null;
-                        break;
+                // Already smuggled.
+                if (treeNode.domNode)
+                    didCreate = rSource && treeNode.domNode.nodeType === Node.TEXT_NODE && (rSource.readFromDOM === true || rSource.readFromDOM === "content") ? 3 : 2;
+                // Handle.
+                else {
+                    switch(treeNode.type) {
+                        // Normal case - refers to a dom tag.
+                        case "dom":
+                            // Create.
+                            const domNode = this.createDOMNodeBy(treeNode);
+                            if (domNode) {
+                                // Update ref.
+                                treeNode.domNode = domNode;
+                                // Add to smart bookkeeping.
+                                didCreate = 1;
+                                // Add more infos.
+                                rSource && rSource.created && rSource.created.add(domNode);
+                            }
+                            break;
+                        // Portal - just define the domNode ref.
+                        case "portal":
+                            treeNode.domNode = treeNode.def.domPortal || null;
+                            break;
+                    }
                 }
             }
 
@@ -442,16 +400,25 @@ export class HostRender {
                     treeNode.domNode = treeNode.parent && host && host.getRootElement() || null;
                     HostRender.updateDOMChainBy(treeNode, treeNode.domNode);
                 }
-                // Normal case.
-                else {
+                // Normal element.
+                else if (treeNode.domNode) {
                     // Mark to be moved (done in reverse order below).
                     // .. Note that the actual moving / inserting process is done afterwards (below) - including calling updateDOMChainBy.
-                    if (treeNode.domNode)
+                    // .. Note that by design: if moved always mark to be moved, if created but already has a parentElement, then no need to move.
+                    if (didCreate < 2 || !treeNode.domNode.parentElement)
                         (toMove || (toMove = [])).push(renderInfo);
+                    // Otherwise. (Only used upon "remount" flow.)
+                    else {
+                        /// Add to mount calls.
+                        if (treeNode.def.attachedRefs || treeNode.def.attachedSignals)
+                            (toCallMove || (toCallMove = [])).push([true, renderInfo.treeNode, treeNode.domNode.parentElement, treeNode.domNode.nextSibling ]);
+                        // Update DOM chain now.
+                        HostRender.updateDOMChainBy(treeNode, treeNode.domNode);
+                    }
                 }
             }
 
-            // Swap elements (for PseudoPortal, PseudoElement and hydration).
+            // Swap elements (for PseudoPortal, PseudoElement and assimilation).
             if (renderInfo.swap) {
                 // Parse.
                 const isCustom = renderInfo.swap !== true; // If not true, it's a Node to swap to.
@@ -460,7 +427,7 @@ export class HostRender {
                 // If had changed.
                 if (oldEl !== newEl) {
 
-                    // For PseudoPortal and hydration (= isCustom), we just need to swap the children.
+                    // For PseudoPortal and assimilation (= isCustom), we just need to swap the children.
                     // .. So nothing to do at this point.
 
                     // For PseudoElement, the swapping is more thorough.
@@ -514,7 +481,7 @@ export class HostRender {
             }
 
             // Content.
-            if (renderInfo.content) {
+            if (renderInfo.content || didCreate === 3) {
                 if (treeNode.type === "dom" && treeNode.domNode) {
                     // Prepare.
                     const content = treeNode.def.domContent;
@@ -538,7 +505,7 @@ export class HostRender {
                             // Get text.
                             const newText = content == null ? "" : (settings.renderTextHandler ? settings.renderTextHandler(content as MixDOMContentValue) : content).toString();
                             // If wasn't a Text node.
-                            if (nodeWas.nodeType !== 3 && this.inBrowser)
+                            if (nodeWas.nodeType !== Node.TEXT_NODE && this.inBrowser)
                                 newNode = document.createTextNode(newText);
                             // Modify Text node content.
                             else
@@ -631,9 +598,7 @@ export class HostRender {
 
             // Prepare.
             type ToInsertInfo = [domNode: Node, domParent: Node, domSibling: Node | null];
-            type ToCallInfo = [isMountCall: boolean, treeNode: MixDOMRenderInfo["treeNode"], domParent: Node | null, domSibling: Node | null];
             const toInsert: ToInsertInfo[] = [];
-            let toCall: ToCallInfo[] | null = null;
             let iMove = toMove.length;
             // Loop each in reverse order and check if needs to be moved, and update dom chain.
             while (iMove--) {
@@ -654,11 +619,15 @@ export class HostRender {
                             toInsert.push([domNode, domParent, domSibling]);
                         // Add to call bookkeeping. It's rarer, so we init the array only if needed.
                         if (thisTreeNode.def.attachedRefs || thisTreeNode.def.attachedSignals)
-                            (toCall || (toCall = [])).push([!rInfo.move, rInfo.treeNode, domParentWas, domSiblingWas ]);
+                            (toCallMove || (toCallMove = [])).push([!rInfo.move, rInfo.treeNode, domParentWas, domSiblingWas ]);
                         // Pre-remove movers from dom - but do not insert yet.
                         // .. This is needed to be done for all beforehands, so that can do parent-child swapping.
                         if (domParentWas)
                             domParentWas.removeChild(domNode);
+
+                        // // For external bookkeeping.
+                        // rSource && rSource.moved.add(domNode);
+
                     }
                     // 
                     // Dev. notes on the check above:
@@ -675,42 +644,43 @@ export class HostRender {
             if (toInsert[0])
                 for (const myInfo of toInsert)
                     myInfo[1].insertBefore(myInfo[0], myInfo[2]);
+        }
 
-            // Call run - we must do it afterwards. (Otherwise might call domDidMount before parent is inserted into dom tree.)
-            if (toCall) {
-                // Loop in tree order - so it's the reverse of toCall as it was collected in reverse order.
-                let iCall = toCall.length;
-                while (iCall--) {
-                    // Prepare call.
-                    const [isMount, thisTreeNode, domParentWas, domSiblingWas] = toCall[iCall];
-                    const { attachedSignals, attachedRefs } = thisTreeNode.def;
-                    const domNode = thisTreeNode.domNode as Node;
-                    // Call for dom signals.
-                    if (attachedSignals) {
-                        if (isMount) {
-                            if (attachedSignals.domDidMount)
-                                attachedSignals.domDidMount(domNode);
-                        }
-                        else if (attachedSignals.domDidMove)
-                            attachedSignals.domDidMove(domNode, domParentWas, domSiblingWas);
+        // Call run - we must do it afterwards. (Otherwise might call domDidMount before parent is inserted into dom tree.)
+        if (toCallMove) {
+            // Loop in tree order - so it's the reverse of toCallMove as it was collected in reverse order.
+            let iCall = toCallMove.length;
+            while (iCall--) {
+                // Prepare call.
+                const [isMount, thisTreeNode, domParentWas, domSiblingWas] = toCallMove[iCall];
+                const { attachedSignals, attachedRefs } = thisTreeNode.def;
+                const domNode = thisTreeNode.domNode as Node;
+                // Call for dom signals.
+                if (attachedSignals) {
+                    if (isMount) {
+                        if (attachedSignals.domDidMount)
+                            attachedSignals.domDidMount(domNode);
                     }
-                    // Call each ref.
-                    if (attachedRefs) {
-                        for (const attachedRef of attachedRefs) {
-                            if (isMount) {
-                                Ref.didAttachOn(attachedRef, thisTreeNode);
-                                if (attachedRef.signals.domDidMount)
-                                    callListeners(attachedRef.signals.domDidMount, [domNode]);
-                            }
-                            else {
-                                if (attachedRef.signals.domDidMove)
-                                    callListeners(attachedRef.signals.domDidMove, [domNode, domParentWas, domSiblingWas]);
-                            }
+                    else if (attachedSignals.domDidMove)
+                        attachedSignals.domDidMove(domNode, domParentWas, domSiblingWas);
+                }
+                // Call each ref.
+                if (attachedRefs) {
+                    for (const attachedRef of attachedRefs) {
+                        if (isMount) {
+                            Ref.didAttachOn(attachedRef, thisTreeNode);
+                            if (attachedRef.signals.domDidMount)
+                                callListeners(attachedRef.signals.domDidMount, [domNode]);
+                        }
+                        else {
+                            if (attachedRef.signals.domDidMove)
+                                callListeners(attachedRef.signals.domDidMove, [domNode, domParentWas, domSiblingWas]);
                         }
                     }
                 }
             }
         }
+
     }
 
 
@@ -810,10 +780,7 @@ export class HostRender {
     }
 
 
-    // - Static - //
-
-    static SIMPLE_TAGS: string[] = ["img"];
-    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
+    // - Static helpers - //
 
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      * 
@@ -850,6 +817,7 @@ export class HostRender {
      * // 1. First find the domParent by simply going up until hits a treeNode with a dom tag.
      * //    * If none found, stop. We cannot insert the element. (Should never happen - except for swappable elements, when it's intended to "remove" them.)
      * //    * If the domParent was found in the newlyCreated smart bookkeeping, skip step 2 below (there are no next siblings yet).
+     * //       - Actually newlyCreated info is no longer used.
      * // 2. Then find the next domSibling reference element.
      * //    * Go up and check your index.
      * //    * Loop your next siblings and see if any has .domNode. If has, stop, we've found it.
@@ -1014,15 +982,279 @@ export class HostRender {
         return keepTag ? dummy : dummy.children[1] ? dummy : dummy.children[0];
     }
 
+
+    // - Static reader helper - //
+
+    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
+     * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
+     *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
+     */
+    public static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: string[] | null | undefined = ["img"]): string {
+
+        // Get def.
+        const def = treeNode.def;
+        if (!def)
+            return "";
+
+        // Read content.
+        let tag = def.tag;
+        let dom = "";
+        // Not dom type - just return the contents inside.
+        if (typeof tag !== "string") {
+            if (treeNode.children)
+                for (const tNode of treeNode.children)
+                    dom += HostRender.readDOMString(tNode, onlyClosedTagsFor);
+            return dom;
+        }
+
+        // Get element for special reads.
+        let element: Node | null = null;
+        // .. Tagless - text node.
+        if (!tag) {
+            const content = def.domContent;
+            if (content)
+                content instanceof Node ? element = content : dom += content.toString();
+        }
+        // .. PseudoElement - get the tag.
+        else if (tag === "_") {
+            tag = "";
+            element = def.domElement || null;
+        }
+        // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
+        if (!tag && !element)
+            return dom;
+
+        // Read as a string, and any kids recursively inside first (referring to HostRender.readDOMString).
+        // .. Note that this method comes from the "dom-types" library. Our HostRender method is named similarly.
+        dom += readDOMString(
+            // Tag (string).
+            tag,
+            // Cleaned dom props.
+            (treeNode as MixDOMTreeNodeDOM).domProps,
+            // Content inside: string or `true` (to force opened tags).
+            (
+                (def.domContent != null ?
+                    def.domContent instanceof Node ? readDOMString("", null, null, def.domContent) : 
+                    def.domContent.toString() :
+                "") +
+                (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readDOMString(kidNode, onlyClosedTagsFor), "") : "")
+            ) || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
+            // Element for reading further info.
+            element || (def?.domContent instanceof Node ? def.domContent : null)
+        );
+
+        // Return the combined string.
+        return dom;
+    }
+
+
+    // - Static virtual item helpers - //
+
+    /** Modifies the groundedTree by smuggling in already existing DOM nodes. */
+    public static onRemount(remountSource: MixDOMRemountInfo, groundedTree: MixDOMTreeNode): void {
+        // Parse.
+        let { reused, readFromDOM } = remountSource;
+        if (!reused)
+            reused = new Set();
+        // Make sure root is marked as used - so that it won't be used.
+        groundedTree.domNode && reused.add(groundedTree.domNode);
+        // Loop the matched pairs.
+        for (const [treeNode, vItem, node] of HostRender.getVirtualDomPairs(groundedTree, remountSource, true)) {
+            // Read.
+            if (readFromDOM === true || readFromDOM === "attributes")
+                treeNode.domProps = readDOMProps(node);
+
+
+            // if ((node.nodeType === Node.TEXT_NODE) && (readFromDOM === true || readFromDOM === "content")) {
+
+            //     // node.textContent = ""; // <-- Is it too much.
+            // }
+            // Bookkeeping.
+            treeNode.domNode = node;
+            reused.add(node);
+            // Protect all inside blindly.
+            if (treeNode.def.domHTMLMode && vItem) {
+                for (const item of HostRender.flattenVirtualItems(vItem))
+                    reused.add(item.node);
+            }
+            // Remove from DOM, unless parent already fine.
+            if (node.parentElement) {
+                // Check that parent matches.
+                let p: MixDOMTreeNode | null = treeNode;
+                while (p = p.parent) {
+                    // Go further.
+                    if (p.type !== "dom")
+                        continue;
+                    // Remove parent.
+                    // .. It will also indicate that the smuggle-created node must be moved.
+                    // .. By default, the smuggle-created ones won't be moved.
+                    if (node.parentElement !== p.domNode)
+                        node.parentElement.removeChild(node);
+                    break;
+                }
+            }
+        }
+        // Remove unused.
+        if (remountSource.vRoot) {
+            for (const vItem of HostRender.flattenVirtualItems(remountSource.vRoot)) {
+                if (reused.has(vItem.node))
+                    continue;
+                const node = vItem.node;
+                remountSource.unused && remountSource.unused.add(node);
+                if (remountSource.removeUnused && node.parentElement)
+                    node.parentElement.removeChild(node);
+            }
+        }
+    }
+    
+    /** Create virtual items mapping from the given container node. */
+    public static createVirtualItemsFor(container: Node): { vRoot: MixDOMAssimilateItem; vKeyedByTags: Partial<Record<DOMTags, MixDOMAssimilateItem[]>>; } {
+
+        // Prepare.
+        let vRoot: MixDOMAssimilateItem | null = null;
+        const vKeyedByTags: Partial<Record<DOMTags, MixDOMAssimilateItem[]>> = {};
+
+        // Create virtual item root.
+        vRoot = {
+            tag: (container as Element).tagName?.toLowerCase() as DOMTags || "",
+            node: container,
+            parent: null,
+            // used: true  // Could mark it here, but this is reserved for external use only.
+        };
+        // Add kids recursively.
+        if (container.childNodes[0]) {
+            // Prepare loop.
+            let loopPairs: [elements: Node[], parent: MixDOMAssimilateItem][] = [[ [...container.childNodes], vRoot ]];
+            let info: typeof loopPairs[number];
+            let i = 0;
+            // Loop kids recursively.
+            while (info = loopPairs[i]) {
+                // Prepare.
+                i++;
+                const [nodes, parent] = info;
+                if (!parent.children)
+                    parent.children = [];
+                // Loop kids.
+                let newLoopPairs: typeof loopPairs = [];
+                for (const node of nodes) {
+                    // Create item.
+                    const item: MixDOMAssimilateItem = {
+                        tag: (node as Element).tagName?.toLowerCase() as DOMTags || "",
+                        node,
+                        parent
+                    };
+                    // Handle keyed.
+                    const key = node instanceof Element ? node.getAttribute("_key") : null;
+                    if (key != null) {
+                        // Define key.
+                        item.key = key;
+                        // Add to keyed items collection (organized by tags).
+                        (vKeyedByTags[item.tag] || (vKeyedByTags[item.tag] = [])).push(item);
+                    }
+                    // Add item to virtual dom.
+                    parent.children.push(item);
+                    // Add kids.
+                    if (node.childNodes[0])
+                        newLoopPairs.push( [ [...node.childNodes], item ]);
+                }
+                // Add to loop nodes.
+                if (newLoopPairs[0]) {
+                    loopPairs = newLoopPairs.concat(loopPairs.slice(i));
+                    i = 0;
+                }
+            }
+        }
+
+        return { vRoot, vKeyedByTags };
+    }
+    
+    /** Flattens the virtual item tree structure into an array.
+     * @param vRoot The root virtual item to flatten by its children. The root is included in the returned array.
+     * @returns The flattened array of virtual items containing all the items in tree order.
+     */
+    public static flattenVirtualItems(vRoot: MixDOMAssimilateItem): MixDOMAssimilateItem[] {
+        // Prepare.
+        let vItems: MixDOMAssimilateItem[] = [vRoot];
+        let vItem: MixDOMAssimilateItem | undefined;
+        let iItem = 0;
+        // Loop recursively in tree order.
+        while (vItem = vItems[iItem++]) {
+            // Has kids.
+            if (vItem.children && vItem.children[0])
+                // Add kids to the front of the queue, while keeping the iItem pointer.
+                vItems = vItems.slice(0, iItem).concat(vItem.children.concat(vItems.slice(iItem)));
+        }
+        return vItems;
+    }
+
+    /** Returns a DOM matched [treeNode, virtualItem, node] pairings. If onlyMatched is true and vRoot provided, only returns the ones matched with the virtual structure. Otherwise just all by "dom" type treeNode - paired or not. */
+    public static getVirtualDomPairs(rootNode: MixDOMTreeNode, vInfo: MixDOMReassimilateInfo, onlyMatched: true): [ treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node ][];
+    public static getVirtualDomPairs(rootNode: MixDOMTreeNode, vInfo: MixDOMReassimilateInfo, onlyMatched?: boolean): [ treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node | null ][];
+    public static getVirtualDomPairs(rootNode: MixDOMTreeNode, vInfo: MixDOMReassimilateInfo, onlyMatched?: boolean): [ treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node | null ][] {
+        // Prepare.
+        const { vRoot, vKeyedByTags, validator, suggester } = vInfo;
+        const excluded = vInfo.reused || new Set();
+        type LoopTreeItem = [ treeNode: MixDOMTreeNode, vItem: MixDOMAssimilateItem | null ];
+        let domPairs: [ treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node | null ][] = []; 
+        let loopTree: LoopTreeItem[] = [[ rootNode, vRoot || null ]];
+        let loopItem: LoopTreeItem | undefined;
+        let iItem = 0;
+        // Loop recursively.
+        while (loopItem = loopTree[iItem++]) {
+            // Prepare.
+            let [treeNode, vItem] = loopItem;
+            // Very importantly, we only target dom types - others are just intermediary steps in the tree for us.
+            if (treeNode.type === "dom") {
+                // Fetch a suitable virtual item or dom node.
+                const vNewItem = HostRender.getTreeNodeMatch(treeNode, vItem, vKeyedByTags, excluded, validator, suggester);
+                // Override.
+                if (vNewItem) {
+                    // Node.
+                    let node: Node;
+                    if (vNewItem instanceof Node) {
+                        node = vNewItem;
+                        domPairs.push([treeNode, null, vNewItem]);
+                    }
+                    // Virtual item.
+                    else {
+                        vItem = vNewItem;
+                        node = vItem.node;
+                    }
+                    // Add.
+                    domPairs.push([treeNode, vNewItem === node ? null : vNewItem as MixDOMAssimilateItem, node]);
+                    excluded.add(node);
+                }
+                else {
+                    // Add anyway.
+                    if (!onlyMatched)
+                        domPairs.push([treeNode, vItem, null]);
+                    // Add the treeNode's domNode to excluded.
+                    // .. Note that during remount (vs. reassimilation), they'll never be a domNoe here yet.
+                    if (treeNode.domNode)
+                        excluded.add(treeNode.domNode);
+                }
+            }
+            // Add to loop after the already processed, but before any further ones - we'll loop the kids next.
+            if (treeNode.children[0]) {
+                loopTree = treeNode.children.map(tNode => [ tNode, vItem ] as LoopTreeItem).concat(loopTree.slice(iItem));
+                iItem = 0;
+            }
+        }
+        // Return.
+        return domPairs;
+    }
+
     /** Find a suitable virtual item from the structure.
      * - Tries the given vItem, or if used its children.
      * - Can use an optional suggester that can suggest some other virtual item or a direct dom node. 
-     *   * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
-     *   * If suggests a virtual item it must fit the structure. If suggests a dom node, it can be from anywhere basically - don't steal from another host.
+     *      * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
+     *      * If suggests a virtual item it must fit the structure. If suggests a dom node, it can be from anywhere basically - don't steal from another host.
      * - Can also use an optional validator that should return true to accept, false to not accept. It's the last one in the chain that can say no.
      * - DEV. NOTE. This is a bit SKETCHY.
      */
-    public static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMHydrationItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMHydrationItem[]>>, excludedNodes?: Set<Node> | null, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): MixDOMHydrationItem | Node | null {
+    public static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMAssimilateItem[]>> | null, excludedNodes?: Set<Node> | null, validator?: MixDOMAssimilateValidator | null, suggester?: MixDOMAssimilateSuggester | null): MixDOMAssimilateItem | Node | null {
 
         // Parse.
         const tag = treeNode.def.tag as DOMTags | "_" | "";
@@ -1047,7 +1279,7 @@ export class HostRender {
         if (vItem) {
             // Check the given or then its kids.
             // .. Return the first one that's 1. not used, 2. matches by tag, 3. who has / has not key similarly, 4. is okay by location and validator.
-            for (const item of vItem.used ? vItem.children || [] : [ vItem ] as MixDOMHydrationItem[])
+            for (const item of vItem.children ? [ vItem, ...vItem.children ] : [vItem])
                 if (!item.used && item.tag === tag && (hasKey ? item.key === itemKey : item.key == null) && !excludedNodes?.has(item.node) && (!validator || validator(item, treeNode, tag, itemKey)))
                     return item;
         }
@@ -1068,66 +1300,8 @@ export class HostRender {
         return null;
     }
 
-        
-    /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
-     * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
-     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
-     *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
-     *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
-     */
-    public static readAsString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: string[] | null | undefined = ["img"]): string {
-
-        // Get def.
-        const def = treeNode.def;
-        if (!def)
-            return "";
-
-        // Read content.
-        let tag = def.tag;
-        let dom = "";
-        // Not dom type - just return the contents inside.
-        if (typeof tag !== "string") {
-            if (treeNode.children)
-                for (const tNode of treeNode.children)
-                    dom += HostRender.readAsString(tNode, onlyClosedTagsFor);
-            return dom;
-        }
-
-        // Get element for special reads.
-        let element: Node | null = null;
-        // .. Tagless - text node.
-        if (!tag) {
-            const content = def.domContent;
-            if (content)
-                content instanceof Node ? element = content : dom += content.toString();
-        }
-        // .. PseudoElement - get the tag.
-        else if (tag === "_") {
-            tag = "";
-            element = def.domElement || null;
-        }
-        // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
-        if (!tag && !element)
-            return dom;
-
-        // Read as a string, and any kids recursively inside first (referring to HostRender.readAsString).
-        dom += readDOMString(
-            // Tag (string).
-            tag,
-            // Cleaned dom props.
-            (treeNode as MixDOMTreeNodeDOM).domProps,
-            // Content inside: string or `true` (to force opened tags).
-            (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readAsString(kidNode, onlyClosedTagsFor), "") : "") || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
-            // Element for reading further info.
-            element || (treeNode.def?.domContent instanceof Node ? treeNode.def.domContent : null)
-        );
-
-        // Return the combined string.
-        return dom;
-    }
-
     /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
-    private static isVirtualItemOk(treeNode: MixDOMTreeNodeDOM, item: MixDOMHydrationItem, baseItem: MixDOMHydrationItem | null, validator?: MixDOMHydrationValidator | null): boolean {
+    private static isVirtualItemOk(treeNode: MixDOMTreeNodeDOM, item: MixDOMAssimilateItem, baseItem: MixDOMAssimilateItem | null, validator?: MixDOMAssimilateValidator | null): boolean {
         // Must always have the identical tag.
         if (item.tag !== treeNode.def.tag)
             return false;
@@ -1150,4 +1324,5 @@ export class HostRender {
         // Not valid.
         return false;
     }
+    
 }

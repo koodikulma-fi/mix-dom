@@ -45,7 +45,7 @@ interface HostRenderCycleInfo {
 export class HostServices {
 
     // Relations.
-    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and hydration. */
+    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and reassimilation. */
     public renderer: HostRender;
     /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
     public host: Host;

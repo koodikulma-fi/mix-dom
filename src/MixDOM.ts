@@ -326,9 +326,9 @@ export const MixDOM = {
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      */
-    readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
-        return treeNode ? HostRender.readAsString(treeNode) : "";
+        return treeNode ? HostRender.readDOMString(treeNode) : "";
     },
 
 };

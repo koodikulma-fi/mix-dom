@@ -7,10 +7,8 @@
   * mixinComponent
   * ALSO SPLIT TO "dom-types" 
 - VERIFY:
-  - All sorts of DOM related cases, now after DOM-TYPES refactoring.
   * VERIFY THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
     - Is the idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
-
 - Compiling.... THE GLOBAL.... Must include depdnencies..!
 
 

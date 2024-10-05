@@ -42,21 +42,51 @@ export type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;
 export type MixDOMDefKeyTag = MixDOMPostTag | MixDOMDefTarget | typeof PseudoFragment | Host | number;
 
 
-// - Virtual dom for hydration - //
+// - Virtual dom for reassimilation - //
 
-// Type for hydration mapping.
-export type MixDOMHydrationItem = {
+// Type for reassimilation mapping.
+export type MixDOMAssimilateItem = {
     tag: DOMTags;
     node: Element | SVGElement | Node;
-    parent: MixDOMHydrationItem | null;
-    children?: MixDOMHydrationItem[];
+    parent: MixDOMAssimilateItem | null;
+    children?: MixDOMAssimilateItem[];
     key?: any;
+    /** Can be used externally to exclude. */
     used?: boolean;
 };
 /** Should return true like value to accept, false like to not accept. */
-export type MixDOMHydrationValidator = (item: MixDOMHydrationItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => any;
-/** Should return a Node or MixDOMHydrationItem to suggest, or null otherwise. */
-export type MixDOMHydrationSuggester = (item: MixDOMHydrationItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => Node | MixDOMHydrationItem | null;
+export type MixDOMAssimilateValidator = (item: MixDOMAssimilateItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => any;
+/** Should return a Node or MixDOMAssimilateItem to suggest, or null otherwise. */
+export type MixDOMAssimilateSuggester = (item: MixDOMAssimilateItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => Node | MixDOMAssimilateItem | null;
+/** Used for reassimilation (and as a basis for remounting). */
+export interface MixDOMReassimilateInfo {
+    /** The virtual item root.*/
+    vRoot?: MixDOMAssimilateItem;
+    /** Helper for virtualization. */
+    vKeyedByTags?: Partial<Record<DOMTags, MixDOMAssimilateItem[]>>;
+    /** Used for exclusion purposes. */
+    reused?: Set<Node>;
+    /** External validator (always optional). */
+    validator?: MixDOMAssimilateValidator | null;
+    /** External suggester (always optional). */
+    suggester?: MixDOMAssimilateSuggester | null;
+}
+/** Used for the remount feature. */
+export interface MixDOMRemountInfo extends MixDOMReassimilateInfo {
+    /** Whether should read the attributes and/or text content from DOM before updating.
+     * - If false, then will leave any existing attributes and content in place.
+     * - If "attributes" (or true) ends up removing any old attributes (by first pre-reading the situation from the DOM element).
+     * - If "content" (or true) re-reads the text content from text nodes. Technically, reapplies the text content for them and removes any unused text nodes.
+     * - If true, then functions like "attributes" and "content" together.
+     */
+    readFromDOM?: boolean | "attributes" | "content";
+    /** Whether should remove unused DOM elements. Note that any elements that were "loosely" matched to be inside a HTML def (that would use innerHTML) won't be affected - only the ones that were truely non-matched. */
+    removeUnused?: boolean;
+    /** Will be updated by HostRenderer. Collects all newly created nodes. */
+    created?: Set<Node>;
+    /** Will be updated by HostRenderer. Collects all unused nodes. */
+    unused?: Set<Node>;
+}
 
 
 // - PRE Props - //

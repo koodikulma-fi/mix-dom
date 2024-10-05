@@ -302,7 +302,7 @@ interface HostRenderCycleInfo {
     rInfos: MixDOMRenderInfo[][];
 }
 declare class HostServices {
-    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and hydration. */
+    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and reassimilation. */
     renderer: HostRender;
     /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
     host: Host;
@@ -461,7 +461,7 @@ interface HostSettings {
      * Defaults to true, which means will apply based on scratch, but not read before it. */
     renderDOMPropsOnSwap: boolean | "read";
     /** This is useful for server side functionality. (Defaults to false, as most of the times you're using MixDOM on client side.)
-     * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readAsString() or MixDOM.readAsString(treeNode) to get the html string.
+     * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readDOMString() or MixDOM.readDOMString(treeNode) to get the html string.
      * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates. */
     disableRendering: boolean;
     /** This is useful for nesting hosts.
@@ -542,26 +542,154 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     addRefreshCall(callback: () => void, renderSide?: boolean): void;
     /** Trigger refreshing the host's pending updates and render changes. */
     triggerRefresh(updateTimeout?: number | null, renderTimeout?: number | null): void;
-    /** Pause the rendering. Resume it by calling resume(), rehydrate() or rehydrateWith(). */
+    /** Pause the rendering. Resume it by calling resume(), reassimilate() or reassimilateWith(). */
     pause(): void;
-    /** Resume rendering - triggers rehydration. */
+    /** Resume rendering - triggers reassimilation. */
     resume(): void;
     /** Tells whether the rendering is currently paused or not. */
     isPaused(): boolean;
-    /** This rehydrates the rendered defs with actual dom elements iterating down the groundedTree and the container (defaults to the host's container element).
-     * - It supports reusing custom html elements from a custom "container" element as well. Note it should be the _containing_ element.
-     * - In readAllMode will re-read the current dom props from the existing ones as well. Defaults to false.
-     * - In smuggleMode will replace the existing elements with better ones from "from" - otherwise only tries to fill missing ones. Defaults to false.
-     * - In destroyOthersMode will destroy the other unused elements found in the container. Defaults to false. Note. This can be a bit dangerous.
-     * - This also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+    /** Reassimilates actual (unknown) dom elements into existing state of the Host (= its treeNode/def structure from the root down) without remounting.
+     * - The method supports reusing custom DOM elements from within the given "container" element - it should be the element that _contains_ the Host's root element. (Defaults to the Host's container element.)
+     * - The method also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+     *      * Works internally by: 1. pause, 2. update, 3. resume & reassimilate.
+     *      * Note that this is different from the `remount` flow, even though both use the same core methods (and has thus very similar arguments).
+     * @param container Optionally define the container for assimilation. If none given defaults to the `host.groundedTree.domNode`.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     *      - Note that unlike in `remount` flow, any text content will always be re-updated - so readFromDOM only affects pre-reading attributes here.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     *
+     *
+     * ```
+     *
+     * // - Example to showcase the core feature (not practical) - //
+     *
+     * // Get container and read DOM output as a string.
+     * const elContainer = host.getContainerElement();
+     *
+     * // After the line below, the DOM is gone. (Assuming the host had a container element.)
+     * // .. However, our host and components are still alive, though unaware of this external destruction.
+     * if (elContainer)
+     *     elContainer.innerHTML = "";
+     *
+     * // After the line below, the DOM has been recreated - or actually only the root element moved back.
+     * // .. The other elements are also evaluated for updates, but likely nothing needed.
+     * // .. Note that the component life cycles remain unaffected, though of course Ref calls and such are triggered.
+     * host.reassimilate(); // Could also feed (elContainer) here. Same as default 1st arg.
+     *
+     * // We could actually put some DOM elements in and call `host.reassimilate(elContainer, true, true)`.
+     * // .. This would try to smuggle the DOM elements (2nd true), and read info from them (1st true).
+     *
+     * ```
      */
-    rehydrate(container?: Node | null, readAllMode?: boolean, smuggleMode?: boolean, destroyOthersMode?: boolean, validator?: MixDOMHydrationValidator, suggester?: MixDOMHydrationSuggester): void;
-    /** This accepts new render content to update the groundedTree first and then rehydrates accordingly. See rehydrate method for details of the other arguments.
-     * - Functions synchronously, so applies all updates and rendering immediately.
-     * - Note that like rehydrate this also resumes paused state. (And works by: 1. pause, 2. update, 3. rehydrate.) */
-    rehydrateWith(content: MixDOMRenderOutput, container?: Node | null, readAllMode?: boolean, smuggleMode?: boolean, destroyOthersMode?: boolean, validator?: MixDOMHydrationValidator, suggester?: MixDOMHydrationSuggester): void;
+    reassimilate(container?: Node | null, readFromDOM?: boolean, smuggleMode?: boolean, removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
+    /** This accepts new render content to update the groundedTree first and then reassimilates accordingly.
+     * - Functions synchronously, so applies all updates and rendering immediately, and resumes paused rendering.
+     * - See `reassimilate` method for more information.
+     * @param content Define the new render content to update the groundedTree with.
+     * @param container Optionally define the container for assimilation. If none given defaults to the `host.groundedTree.domNode`.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     *      - Note that unlike in `remount` flow, any text content will always be re-updated - so readFromDOM only affects pre-reading attributes here.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     */
+    reassimilateWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean, smuggleMode?: boolean, removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
+    /** Remounts the whole Host, optionally assimilating the DOM structure found inside the given container element.
+     * - The assimilation part comes in when mounting the DOM elements, as can reuse/smuggle/assimilate the DOM nodes from the container.
+     * - Extra notes:
+     *      * If you're using data in Contexts to drive your app state, you will likely end up with the same main state for the app. Of course any local state and DOM state (like scrolling position and focus) are lost.
+     *      * This method is similar to React's `hydrateRoot` in its core functioning, though without defining content. (Use `remountWith` for that instead.)
+     *      * Unlike in `reassimilate` flow, there's no default `container` and `removeUnused` defaults to `true`, as otherwise any mismatches would leave the DOM tree in a messy state.
+     *          - The flow is also different in that `remount` performs a full remount on the components (vs. partial smuggling of DOM elements to existing state).
+     * @param container Optionally define the container for DOM reassimilation while mounting. If null, won't try to reuse DOM elements. If given, should often be equivalent to `host.getContainerElement()`.
+     * @param readFromDOM Whether re-reads the current dom props ("attributes") and/or text content ("content") from the reused DOM elements. Defaults to false. If true, reads both.
+     *      - Note. If some text contents were not correctly re-rendered (after remounting with DOM reassimilation), try setting readFromDOM to "content" (or true).
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     *
+     * ```
+     *
+     * // - Example to showcase the core feature (not practical) - //
+     *
+     * // Get container and read DOM output as a string.
+     * const elContainer = host.getContainerElement();
+     * const htmlStr = host.readDOMString();
+     *
+     * // After the line below, the DOM looks the same, but nothing JS related works.
+     * // .. Of course, assuming the host has a container - most often has on the client side.
+     * if (elContainer)
+     *     elContainer.innerHTML = htmlStr;
+     *
+     * // After the line below, the component structure in the host has been remounted, and DOM reassimilated.
+     * // .. Before executing the line below, you can go and modify the DOM and see how the mods are retained (if could match).
+     * host.remount(elContainer);
+     *
+     * // Notes about the above line.
+     * // .. If the state is somewhat similar to what it was, the process has likely has reused many if not all nodes.
+     * // .... Most likely places of inconsistencies are related to text nodes: eg. whether two simple adjacent texts were joined as 1 or left as 2.
+     * // .... To account for text content inconsistencies, set readFromDOM to "content" (or true).
+     * // .. If container given, the method actually outputs info about usage `Record<"created" | "reused" | "unused", Set<Node>>`, otherwise `null`.
+     * // .... This is useful for debugging, in case things don't look right while the new app state is similar to old.
+
+     * ```
+     */
+    remount(container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): {
+        created: Set<Node>;
+        reused: Set<Node>;
+        unused: Set<Node>;
+    };
+    remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
+    /** Remounts the whole Host, optionally assimilating into given DOM structure (found inside the container, if given).
+     * - The assimilation part comes in when mounting the DOM elements, as can reuse/smuggle/assimilate the DOM nodes from the container.
+     * - See `remount` method for more information.
+     * @param content Optionally define new render content. If null|undefined, then reuses the current root def as the content.
+     * @param container Optionally define the container for DOM reassimilation while mounting. If null, won't try to reuse DOM elements. If given, should often be equivalent to `host.getContainerElement()`.
+     * @param readFromDOM Whether re-reads the current dom props ("attributes") and/or text content ("content") from the reused DOM elements. Defaults to false. If true, reads both.
+     *      - Note. If some text contents were not correctly re-rendered (after remounting with DOM reassimilation), try setting readFromDOM to "content" (or true).
+     * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     *
+     * ```
+     *
+     * // - Showcasing `remountWith` for hydration purposes - //
+     *
+     * // As a quick example of usage for DOM hydration purposes:
+     * const container = document.querySelector("#app-root");
+     * const host = new Host(null, container);          // Don't render content yet.
+     * host.remountWith(contentFromSrv, container);     // Rehydrate the DOM.
+     *
+     * // Note. The `contentFromSrv` is likely a simple def like: `<App />`.
+     * // .. It comes from the server side rendering.
+     * // .. To dummy-test the feature on a living app, get the container and contentFromSrv like this:
+     * const container = host.getContainerElement();    // Current container element.
+     * const contentFromSrv = host.getRootDef();        // Current root def (copy).
+     *
+     * // You could then clear the DOM and try to rehydrating it.
+     * const domString = host.readDOMString();          // Current DOM structure as a string.
+     * container.innerHTML = domString;                 // Apply new DOM from string.
+     * host.remountWith(contentFromSrv, container);     // Rehydrate the DOM.
+     *
+     * ```
+     *
+     */
+    remountWith(content: MixDOMRenderOutput, container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): {
+        created: Set<Node>;
+        reused: Set<Node>;
+        unused: Set<Node>;
+    };
+    remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
     /** Read the whole rendered contents as a html string. Typically used with settings.disableRendering (and settings.renderTimeout = null). */
-    readAsString(): string;
+    readDOMString(): string;
+    /** Get a (shallow) copy of the root def. Use this only for technical special cases and only as _readonly_ - do not mutate the def. Should not be needed in normal circumstances. */
+    getRootDef(): MixDOMDefTarget | null;
+    /** Get the element that contains the Host. */
+    getContainerElement(): Node | null;
     /** Get the root dom node (ours or by a nested boundary) - if has many, the first one (useful for insertion). */
     getRootElement(): Node | null;
     /** Get all the root dom nodes - might be many if used with a fragment.
@@ -591,11 +719,13 @@ declare function newHost<Contexts extends ContextsAllType = {}>(content?: MixDOM
 
 type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "devLogWarnings">;
 declare class HostRender {
+    /** These implies which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
+    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
     /** Detect if is running in browser or not. */
     inBrowser: boolean;
     /** Root for pausing. */
-    hydrationRoot: MixDOMTreeNode | null;
-    /** Pausing. When resumes, rehydrates. */
+    assimilationRoot: MixDOMTreeNode | null;
+    /** Pausing. When resumes, reassimilates. */
     paused: boolean;
     /** When paused, if has any infos about removing elements, we store them - so that we can call unmount (otherwise the treeNode ref is lost). */
     pausedPending?: MixDOMRenderInfo[];
@@ -603,20 +733,25 @@ declare class HostRender {
     settings: HostRenderSettings;
     /** To keep track of featured external dom elements. */
     externalElements: Set<Node>;
-    constructor(settings: HostRenderSettings, hydrationRoot?: MixDOMTreeNode);
+    /** Temporary information for remount feature - can be set externally. When applyDOM is called, the feature is triggered to pre-modify the groundedTree. */
+    sourceRemount?: MixDOMRemountInfo;
+    constructor(settings: HostRenderSettings, assimilationRoot?: MixDOMTreeNode);
     /** Pause the renderer from receiving updates. */
     pause(): void;
-    /** Resume the renderer after pausing. Will rehydrate dom elements and reapply changes to them.
+    /** Resume the renderer after pausing. Will reassimilate dom elements and reapply changes to them.
      * Note that calling resume will unpause rendering even when settings.disableRendering is set to true. */
     resume(): void;
-    /** This rehydrates the rendered defs with actual dom elements.
-     * - It supports reusing custom html elements from within the given "container" element - it should be the _containing_ element. You should most often use the host's container element.
-     * - In smuggleMode will replace the existing elements with better ones from "from" - otherwise only tries to fill missing ones.
-     * - In destroyOthersMode will destroy the unused elements found in the container.
-     * - In readAllMode will re-read the current dom props from the existing ones as well.
-     * - This also resumes rendering if was paused - unless is disableRendering is set to true in host settings.
+    /** Reassimilates actual (unknown) dom elements into existing state of the Host (= its treeNode/def structure from the root down) without remounting.
+     * - The method supports reusing custom DOM elements from within the given "container" element - it should be the _containing_ element. You should most often use the element that _contains_ the host.
+     * - The method also resumes rendering if was paused - unless is disableRendering is set to true in Host's settings.
+     * @param container Optionally define the container for assimilation. If none given, won't use most of the features in the other arguments.
+     * @param readFromDOM Re-reads the current dom props from the existing ones as well. Defaults to false.
+     * @param smuggleMode Allows to replace existing elements with better ones from the container (instead of reusing what components have) - otherwise only tries to fill missing ones. Defaults to false.
+     * @param removeUnused Destroy the other unused elements found in the container. Defaults to false. Note. This can be a bit dangerous.
+     * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
+     * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
      */
-    rehydrate(container?: Node | null, readAllMode?: boolean, smuggleMode?: boolean, destroyOthersMode?: boolean, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): void;
+    reassimilate(container?: Node | null, readFromDOM?: boolean, smuggleMode?: boolean, removeUnused?: boolean, validator?: MixDOMAssimilateValidator | null, suggester?: MixDOMAssimilateSuggester | null): void;
     /** The main method to apply renderInfos. Everything else in here serves this.
      * - Note that all the infos in a single renderInfos array should be in tree order. (Happens automatically by the update order.)
      * - Except emptyMove's should be prepended to the start, and destructions appended to the end (<- happens automatically due to clean up being after).
@@ -626,8 +761,6 @@ declare class HostRender {
     private getApprovedNode;
     /** Core handler to create a single dom node based on a treeNode info. */
     private createDOMNodeBy;
-    static SIMPLE_TAGS: string[];
-    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      *
      * ```
@@ -663,6 +796,7 @@ declare class HostRender {
      * // 1. First find the domParent by simply going up until hits a treeNode with a dom tag.
      * //    * If none found, stop. We cannot insert the element. (Should never happen - except for swappable elements, when it's intended to "remove" them.)
      * //    * If the domParent was found in the newlyCreated smart bookkeeping, skip step 2 below (there are no next siblings yet).
+     * //       - Actually newlyCreated info is no longer used.
      * // 2. Then find the next domSibling reference element.
      * //    * Go up and check your index.
      * //    * Loop your next siblings and see if any has .domNode. If has, stop, we've found it.
@@ -708,22 +842,37 @@ declare class HostRender {
      * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
      */
     static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
-    /** Find a suitable virtual item from the structure.
-     * - Tries the given vItem, or if used its children.
-     * - Can use an optional suggester that can suggest some other virtual item or a direct dom node.
-     *   * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
-     *   * If suggests a virtual item it must fit the structure. If suggests a dom node, it can be from anywhere basically - don't steal from another host.
-     * - Can also use an optional validator that should return true to accept, false to not accept. It's the last one in the chain that can say no.
-     * - DEV. NOTE. This is a bit SKETCHY.
-     */
-    static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMHydrationItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMHydrationItem[]>>, excludedNodes?: Set<Node> | null, validator?: MixDOMHydrationValidator | null, suggester?: MixDOMHydrationSuggester | null): MixDOMHydrationItem | Node | null;
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    static readAsString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: string[] | null | undefined): string;
+    static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: string[] | null | undefined): string;
+    /** Modifies the groundedTree by smuggling in already existing DOM nodes. */
+    static onRemount(remountSource: MixDOMRemountInfo, groundedTree: MixDOMTreeNode): void;
+    /** Create virtual items mapping from the given container node. */
+    static createVirtualItemsFor(container: Node): {
+        vRoot: MixDOMAssimilateItem;
+        vKeyedByTags: Partial<Record<DOMTags, MixDOMAssimilateItem[]>>;
+    };
+    /** Flattens the virtual item tree structure into an array.
+     * @param vRoot The root virtual item to flatten by its children. The root is included in the returned array.
+     * @returns The flattened array of virtual items containing all the items in tree order.
+     */
+    static flattenVirtualItems(vRoot: MixDOMAssimilateItem): MixDOMAssimilateItem[];
+    /** Returns a DOM matched [treeNode, virtualItem, node] pairings. If onlyMatched is true and vRoot provided, only returns the ones matched with the virtual structure. Otherwise just all by "dom" type treeNode - paired or not. */
+    static getVirtualDomPairs(rootNode: MixDOMTreeNode, vInfo: MixDOMReassimilateInfo, onlyMatched: true): [treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node][];
+    static getVirtualDomPairs(rootNode: MixDOMTreeNode, vInfo: MixDOMReassimilateInfo, onlyMatched?: boolean): [treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, node: Node | null][];
+    /** Find a suitable virtual item from the structure.
+     * - Tries the given vItem, or if used its children.
+     * - Can use an optional suggester that can suggest some other virtual item or a direct dom node.
+     *      * Any suggestions (by the callback or our tree structure) must always have matching tag and other some requirements.
+     *      * If suggests a virtual item it must fit the structure. If suggests a dom node, it can be from anywhere basically - don't steal from another host.
+     * - Can also use an optional validator that should return true to accept, false to not accept. It's the last one in the chain that can say no.
+     * - DEV. NOTE. This is a bit SKETCHY.
+     */
+    static getTreeNodeMatch(treeNode: MixDOMTreeNodeDOM, vItem: MixDOMAssimilateItem | null, vKeyedByTags?: Partial<Record<DOMTags, MixDOMAssimilateItem[]>> | null, excludedNodes?: Set<Node> | null, validator?: MixDOMAssimilateValidator | null, suggester?: MixDOMAssimilateSuggester | null): MixDOMAssimilateItem | Node | null;
     /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
     private static isVirtualItemOk;
 }
@@ -1725,18 +1874,48 @@ type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
  * The number type refers to the values of searchByTag in routinesPairing. */
 type MixDOMDefKeyTag = MixDOMPostTag | MixDOMDefTarget | typeof PseudoFragment | Host | number;
-type MixDOMHydrationItem = {
+type MixDOMAssimilateItem = {
     tag: DOMTags;
     node: Element | SVGElement | Node;
-    parent: MixDOMHydrationItem | null;
-    children?: MixDOMHydrationItem[];
+    parent: MixDOMAssimilateItem | null;
+    children?: MixDOMAssimilateItem[];
     key?: any;
+    /** Can be used externally to exclude. */
     used?: boolean;
 };
 /** Should return true like value to accept, false like to not accept. */
-type MixDOMHydrationValidator = (item: MixDOMHydrationItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => any;
-/** Should return a Node or MixDOMHydrationItem to suggest, or null otherwise. */
-type MixDOMHydrationSuggester = (item: MixDOMHydrationItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => Node | MixDOMHydrationItem | null;
+type MixDOMAssimilateValidator = (item: MixDOMAssimilateItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => any;
+/** Should return a Node or MixDOMAssimilateItem to suggest, or null otherwise. */
+type MixDOMAssimilateSuggester = (item: MixDOMAssimilateItem | null, treeNode: MixDOMTreeNodeDOM, tag: DOMTags | "_" | "", key: any) => Node | MixDOMAssimilateItem | null;
+/** Used for reassimilation (and as a basis for remounting). */
+interface MixDOMReassimilateInfo {
+    /** The virtual item root.*/
+    vRoot?: MixDOMAssimilateItem;
+    /** Helper for virtualization. */
+    vKeyedByTags?: Partial<Record<DOMTags, MixDOMAssimilateItem[]>>;
+    /** Used for exclusion purposes. */
+    reused?: Set<Node>;
+    /** External validator (always optional). */
+    validator?: MixDOMAssimilateValidator | null;
+    /** External suggester (always optional). */
+    suggester?: MixDOMAssimilateSuggester | null;
+}
+/** Used for the remount feature. */
+interface MixDOMRemountInfo extends MixDOMReassimilateInfo {
+    /** Whether should read the attributes and/or text content from DOM before updating.
+     * - If false, then will leave any existing attributes and content in place.
+     * - If "attributes" (or true) ends up removing any old attributes (by first pre-reading the situation from the DOM element).
+     * - If "content" (or true) re-reads the text content from text nodes. Technically, reapplies the text content for them and removes any unused text nodes.
+     * - If true, then functions like "attributes" and "content" together.
+     */
+    readFromDOM?: boolean | "attributes" | "content";
+    /** Whether should remove unused DOM elements. Note that any elements that were "loosely" matched to be inside a HTML def (that would use innerHTML) won't be affected - only the ones that were truely non-matched. */
+    removeUnused?: boolean;
+    /** Will be updated by HostRenderer. Collects all newly created nodes. */
+    created?: Set<Node>;
+    /** Will be updated by HostRenderer. Collects all unused nodes. */
+    unused?: Set<Node>;
+}
 interface MixDOMPreBaseProps {
     /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.) */
     _disable?: boolean;
@@ -2342,7 +2521,7 @@ declare const MixDOM: {
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      */
-    readAsString: (from: MixDOMTreeNode | Component | MixDOMBoundary) => string;
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary) => string;
 };
 
-export { Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstanceType, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_mixedCase, JSX_nativeCase, MixDOM, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMHydrationItem, MixDOMHydrationSuggester, MixDOMHydrationValidator, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, mixinComponent, newContext, newContexts, newDef, newDefHTML, newHost, newRef };
+export { Component, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstanceType, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_mixedCase, JSX_nativeCase, MixDOM, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMReassimilateInfo, MixDOMRemountInfo, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixComponentClassFuncs, mixComponentClassFuncsWith, mixComponentClassMixins, mixComponentFuncs, mixComponentFuncsWith, mixComponentMixins, mixComponentMixinsWith, mixHOCs, mixinComponent, newContext, newContexts, newDef, newDefHTML, newHost, newRef };
