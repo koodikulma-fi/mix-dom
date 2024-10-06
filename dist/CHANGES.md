@@ -31,7 +31,7 @@
     - And some renaming in special features, or moving them to the static side (to not clutter public instance side API).
 - `data-memo` contains:
   - The deep data (`areEqual` and `deepCopy`) and numeric array helpers (like `numberRange` and `cleanIndex`).
-  - The earlier enum `MixDOMCompareDepth` is now `CompareDataDepthEnum` and type `CompareDataDepthMode`.
+  - The earlier enum `MixDOMCompareDepth` is now `CompareDepthEnum` and type `CompareDepthMode`.
   - The data reuse helpers like `Memo` and `DataPicker` are also moved here and reconceptualized:
     - The earlier `Memo` concept is now `createDataTrigger` function.
     - The `createDataMemo` is a new feature closer to React's useMemo (without the hook restrictions).
