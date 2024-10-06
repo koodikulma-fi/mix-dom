@@ -7,14 +7,10 @@
   * mixinComponent
   * ALSO SPLIT TO "dom-types" 
 - VERIFY:
+  * That GLOBAL.js works. Now compiled all dependencies in one.
   * VERIFY THAT DIDN'T ACCIDENTLLAY MSS UP COMPONEN TMIXINS.. TYPING..
     - Is the idea (Base) => Extends ... Or is it .. more like => RENDEROUTPUT..?
-- Compiling.... THE GLOBAL.... Must include depdnencies..!
 
-
-### DOCS
-
-- UPDATE DOCS...!!!
 
 ### LATER
 

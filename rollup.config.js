@@ -85,7 +85,7 @@ export default [
                 },
                 output: { quote_style: 1 }
             }),
-            del({ targets: 'dist/modules*', hook: 'buildEnd' })
+            // del({ targets: 'dist/modules*', hook: 'buildEnd' })
         ],
     },
 
@@ -93,7 +93,7 @@ export default [
     // - Global (= window.MixDom) - //
 
     {
-        input: 'dist/global/index.global.js',
+        input: 'dist/modules/index.global.js',
         output: {
           file: 'dist/MixDOM.global.js',
           format: 'cjs',
@@ -133,7 +133,7 @@ export default [
 
             // - Delete - //
 
-            del({ targets: 'dist/global*', hook: 'buildEnd' })
+            del({ targets: ['dist/global*', 'dist/modules*'], hook: 'buildEnd' })
 
         ]
     },
