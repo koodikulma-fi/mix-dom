@@ -10,17 +10,14 @@
   - `data-signals` provides the signal and data listening mixins (for Component and Ref) and classes: `Context` and `ContextAPI`.
   - `data-memo` provides shallow comparison and data-reuse helpers, also useful for external use.
 
-### Methods moved
+### Features moved
 
 - Accordingly some of the public features have moved to the sub modules and might be renamed or slightly different from v3.
-- `data-memo` contains:
-  - The deep data (`areEqual` and `deepCopy`) and numeric array helpers (like `numberRange` and `cleanIndex`).
-  - The earlier enum `MixDOMCompareDepth` is now `CompareDataDepthEnum` and type `CompareDataDepthMode`.
-  - The data reuse helpers like `Memo` and `DataPicker` are also moved here and reconceptualized:
-    - The earlier `Memo` concept is now `createDataTrigger` function.
-    - The `createDataMemo` is a new feature closer to React's useMemo (without the hook restrictions).
-    - The earlier `createDataSelector` alternative is dropped. Instead use `createDataSource` (earlier `createDataPicker`).
-    - In addition, new `createCachedSource` method helps to reuse the same data source for different source data sets.
+- `dom-types` contains:
+  - For external use the `classNames` and `cleanNames` methods.
+  - Many DOM related JS features and the JSX typing are used internally by MixDOM.
+- `mixin-types` contains:
+  - Typing related to mixins used by `data-signals` but also by MixDOM for `mixinComponent` method.
 - `data-signals` contains:
   - The classes for `Context` and `ContextAPI`, and mixin bases for `SignalBoy`, `SignalMan`, `DataBoy` and `DataMan`.
   - Functional changes:
@@ -33,6 +30,14 @@
   - Other minor changes:
     - There is some clean ups in relation to public and private methods in the classes and mixins of `data-signals`.
     - And some renaming in special features, or moving them to the static side (to not clutter public instance side API).
+- `data-memo` contains:
+  - The deep data (`areEqual` and `deepCopy`) and numeric array helpers (like `numberRange` and `cleanIndex`).
+  - The earlier enum `MixDOMCompareDepth` is now `CompareDataDepthEnum` and type `CompareDataDepthMode`.
+  - The data reuse helpers like `Memo` and `DataPicker` are also moved here and reconceptualized:
+    - The earlier `Memo` concept is now `createDataTrigger` function.
+    - The `createDataMemo` is a new feature closer to React's useMemo (without the hook restrictions).
+    - The earlier `createDataSelector` alternative is dropped. Instead use `createDataSource` (earlier `createDataPicker`).
+    - In addition, new `createCachedSource` method helps to reuse the same data source for different source data sets.
 
 ### Major changes
 
@@ -105,4 +110,4 @@
 ### Related libraries coming later
 
 - `data-signals-debug` to allow viewing `Context` signals & data changes in a UI in another window. (Rendered with MixDOM.)
-- `mix-dom-debug` that extends `data-signals-debug` with the viewer for the `groundedTree` (of MixDOMTreeNodes) of connected `Host` instances.
+- `mix-dom-debug` that extends `data-signals-debug` with the viewer for the `groundedTree` of connected `Host` instances.
