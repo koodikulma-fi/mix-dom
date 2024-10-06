@@ -40,8 +40,9 @@
         "src"
     ],
     "scripts": {
+        "tsc_global": "tsc -p tsconfig_global.json",
         "tsc": "tsc -p tsconfig.json",
-        "build": "tsc && rollup -c rollup.config.js"
+        "build": "tsc && npm run tsc_global && rollup -c rollup.config.js"
     },
     "dependencies": {
         "data-memo": "^1.0.0",
@@ -50,6 +51,7 @@
         "mixin-types": "^1.0.1"
     },
     "devDependencies": {
+        "@rollup/plugin-node-resolve": "^15.3.0",
         "rollup": "^2.77.2",
         "rollup-plugin-delete": "^2.0.0",
         "rollup-plugin-dts": "^4.2.2",

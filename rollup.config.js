@@ -7,6 +7,7 @@ import dts from 'rollup-plugin-dts';
 import del from 'rollup-plugin-delete';
 // import copy from 'rollup-plugin-copy';
 import { terser } from 'rollup-plugin-terser';
+import resolve from '@rollup/plugin-node-resolve';
 
 // const devMode = (process.env.NODE_ENV === 'development');
 // console.log(`${ devMode ? 'development' : 'production' } mode bundle`);
@@ -30,7 +31,7 @@ export default [
     // - ES Module - //
 
     {
-        external: ['data-signals'],
+        // external: ['mixin-types', 'data-signals', 'data-memo', 'dom-types],
         input: 'dist/modules/index.js',
         output: {
             file: 'dist/MixDOM.module.js',
@@ -39,14 +40,17 @@ export default [
         plugins: [
             terser({
                 ecma: 2015,
-                // sourceMap: true,
+                mangle: {
+                    // module: true,
+                    keep_fnames: true,
+                    keep_classnames: true,
+                },
                 compress: {
                     module: true,
-                    toplevel: true,
-                    unsafe_arrows: true,
-                    drop_debugger: true
-                    // drop_console: !devMode,
-                    // drop_debugger: !devMode
+                    keep_fnames: true,
+                    keep_fargs: true,
+                    keep_classnames: true,
+                    // unsafe_arrows: true,
                 },
                 output: { quote_style: 1 }
             }),
@@ -57,7 +61,7 @@ export default [
     // - CJS - //
 
     {
-        external: ['data-signals'],
+        // external: ['mixin-types', 'data-signals', 'data-memo', 'dom-types],
         input: 'dist/modules/index.cjs.js',
         output: {
             file: 'dist/MixDOM.js',
@@ -67,17 +71,21 @@ export default [
         plugins: [
             terser({
                 ecma: 2015,
-                // sourceMap: true,
+                mangle: {
+                    // module: true,
+                    keep_fnames: true,
+                    keep_classnames: true,
+                },
                 compress: {
-                    // toplevel: true,
                     module: true,
-                    unsafe_arrows: true,
-                    drop_debugger: true
-                    // drop_console: !devMode,
-                    // drop_debugger: !devMode
+                    keep_fnames: true,
+                    keep_fargs: true,
+                    keep_classnames: true,
+                    // unsafe_arrows: true,
                 },
                 output: { quote_style: 1 }
             }),
+            del({ targets: 'dist/modules*', hook: 'buildEnd' })
         ],
     },
 
@@ -85,33 +93,47 @@ export default [
     // - Global (= window.MixDom) - //
 
     {
-        external: ['data-signals'],
-        input: 'dist/modules/index.global.js',
+        input: 'dist/global/index.global.js',
         output: {
           file: 'dist/MixDOM.global.js',
           format: 'cjs',
         },
         plugins: [
+            resolve(),
             terser({
                 ecma: 2015,
-                // mangle: false,
-                // sourceMap: true,
-                // module: true,
                 enclose: true,
-                compress: {
-                    toplevel: true,
-                    unsafe_arrows: true,
-                    drop_debugger: true
-                    // drop_console: !devMode,
-                    // drop_debugger: !devMode
+                mangle: {
+                    // module: true,
+                    keep_fnames: true,
+                    keep_classnames: true,
                 },
+                compress: {
+                    module: true,
+                    keep_fnames: true,
+                    keep_fargs: true,
+                    keep_classnames: true,
+                    // unsafe_arrows: true,
+                },
+
+                // // mangle: false,
+                // // sourceMap: true,
+                // enclose: true,
+                // compress: {
+                //     module: true,
+                //     toplevel: true,
+                //     unsafe_arrows: true,
+                //     drop_debugger: true
+                //     // drop_console: !devMode,
+                //     // drop_debugger: !devMode
+                // },
                 output: { quote_style: 1 },
             }),
 
 
             // - Delete - //
 
-            del({ targets: 'dist/modules*', hook: 'buildEnd' })
+            del({ targets: 'dist/global*', hook: 'buildEnd' })
 
         ]
     },
@@ -121,7 +143,6 @@ export default [
     //
     // // Copy for direct es module use (cannot use .mjs, instead the d.ts and .js must have same path).
     // {
-    //     external: ['data-signals'],
     //     input: 'dist/MixDOM.module.js',
     //     plugins: [
     //         // copy({ targets: [ { src: 'dist/MixDOM.d.ts', dest: 'dist', rename: 'MixDOM.module.d.ts' } ] }),

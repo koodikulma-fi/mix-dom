@@ -3,14 +3,11 @@
     "target": "es2015",
     "esModuleInterop": false,
     "module": "es6",
-    "outDir": "./dist/modules",
+    "outDir": "./dist/global",
     "moduleResolution": "node",
     "noEmitOnError": true,
-    "declaration": true,
-    "declarationDir": "./dist/dts",
     "strictNullChecks": true,
     "skipLibCheck": true
   },
-  "include": ["./src/index.ts", "./src/index.cjs.ts"],
-  "exclude": ["node_modules/*"]
+  "include": ["./src/index.global.ts"]
 }
