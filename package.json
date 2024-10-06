@@ -44,7 +44,7 @@
         "build": "tsc && rollup -c rollup.config.js"
     },
     "dependencies": {
-        "data-memo": "^1.0.0",
+        "data-memo": "^1.0.1",
         "data-signals": "^1.0.1",
         "dom-types": "^1.0.0",
         "mixin-types": "^1.0.1"

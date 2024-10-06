@@ -4,7 +4,7 @@
 // Library.
 import { ClassType, AsClass, ReClass } from "mixin-types";
 import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType } from "data-signals";
-import { CompareDataDepthMode } from "data-memo";
+import { CompareDepthMode } from "data-memo";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMPreComponentOnlyProps } from "../typing";
 // Routines.
@@ -162,7 +162,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
         public readonly _lastState?: Record<string, any>;
         public state: Record<string, any>;
         public updateModes: Partial<MixDOMUpdateCompareModesBy>;
-        public constantProps?: Partial<Record<string, CompareDataDepthMode | number | true>>;
+        public constantProps?: Partial<Record<string, CompareDepthMode | number | true>>;
         public timers?: Map<any, number | NodeJSTimeout>;
         public readonly wired?: Set<ComponentWiredType | ComponentWiredFunc>;
         public contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
@@ -290,7 +290,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
                 this.updateModes[type] = modes[type];
         }
 
-        public setConstantProps(constProps: Partial<Record<string, CompareDataDepthMode | number | true>> | string[] | null, extend: boolean = true, overrideEach: CompareDataDepthMode | number | null = null): void {
+        public setConstantProps(constProps: Partial<Record<string, CompareDepthMode | number | true>> | string[] | null, extend: boolean = true, overrideEach: CompareDepthMode | number | null = null): void {
             // Reset or initialize.
             if (!extend || !this.constantProps)
                 this.constantProps = {};
@@ -418,7 +418,7 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 
     /** If constantProps is defined, then its keys defines props that must not change, and values how the comparison is done for each.
      * This affects the def pairing process by disallowing pairing if conditions not met, which in turn results in unmount and remount instead of just updating props (and potentially moving). */
-    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>>;
+    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>>;
     /** ContextAPI for the component. You can use it to access contextual features. By default inherits the named contexts from the Host, but you can also override them locally. */
     contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
 
@@ -485,7 +485,7 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
     /** Modify the constantProps member that defines which props must not change (and how) without a remount. If you set the mode to `true` it means "changed" (= 0 depth).
      * You can also override the mode for each if you just want to use the keys of another dictionary. 
      * By default extends the given constant props, if you want to reset put extend to `false`. If you want to clear, leave the constProps empty (null | [] | {}) as well. */
-    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDataDepthMode | number | null): void;
+    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDepthMode | number | null): void;
 
     // State.
     /** Set many properties in the state at once. Can optionally define update related timing. */

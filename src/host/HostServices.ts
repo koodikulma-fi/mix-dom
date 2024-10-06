@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { areEqual, CompareDataDepthEnum, CompareDataDepthMode } from "data-memo";
+import { areEqual, CompareDepthEnum, CompareDepthMode } from "data-memo";
 import { askListeners, callListeners, RefreshCycle } from "data-signals";
 // Typing.
 import {
@@ -562,8 +562,8 @@ export class HostServices {
         // Loop changed.
         for (const type of types) {
             // Prepare.
-            const mode: CompareDataDepthMode | number = (component.updateModes && component.updateModes[type]) ?? (shadowUpdateModes && shadowUpdateModes[type]) ?? settingsUpdateModes[type];
-            const nMode = typeof mode === "number" ? mode : CompareDataDepthEnum[mode] as number || 0;
+            const mode: CompareDepthMode | number = (component.updateModes && component.updateModes[type]) ?? (shadowUpdateModes && shadowUpdateModes[type]) ?? settingsUpdateModes[type];
+            const nMode = typeof mode === "number" ? mode : CompareDepthEnum[mode] as number || 0;
             // Always or never.
             if (nMode < -1) {
                 if (nMode === -2)

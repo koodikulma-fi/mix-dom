@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { CompareDataDepthMode } from "data-memo";
+import { CompareDepthMode } from "data-memo";
 import { SignalsRecord, Context } from "data-signals";
 import { DOMCleanProps, DOMTags, DOMAttributes, CSSProperties } from "dom-types";
 // Only typing (local).
@@ -161,8 +161,8 @@ export interface MixDOMComponentUpdates<Props extends Record<string, any> = {}, 
  * - Note that the pure checks only check those types that have just been changed.
  */
 export interface MixDOMUpdateCompareModesBy {
-    props: CompareDataDepthMode | number;
-    state: CompareDataDepthMode | number;
+    props: CompareDepthMode | number;
+    state: CompareDepthMode | number;
 }
 
 
