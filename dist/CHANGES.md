@@ -65,7 +65,6 @@
     - This makes it easier to manage the wired hookups externally (and internally drops the only cyclical JS import in source code).
   - Simplified component timers methods (from 5 methods to 3 methods) to not clutter the Component public instance API.
   - Typing for `mixinComponent` function has been changed to reflect the principles in `mixin-types` module.
-  - Renamed the component mixing related methods starting with "mixComponent" to just "mix" (to systemize and shorten naming), eg. `mixComponentClassFuncsWith` is now `mixClassFuncsWith`.
 
 - In `MixDOM` shortcut object:
 
