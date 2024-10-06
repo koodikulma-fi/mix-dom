@@ -2,18 +2,21 @@
 // - Imports - //
 
 import { MixDOM as _MixDOM } from "./MixDOM";
-import * as MixinTypes from "mixin-types";
-import * as DataSignals from "data-signals";
-import * as DataMemo from "data-memo";
-// import * as DomTypes from "dom-types";
+import * as _MixinTypes from "mixin-types";
+import * as _DataSignals from "data-signals";
+import * as _DataMemo from "data-memo";
+// import * as _DomTypes from "dom-types";
 
 
 // - Typing - //
 
-type GlobalDependencies = typeof MixinTypes & typeof DataSignals & typeof DataMemo; // & typeof DomTypes;
 declare global {
-    interface Window extends GlobalDependencies {
+    interface Window {
         MixDOM: typeof _MixDOM;
+        DataMemo: typeof _DataMemo;
+        DataSignals: typeof _DataSignals;
+        MixinTypes: typeof _MixinTypes;
+        // DomTypes: typeof _DomTypes;
     }
 }
 
@@ -21,11 +24,7 @@ declare global {
 // - Attach globals - //
 
 window.MixDOM = _MixDOM;
-for (const p in MixinTypes)
-    window[p] = MixinTypes;
-for (const p in DataSignals)
-    window[p] = DataSignals;
-for (const p in DataMemo)
-    window[p] = DataMemo;
-// for (const p in DomTypes)
-//     window[p] = DomTypes;
+window.DataSignals = _DataSignals;
+window.DataMemo = _DataMemo;
+window.MixinTypes = _MixinTypes;
+// window.DomTypes = _DomTypes;
