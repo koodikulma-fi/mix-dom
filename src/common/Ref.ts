@@ -67,6 +67,7 @@ export interface RefType<Type extends Node | ComponentTypeEither = Node | Compon
 
 // - Class - //
 
+/** Class to help keep track of components or DOM elements in the state based tree. */
 export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalMan<RefSignals<Type>> {
 
 

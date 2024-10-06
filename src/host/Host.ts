@@ -183,8 +183,7 @@ export interface HostSettings {
 
 // - Class - //
 
-/** This is the main class to orchestrate and start rendering. */
-// export class Host<Data extends any = any, Signals extends SignalsRecord = {}> extends DataSignalMan<Data, HostSignals & Signals> { 
+/** The main class to orchestrate and start rendering in MixDOM. */
 export class Host<Contexts extends ContextsAllType = {}> {
 
     

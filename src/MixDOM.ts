@@ -124,14 +124,17 @@ export const MixDOM = {
     copyContent: newContentCopyDef,
 
 
-    // - Mixin & class shortcuts - //
-
-    // Mixins.
-    mixinComponent,
+    // - Class shortcuts - //
 
     // Main classes.
+    /** Standalone Component class.
+     * - Provides the basic features for rendering into the MixDOM system, orchestrator by the containing Host.
+     * - Use the `render(props, state)` method to render the contents - the method is called automatically by the flow (calling it manually has no meaning).
+     */
     Component,
+    /** The main class to orchestrate and start rendering in MixDOM. */
     Host,
+    /** Class to help keep track of components or DOM elements in the state based tree. */
     Ref,
 
 
@@ -237,6 +240,114 @@ export const MixDOM = {
      *     * So the trick of this method is simply that the returned function still includes `(Base: Required)`, but _inside_ the func it looks like `(Base: Required & Added)`.
     */
     mixin: createMixin,
+
+    // Mixins.
+    /** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+     * - For examples of how to use mixins, see: [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+     * - To read typing of the base class use one of the below:
+     *      1. Provide it manually using `typeof BaseClass`. For example: `mixinComponent<Info, typeof BaseClass>(BaseClass)`.
+     *      2. Use `AsMixin` to auto-read the typing from the BaseClass. For example: `mixinComponent as AsMixin<Component<Info>>(BaseClass)`.
+     * - Note that this feature can be used for the concept of Component mixing in the class form.
+     *      * However, you can also mix components in the functional form. See more at MixDOM.mixin, MixDOM.mixFuncs and other related methods.
+     * 
+     * ```
+     * 
+     * // - Basic typed example - //
+     * 
+     * // Base class with static type.
+     * interface MyBaseType extends ClassType<MyBase> {
+     *     SOME_STATIC: boolean;
+     * }
+     * class MyBase { something: boolean = false; static SOME_STATIC: boolean = false; }
+     * 
+     * // Create some mixed components. (Should define render method, too.)
+     * // .. Typing.
+     * type MyInfo = { props: { test: boolean; }; };
+     * // .. Without base class.
+     * const MyComponent = mixinComponent<MyInfo>(Object);
+     * class MyComponentClass extends mixinComponent<MyInfo>(Object) {}
+     * // .. With typed base class.
+     * const MyComponentWith1 = mixinComponent<MyInfo, typeof MyBase>(MyBase);
+     * const MyComponentWith2 = mixinComponent<MyInfo, MyBaseType>(MyBase);
+     * const MyComponentWith3 = (mixinComponent as AsMixin<Component<MyInfo>>)(MyBase);
+     * const MyComponentWith4 = (mixinComponent as ReMixin<ComponentType<MyInfo>>)(MyBase);
+     * 
+     * // Test static typing. (All found as expected.)
+     * MyComponent.MIX_DOM_CLASS
+     * MyComponentClass.MIX_DOM_CLASS
+     * MyComponentWith1.MIX_DOM_CLASS
+     * MyComponentWith1.SOME_STATIC
+     * MyComponentWith2.MIX_DOM_CLASS
+     * MyComponentWith2.SOME_STATIC
+     * MyComponentWith3.MIX_DOM_CLASS
+     * MyComponentWith3.SOME_STATIC
+     * MyComponentWith4.MIX_DOM_CLASS
+     * MyComponentWith4.SOME_STATIC
+     * 
+     * // Test props.
+     * const Test: SpreadFunc = () =>
+     *     <>
+     *         <MyComponent test={false} />
+     *         <MyComponentClass test={false} />
+     *         <MyComponentWith1 test={false} />
+     *         <MyComponentWith2 test={false} />
+     *         <MyComponentWith3 test={false} />
+     *         <MyComponentWith4 test={false} />
+     *     </>;
+     * 
+     * 
+     * // - Advanced typed example - //
+     * //
+     * // Note. For advanced examples and guidelines, see `mixin-types` documentation:
+     * // https://www.npmjs.com/package/mixin-types
+     * 
+     * // To use generics (mixed with custom info).
+     * // .. 
+     * type MyGenInfo = { state: { enabled: boolean; }; props: { more?: boolean; }; };
+     * interface MyGenComponentType<Info extends ComponentInfoPartial = {}>
+     * 	    extends ComponentType<Info & MyGenInfo> {}
+     * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
+     * 	    extends Component<Info & MyGenInfo>, MyBase {}
+     * class MyGenComponent<Info = {}> extends
+     *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+     * 		
+     *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
+     * 		myThing?: Info;
+     * 		constructor(props: (Info & MyGenInfo)["props"], boundary?: SourceBoundary, ...args: any[]) {
+     * 			super(props, boundary, ...args);
+     * 			this.state = {
+     * 				enabled: false,
+     * 			};
+     * 		}
+     * 		test(): void {
+     * 			// Recognized correctly.
+     * 			this.something = false;
+     * 			this.constructor.MIX_DOM_CLASS;
+     * 			// The base class needs some help here.
+     * 			(this.constructor as MyGenComponentType & MyBaseType).SOME_STATIC;
+     * 		}
+     * 		render() {		
+     * 			return <div>{this.state.enabled ? "yes" : "no"}</div>;
+     * 		}
+     * 	}
+     * 
+     * // Test static typing. (All found as expected.)
+     * MyGenComponent.MIX_DOM_CLASS
+     * MyGenComponent.SOME_STATIC
+     * 
+     * // Test interface typing - automated from what's inside the class declaration.
+     * type TestMyThing = MyGenComponent<MyInfo>["myThing"]; // MyInfo | undefined
+     * 
+     * // Test props.
+     * const TestMore: SpreadFunc = () =>
+     *     <>
+     *         <MyGenComponent<MyInfo> test={false} more={true} />
+     *     </>;
+     * 
+     * ```
+     * 
+     */
+    mixinComponent,
 
 
     // - Component mixing - //
