@@ -1,6 +1,4 @@
-# CHANGES
-
-## v4.0.0
+## v4.0.0 
 
 ### Splitted library to 5 modules
 
@@ -18,6 +16,7 @@
   - Many DOM related JS features and the JSX typing are used internally by MixDOM.
 - `mixin-types` contains:
   - Typing related to mixins used by `data-signals` but also by MixDOM for `mixinComponent` method.
+  - Two JS methods to combine mixins (with typing support): `mixins` and `mixinsWith`.
 - `data-signals` contains:
   - The classes for `Context` and `ContextAPI`, and mixin bases for `SignalBoy`, `SignalMan`, `DataBoy` and `DataMan`.
   - Functional changes:
@@ -57,7 +56,7 @@
     - The `remountWith` method is equivalent to React's `hydrateRoot` (though with the first 2 args in flipped order).
   - The somewhat related `readAsString` method has been renamed to `readDOMString` (to emphasize what is read).
 
-### Minor changes / enhancements
+### Minor changes, enhancements & renames
 
 - In Component class:
 
@@ -66,6 +65,7 @@
     - This makes it easier to manage the wired hookups externally (and internally drops the only cyclical JS import in source code).
   - Simplified component timers methods (from 5 methods to 3 methods) to not clutter the Component public instance API.
   - Typing for `mixinComponent` function has been changed to reflect the principles in `mixin-types` module.
+  - Renamed the component mixing related methods starting with "mixComponent" to just "mix" (to systemize and shorten naming), eg. `mixComponentClassFuncsWith` is now `mixClassFuncsWith`.
 
 - In `MixDOM` shortcut object
 
