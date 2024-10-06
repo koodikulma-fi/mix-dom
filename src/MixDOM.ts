@@ -39,14 +39,14 @@ import {
     MixDOMWithContent,
     // Mixing.
     createMixin,
-    mixComponentFuncs,
-    mixComponentFuncsWith,
-    mixComponentMixins,
-    mixComponentClassMixins,
-    mixComponentClassFuncs,
-    mixComponentClassFuncsWith,
+    mixFuncs,
+    mixFuncsWith,
+    mixMixins,
+    mixClassMixins,
+    mixClassFuncs,
+    mixClassFuncsWith,
     mixHOCs,
-    mixComponentMixinsWith,
+    mixMixinsWith,
 } from "./components/index";
 
 
@@ -234,7 +234,7 @@ export const MixDOM = {
     /** Function that on JS side returns the original function back (to create a mixin class) but simply helps with typing. 
      * - The idea of a mixin is this: `(Base) => class extends Base { ... }`. So it creates a new class that extends the provided base class.
      *     * In the context of Components the idea is that the Base is Component and then different features are added to it.
-     *     * Optionally, when used with mixComponentMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
+     *     * Optionally, when used with mixMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
      * - To use this method: `const MyMixin = MixDOM.mixin<RequiresInfo, MyMixinInfo>(Base => class _MyMixin extends Base { ... }`
      *     * Without the method: `const MyMixin = (Base: GetComponentTypeFrom<RequireInfo>) => class _MyMixin extends (Base as GetComponentTypeFrom<RequireInfo & MyMixinInfo>) { ... }`
      *     * So the trick of this method is simply that the returned function still includes `(Base: Required)`, but _inside_ the func it looks like `(Base: Required & Added)`.
@@ -357,14 +357,14 @@ export const MixDOM = {
      *      * By default does not put a renderer function in the end but just passes last output (preferring funcs, tho). If you want make sure a renderer is in the end, put last param to true: `(...funcs, true)`
      *      * Compare this with `MixDOM.mixFuncsWith(..., composer)`, that always returns a renderer. (And its last argument is auto-typed based on all previous.)
      * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
-     *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixComponentClassFunc instead).
+     *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixClassFunc instead).
      *      * You should type each function most often with `ComponentFunc<Info>` type or `MixDOM.component<Info>()` method. If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
      * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ShadowAPI | WiredAPI.
      * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
      *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
      *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
      */
-    mixFuncs: mixComponentFuncs,
+    mixFuncs: mixFuncs,
     /** This mixes many component functions together. Each should look like: (initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer.
      * - Unlike MixDOM.mixFuncs, the last argument is a mixable func that should compose all together, and its typing comes from all previous combined.
      *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
@@ -377,33 +377,33 @@ export const MixDOM = {
      *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
      *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
      */
-    mixFuncsWith: mixComponentFuncsWith,
+    mixFuncsWith: mixFuncsWith,
     /** This mixes together a Component class and one or many functions. 
      * - By default, attaches the return of the last function as the renderer (if function type, otherwise an earlier one). 
      * - Optionally as the 3rd arg, can provide a boolean to use the class renderer instead. */
-    mixClassFuncs: mixComponentClassFuncs,
+    mixClassFuncs: mixClassFuncs,
     /** This mixes together a Component class and one or many functions with a composer function as the last function.
      * - The last function is always used as the renderer and its typing is automatic.
      *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
      */
-    mixClassFuncsWith: mixComponentClassFuncsWith,
+    mixClassFuncsWith: mixClassFuncsWith,
     /** Mix many mixins together with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
      * - Note. The last mixin with a render method defined is used as the render method of the combined class.
      * - Note. If you don't want to define a custom component class as the base, you can use the `MixDOM.mixMixins` function instead (which uses the Component class). These two funcs are split to get better typing experience.
      * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
     */
-    mixClassMixins: mixComponentClassMixins,
+    mixClassMixins: mixClassMixins,
     /** Mix many mixins together into using the basic Component class as the basis to mix on: `(MyMixin1, MyMixin2, ...)`.
      * - Note. The last mixin with a render method defined is used as the render method of the combined class.
      * - Note. If you want to define a custom base class (extending Component) you can use `MixDOM.mixClassMixins` method whose first argument is a base class.
      * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
      */
-    mixMixins: mixComponentMixins,
+    mixMixins: mixMixins,
     /** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
      * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
      * - This is like MixDOM.mixFuncsWith but for mixins. On the javascript this function is teh same as MixDOM.mixMixins.
      */
-    mixMixinsWith: mixComponentMixinsWith,
+    mixMixinsWith: mixMixinsWith,
     /** This creates a final component for a list of HOCs with a based component: `(Base, HOC1, HOC2, ... )`
      * - Note that conceptually HOCs are not very performant as they create extra intermediary components.
      * - Consider using mixFuncs or mixMixins concepts instead. They are like HOCs merged into one component with a dynamic base.
