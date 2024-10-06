@@ -75,7 +75,7 @@
 
   - Some types have been renamed, some dropped and many complex internally rewritten (to be cleaner and simpler).
 
-  - There is now three sets of JSX declarations available.
+  - There is now three sets of JSX declarations available (originally coming from `"dom-types"` module).
 
     1. `JSX_native`: only supports _native_ attributes, eg. `<div onclick={clickHandler}/>`.
     2. `JSX_camelCase`: only supports _camelCase_ attributes, eg. `<div onClick={clickHandler}/>`.
