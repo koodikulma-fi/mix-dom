@@ -58,7 +58,7 @@
 
 ### Minor changes, enhancements & renames
 
-- In Component class:
+- In `Component` class:
 
   - The `createWired` method has been dropped - it's only available as a static function (`createWired` or `MixDOM.wired`).
     - The component now has `addWired` and `removeWired` methods that expect a wired class (as the 1st arg).
