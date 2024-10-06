@@ -67,7 +67,7 @@
   - Typing for `mixinComponent` function has been changed to reflect the principles in `mixin-types` module.
   - Renamed the component mixing related methods starting with "mixComponent" to just "mix" (to systemize and shorten naming), eg. `mixComponentClassFuncsWith` is now `mixClassFuncsWith`.
 
-- In `MixDOM` shortcut object
+- In `MixDOM` shortcut object:
 
   - The shortcuts referring to ContextAPI has now "Ctx" ending (not "With"): `MixDOM.componentCtx` and `MixDOM.shadowCtx`.
   - Some methods are now found from sub modules instead, like `MixDOM.range` -> `numberRange` from `data-memo`.
