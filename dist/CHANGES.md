@@ -20,7 +20,7 @@
 - `data-signals` contains:
   - The classes for `Context` and `ContextAPI`, and mixin bases for `SignalBoy`, `SignalMan`, `DataBoy` and `DataMan`.
   - Functional changes:
-    - There is an option in Context to automatically shallow copy parenting data dictionaries up to the root (performed from root down) when setting deep data. This reflects what gets called for refresh.
+    - The new `dataSetMode` setting in Context settings controls whether automatically shallow copies parenting data dictionaries from the root down when setting deep data. By default, does not copy.
     - The extend argument defaults to `true` in all `setData`, `setInData` methods and cases - but with a JS side support to check if should actually extend or just replace a value.
   - Tiny changes in related to data listening:
     - The fallback arguments in data listening (and getting) are already supported at `Context`s, not just `ContextAPI`s.
