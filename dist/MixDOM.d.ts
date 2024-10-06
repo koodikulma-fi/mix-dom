@@ -1,6 +1,6 @@
 import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, SignalsRecord, ContextSettings } from 'data-signals';
 import { DOMTags, DOMElement, DOMDiffProps, DOMAttributes, DOMCleanProps, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
-import { CompareDataDepthMode } from 'data-memo';
+import { CompareDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
 
 declare class ContentBoundary extends BaseBoundary {
@@ -1447,7 +1447,7 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
     updateModes: Partial<MixDOMUpdateCompareModesBy>;
     /** If constantProps is defined, then its keys defines props that must not change, and values how the comparison is done for each.
      * This affects the def pairing process by disallowing pairing if conditions not met, which in turn results in unmount and remount instead of just updating props (and potentially moving). */
-    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>>;
+    constantProps?: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>>;
     /** ContextAPI for the component. You can use it to access contextual features. By default inherits the named contexts from the Host, but you can also override them locally. */
     contextAPI?: ComponentContextAPI<Info["contexts"] & {}>;
     /** Ref to the dedicated SourceBoundary - it's technical side of a Component. */
@@ -1491,7 +1491,7 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
     /** Modify the constantProps member that defines which props must not change (and how) without a remount. If you set the mode to `true` it means "changed" (= 0 depth).
      * You can also override the mode for each if you just want to use the keys of another dictionary.
      * By default extends the given constant props, if you want to reset put extend to `false`. If you want to clear, leave the constProps empty (null | [] | {}) as well. */
-    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDataDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDataDepthMode | number | null): void;
+    setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDepthMode | number | null): void;
     /** Set many properties in the state at once. Can optionally define update related timing. */
     setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     setState(newState: Info["state"], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
@@ -1973,8 +1973,8 @@ interface MixDOMComponentUpdates<Props extends Record<string, any> = {}, State =
  * - Note that the pure checks only check those types that have just been changed.
  */
 interface MixDOMUpdateCompareModesBy {
-    props: CompareDataDepthMode | number;
-    state: CompareDataDepthMode | number;
+    props: CompareDepthMode | number;
+    state: CompareDepthMode | number;
 }
 /** This info is used for executing rendering changes to dom for a given appliedDef (which is modified during the process).
  * - If props is given it modifies the class, style and attributes of the element. This modifies the .domProps in the appliedDef.
