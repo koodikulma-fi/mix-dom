@@ -24,11 +24,15 @@ import { ComponentWiredFunc, ComponentWiredType } from "./ComponentWired";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
-// - Local typing - //
+// - Extra typing - //
 
 // Internal helpers - not exported.
 type ComponentFuncShortcut<Info extends ComponentInfoPartial = {}> = (component: Component<Info> & Info["class"]) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 type ComponentFuncCtxShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
+
+// Exported.
+/** The common component constructor arguments from component info. (Only uses "props" from it.) */
+export type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]];
 
 
 // - Mixin - //
@@ -144,10 +148,10 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
     // Instanced.
     Component<Info> & InstanceType<BaseClass>,
     // Constructor args.
-    [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]]
+    ComponentConstructorArgs<Info>
 > {
 
-    return class Component extends (mixinSignalMan(Base) as ClassType) {
+    return class Component extends (mixinSignalMan(Base) as SignalManType) {
 
 
         // - Static side - //
@@ -380,8 +384,8 @@ export interface ComponentType<Info extends ComponentInfoPartial = {}> extends A
     // Instance.
     Component<Info> & Info["class"],
     // Constructor args.
-    [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]]>
-{
+    ComponentConstructorArgs<Info>
+> {
     // Static members.
     /** Class type. */
     MIX_DOM_CLASS: string; // "Component"
