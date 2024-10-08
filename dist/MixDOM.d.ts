@@ -1580,7 +1580,7 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
     /** Alternative way to handle inserting the remote contents - all remotes together in a custom manner.
      * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
-    renderContent: (handler: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
+    renderContent: (renderer: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
     /** A custom component (func) that can be used for remote conditional inserting. If any source is active and has content renders, otherwise not.
      * - For example: `<MyRemote.WithContent><div class="popup-container">{MyRemote.Content}</div></MyRemote.WithContent>`
      *      * Results in `<div class="popup-container">...</div>`, where ... is the actual content passed (by remote source).
