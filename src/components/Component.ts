@@ -34,7 +34,7 @@ type ComponentFuncCtxShortcut<Info extends ComponentInfoPartial = {}> = (compone
 // - Mixin - //
 
 /** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins, see: [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins, see: [mixin-types README](https://www.npmjs.com/package/mixin-types).
  * - To read typing of the base class use one of the below:
  *      1. Provide it manually using `typeof BaseClass`. For example: `mixinComponent<Info, typeof BaseClass>(BaseClass)`.
  *      2. Use `AsMixin` to auto-read the typing from the BaseClass. For example: `mixinComponent as AsMixin<Component<Info>>(BaseClass)`.
