@@ -164,8 +164,9 @@ export interface HostSettings {
     wideKeysInArrays: boolean;
 
     /** Default behaviour for handling duplicated instances of dom nodes.
-     * - The duplication can happen due to manually inserting many, or due to multiple content passes, copies, or .getChildren().
-     * - The detection is host based and simply based on whether the element to create was already grounded or not. */
+     * - The duplication can happen due to manually inserting many, or due to multiple content passes, copies.
+     * - The detection is host based and simply based on whether the element to create was already grounded or not.
+     */
     duplicateDOMNodeBehaviour: MixDOMCloneNodeBehaviour | "";
     /** Custom handler for the duplicateDOMNodeBehaviour. */
     duplicateDOMNodeHandler: ((domNode: Node, treeNode: MixDOMTreeNodeDOM) => Node | null) | null;

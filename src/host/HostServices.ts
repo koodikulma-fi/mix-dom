@@ -189,9 +189,9 @@ export class HostServices {
         if (updates.state) {
             // Mark old state.
             const component = boundary.component;
-            if (!component._lastState)
+            if (!component.lastState)
                 // Note. We set a readonly property here on purpose.
-                (component as { _lastState: Record<string, any> })._lastState = { ...component.state };
+                (component as { lastState: Record<string, any> }).lastState = { ...component.state };
             // Set new state.
             component.state = updates.state;
         }
@@ -263,9 +263,9 @@ export class HostServices {
             // Set the state by mixed props.
             if (shadowAPI.getMixedProps) {
                 // Normal run - mark that state will change.
-                if (!mountRun && !component._lastState)
+                if (!mountRun && !component.lastState)
                     // Note. We set a readonly property here.
-                    (component as { _lastState: Record<string, any> })._lastState = { ...component.state };
+                    (component as { lastState: Record<string, any> }).lastState = { ...component.state };
                 // Update state.
                 component.state = shadowAPI.getMixedProps(component);
             }
@@ -289,8 +289,8 @@ export class HostServices {
         if (!mountRun) {
             
             // Read and clear state.
-            const prevState = component._lastState;
-            delete (component as any as { _lastState?: Record<string, any> })._lastState; // Note. We unset a readonly property here.
+            const prevState = component.lastState;
+            delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
 
             // Run unless has already been updated.
             if (shouldUpdate || prevProps || prevState) {

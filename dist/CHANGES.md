@@ -64,6 +64,7 @@
     - The component now has `addWired` and `removeWired` methods that expect a wired class (as the 1st arg).
     - This makes it easier to manage the wired hookups externally (and internally drops the only cyclical JS import in source code).
   - Simplified component timers methods (from 5 methods to 3 methods) to not clutter the Component public instance API.
+  - The `_lastState` member has been renamed to `lastState`.
   - Typing for `mixinComponent` function has been changed to reflect the principles in `mixin-types` module.
 
 - In `MixDOM` shortcut object:

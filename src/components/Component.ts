@@ -159,7 +159,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
 
         public readonly boundary: SourceBoundary;
         public readonly props: Record<string, any>;
-        public readonly _lastState?: Record<string, any>;
+        public readonly lastState?: Record<string, any>;
         public state: Record<string, any>;
         public updateModes: Partial<MixDOMUpdateCompareModesBy>;
         public constantProps?: Partial<Record<string, CompareDepthMode | number | true>>;
@@ -206,7 +206,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
         }
 
         public getLastState(fallbackToCurrent: boolean = true): Record<string, any> | null {
-            return this._lastState || fallbackToCurrent && this.state || null;
+            return this.lastState || fallbackToCurrent && this.state || null;
         }
 
         public getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts> {
@@ -406,8 +406,8 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 
     /** Fresh props from the parent. */
     readonly props: Info["props"] & {};
-    /** If the state has changed since last render, this contains the previous state. */
-    readonly _lastState?: Info["state"] & {};
+    /** If the state has changed since last render, this contains the shallow copy of the previous state. */
+    readonly lastState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
@@ -447,9 +447,10 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 
     /** Whether this component has mounted. If false, then has not yet mounted or has been destroyed. */
     isMounted(): boolean;
-    /** This gets the state that was used during last render call, and by default falls back to the current state.
-     * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered. 
-     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+    /** This gets the state that was used during last render call (by shallow copy), and by default falls back to the current state - otherwise to null.
+     * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
+     *      * Note the lastState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
+     * - You can also access the previous state by `this.lastState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
     getLastState(fallbackToCurrent?: true): Info["state"] & {};
     getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;

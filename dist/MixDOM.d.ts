@@ -474,8 +474,9 @@ interface HostSettings {
      *   .. In other words, if you do not want the keys in the array contents to mix widely, keep it as an array - don't spread it. */
     wideKeysInArrays: boolean;
     /** Default behaviour for handling duplicated instances of dom nodes.
-     * - The duplication can happen due to manually inserting many, or due to multiple content passes, copies, or .getChildren().
-     * - The detection is host based and simply based on whether the element to create was already grounded or not. */
+     * - The duplication can happen due to manually inserting many, or due to multiple content passes, copies.
+     * - The detection is host based and simply based on whether the element to create was already grounded or not.
+     */
     duplicateDOMNodeBehaviour: MixDOMCloneNodeBehaviour | "";
     /** Custom handler for the duplicateDOMNodeBehaviour. */
     duplicateDOMNodeHandler: ((domNode: Node, treeNode: MixDOMTreeNodeDOM) => Node | null) | null;
@@ -1437,8 +1438,8 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
     ["constructor"]: ComponentType<Info>;
     /** Fresh props from the parent. */
     readonly props: Info["props"] & {};
-    /** If the state has changed since last render, this contains the previous state. */
-    readonly _lastState?: Info["state"] & {};
+    /** If the state has changed since last render, this contains the shallow copy of the previous state. */
+    readonly lastState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
@@ -1462,9 +1463,10 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
     afterRefresh(renderSide?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): Promise<void>;
     /** Whether this component has mounted. If false, then has not yet mounted or has been destroyed. */
     isMounted(): boolean;
-    /** This gets the state that was used during last render call, and by default falls back to the current state.
+    /** This gets the state that was used during last render call (by shallow copy), and by default falls back to the current state - otherwise to null.
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
-     * - You can also access the previous state by `this._lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+     *      * Note the lastState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
+     * - You can also access the previous state by `this.lastState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
     getLastState(fallbackToCurrent?: true): Info["state"] & {};
     getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
