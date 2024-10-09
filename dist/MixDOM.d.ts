@@ -512,7 +512,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     contextAPI: HostContextAPI<Contexts>;
     /** This contains all the components that have a contextAPI assigned. Automatically updated, used internally. The info can be used for custom purposes (just don't modify). */
     contextComponents: Set<ComponentCtx>;
-    constructor(content?: MixDOMRenderOutput, domContainer?: Node | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | null, shadowAPI?: HostShadowAPI | null);
+    constructor(content?: MixDOMRenderOutput, domContainer?: Element | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | null, shadowAPI?: HostShadowAPI | null);
     /** Clear whatever has been previously rendered - destroys all boundaries inside the rootBoundary. */
     clearRoot(update?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): void;
     /** Move the host root into another dom container. */
@@ -716,7 +716,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     static getDefaultSettings(): HostSettings;
 }
 /** Create a new host and start rendering into it. */
-declare function newHost<Contexts extends ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: HTMLElement | null, settings?: HostSettingsUpdate | null, contexts?: Contexts): Host<Contexts>;
+declare function newHost<Contexts extends ContextsAllType = {}>(content?: MixDOMRenderOutput, container?: Element | null, settings?: HostSettingsUpdate | null, contexts?: Contexts): Host<Contexts>;
 
 type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "devLogWarnings">;
 declare class HostRender {

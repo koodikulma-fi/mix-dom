@@ -222,7 +222,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
 
     // - Init - //
 
-    constructor(content?: MixDOMRenderOutput, domContainer?: Node | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | null, shadowAPI?: HostShadowAPI | null) {
+    constructor(content?: MixDOMRenderOutput, domContainer?: Element | null, settings?: HostSettingsUpdate | null, contexts?: Contexts | null, shadowAPI?: HostShadowAPI | null) {
 
 
         // - Initialize - //
@@ -740,7 +740,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
 /** Create a new host and start rendering into it. */
 export function newHost<Contexts extends ContextsAllType = {}>(
     content?: MixDOMRenderOutput,
-    container?: HTMLElement | null,
+    container?: Element | null,
     settings?: HostSettingsUpdate | null,
     contexts?: Contexts,
     // shadowAPI?: HostShadowAPI | null
