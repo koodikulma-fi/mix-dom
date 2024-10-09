@@ -11,7 +11,7 @@ import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { ComponentExternalSignalsFrom } from "../components/typesSignals";
-import { ComponentInstanceType, ComponentTypeEither } from "../components/typesVariants";
+import { ComponentInstance, ComponentTypeEither } from "../components/typesVariants";
 import { Component } from "../components/Component";
 import { ReadComponentInfo } from "../components";
 
@@ -35,7 +35,7 @@ export type RefDOMSignals<Type extends Node = Node> = {
      * This is only useful for fade out animations, when the parenting elements also stay in the dom (and respective children). */
     domWillUnmount: (domNode: Type) => boolean | void;
 };
-export type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither, Instance extends ComponentInstanceType<Type> = ComponentInstanceType<Type>> = {
+export type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither, Instance extends ComponentInstance<Type> = ComponentInstance<Type>> = {
     /** Called when a ref is about to be attached to a component. */
     didAttach: (component: Type) => void;
     /** Called when a ref is about to be detached from a component. */
@@ -132,12 +132,12 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     /** This returns the last reffed component, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
      * - Except that if the last one is removed, falls back to earlier existing. */
-    public getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstanceType<Type> : Component | null {
+    public getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> : Component | null {
         const lastRef = [...this.treeNodes][this.treeNodes.size - 1];
         return (lastRef && lastRef.type === "boundary" && lastRef.boundary?.component as Component || null) as any;
     }
     /** This returns all the currently reffed components (in the order added). */
-    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstanceType<ComponentTypeEither & Type>[] : Component[] {
+    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<ComponentTypeEither & Type>[] : Component[] {
         const components: Component[] = [];
         for (const treeNode of this.treeNodes)
             if (treeNode.type === "boundary" && treeNode.boundary?.component)
