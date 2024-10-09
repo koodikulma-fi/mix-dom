@@ -19,7 +19,7 @@ type IntrinsicAttributesBy_mixedCase = IntrinsicAttributesBy_camelCase & Intrins
 // - Exports - //
 
 /** Include this once in your project in a file included in TS/TSX compilation:
- * - Note that the JSX_camelCase namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use native, use `JSX_nativeCase`, or both with `JSX_mixedCase`.
+ * - Note that the JSX_camelCase namespace uses _camelCase_ for DOM attributes related to listeners and aria. To use native, use `JSX_native`, or both with `JSX_mixedCase`.
  * 
  * ```
 import { JSX_camelCase } from "mix-dom";
@@ -53,16 +53,16 @@ export declare namespace JSX_camelCase {
  * - Note that the JSX namespace uses _native_ for DOM attributes related to listeners and aria. To use camelCase, use `JSX_camelCase`, or both with `JSX_mixedCase`.
  * 
  * ```
-import { JSX_nativeCase } from "mix-dom";
+import { JSX_native } from "mix-dom";
 declare global {
 	namespace JSX {
-		interface IntrinsicElements extends JSX_nativeCase.IntrinsicElements {}
-		interface IntrinsicAttributes extends JSX_nativeCase.IntrinsicAttributes {}
+		interface IntrinsicElements extends JSX_native.IntrinsicElements {}
+		interface IntrinsicAttributes extends JSX_native.IntrinsicAttributes {}
 	}
 }
 ```
  */
-export declare namespace JSX_nativeCase {
+export declare namespace JSX_native {
 
     /** This gives support for:
      * - It adds generic support for "_key", "_ref" and "_disable" props (by catch phrase)
