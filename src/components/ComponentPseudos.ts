@@ -103,7 +103,7 @@ export const PseudoEmptyRemote = class PseudoEmptyRemote<CustomProps extends Rec
     public static copyContent = (_key?: any): MixDOMDefTarget | null => null;
     public static filterContent = (_filterer: (remote: ComponentRemote, i: number) => boolean, _copyKey?: any): MixDOMDefTarget | null => null;
     public static wrapContent = (_wrapper: (remote: ComponentRemote, i: number) => MixDOMRenderOutput, _copyKey?: any): MixDOMDefTarget | null => null;
-    public static renderContent = (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput): MixDOMDefTarget | null => null;
+    public static renderContents = (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput): MixDOMDefTarget | null => null;
     public static hasContent = (_filterer?: (remote: ComponentRemote, i: number) => boolean): boolean => false;
     public static WithContent: ComponentTypeEither<{props: { hasContent?: boolean; }}> = (_initProps, _comp) => null;
     // Helpers.

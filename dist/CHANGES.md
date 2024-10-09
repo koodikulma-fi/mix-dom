@@ -45,7 +45,7 @@
     - A remote stream ends only once the source disconnects (or if the remote insertion pass is unmounted).
   - This also unlocks new features as you can pick the remote feeds using typed props fed to the Remote source.
     - Accordingly there are some new content insertion methods available at ComponentRemote static side.
-      - For example: `.filterContent`, `.wrapContent` and `.renderContent` methods that are alternative ways to insert the content (with increasing level of customization).
+      - For example: `.filterContent`, `.wrapContent` and `.renderContents` methods that are alternative ways to insert the content (with increasing level of customization).
     - On the instance side (= an active remote source), each remote has its own unique content pass.
       - The content pass can be accessed through `remote.Content`, and has the usual content methods available.
       - The static side still has `Remote.Content` pass member, but it's actually a def for a component to render all feeds - not a real content pass.

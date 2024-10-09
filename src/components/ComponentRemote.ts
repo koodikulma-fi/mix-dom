@@ -118,7 +118,7 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
     /** Alternative way to handle inserting the remote contents - all remotes together in a custom manner.
      * - The Content pass for each remote is found at `remote.Content`, where you can also find `ContentCopy`, `copyContent`, `hasContent` and other such.
      */
-    renderContent: (renderer: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
+    renderContents: (renderer: (remotes: Array<ComponentRemote<CustomProps>>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
 
     /** A custom component (func) that can be used for remote conditional inserting. If any source is active and has content renders, otherwise not.
      * - For example: `<MyRemote.WithContent><div class="popup-container">{MyRemote.Content}</div></MyRemote.WithContent>`
@@ -239,7 +239,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             filterer ? _Remote.sources.some((source, i) => filterer(source, i) && source.closure.hasContent()) : _Remote.sources.some(source => source.closure.hasContent());
         public static filterContent = (filterer, copyKey?): MixDOMDefTarget | null => newDef(_Remote.ContentPasser, { copyKey, filterer });
         public static wrapContent = (wrapper, copyKey?): MixDOMDefTarget | null => newDef(_Remote.ContentPasser, { copyKey, wrapper });
-        public static renderContent = (renderer) => newDef(_Remote.ContentPasser, { renderer });
+        public static renderContents = (renderer) => newDef(_Remote.ContentPasser, { renderer });
         public static WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
             // Instance side.
             constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary, ...passArgs: any[]) {
