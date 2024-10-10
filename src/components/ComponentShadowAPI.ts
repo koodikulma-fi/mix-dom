@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { SignalListener, SignalMan } from "data-signals";
+import { SignalListener, SignalBoy } from "data-signals";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy } from "../typing";
 // Local.
@@ -17,7 +17,7 @@ import { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, Compo
 // - Class - //
 
 /** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
-export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentShadowSignals<Info>> {
+export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalBoy<ComponentShadowSignals<Info>> {
     
     /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
     public components: Set<Component<Info>> = new Set();

@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { callListeners, SignalListener, SignalListenerFlags, SignalMan, SignalManType } from "data-signals";
+import { callListeners, SignalListener, SignalListenerFlags, SignalBoy, SignalBoyType } from "data-signals";
 import { DOMDiffProps } from "dom-types";
 // Typing.
 import { MixDOMTreeNode, MixDOMContentSimple } from "../typing";
@@ -53,11 +53,11 @@ export interface RefBase {
     getComponent(): Component | null;
     getComponents(): Component[];
 }
-export interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalManType<RefSignals<Type>> {
+export interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoyType<RefSignals<Type>> {
     new (): Ref<Type>;
     MIX_DOM_CLASS: string; // "Ref";
     /** Internal call tracker. */
-    onListener(instance: RefBase & SignalMan<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
+    onListener(instance: RefBase & SignalBoy<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
     /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
     didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
     /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
@@ -68,7 +68,7 @@ export interface RefType<Type extends Node | ComponentTypeEither = Node | Compon
 // - Class - //
 
 /** Class to help keep track of components or DOM elements in the state based tree. */
-export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalMan<RefSignals<Type>> {
+export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoy<RefSignals<Type>> {
 
 
     // - Static - //
@@ -137,7 +137,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
         return (lastRef && lastRef.type === "boundary" && lastRef.boundary?.component as Component || null) as any;
     }
     /** This returns all the currently reffed components (in the order added). */
-    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<ComponentTypeEither & Type>[] : Component[] {
+    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[] {
         const components: Component[] = [];
         for (const treeNode of this.treeNodes)
             if (treeNode.type === "boundary" && treeNode.boundary?.component)
@@ -149,7 +149,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     // - Static extension (pass listeners to components) - //
     
     /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
-    public static onListener(ref: RefBase & SignalMan<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void {
+    public static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void {
         // Add our only listener, using the callback as the key.
         if (ref.treeNodes.size) {
             const listener: SignalListener = ref.signals[name][index];

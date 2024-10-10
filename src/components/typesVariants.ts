@@ -24,7 +24,7 @@ export type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = Comp
  */
 export type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-export type ComponentInstance<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceTypeFrom<CompType> : Fallback;
+export type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
 
 
 // - Component with class requirements - //

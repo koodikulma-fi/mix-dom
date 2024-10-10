@@ -359,7 +359,16 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
 
         // Overridden.
         public afterRefresh(renderSide: boolean = false, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): Promise<void> {
-            return this.boundary.host.afterRefresh(renderSide, forceUpdateTimeout, forceRenderTimeout);
+            // Trigger and await update cycle.
+            if (!renderSide)
+                return this.boundary.host.afterRefresh(false, forceUpdateTimeout, forceRenderTimeout);
+            // Trigger update with custom times.
+            this.boundary.host.triggerRefresh(forceUpdateTimeout, forceRenderTimeout);
+            return this.awaitDelay();
+        }
+        /** At Component level, awaitDelay is hooked up to awaiting host's render cycle. */
+        awaitDelay(): Promise<void> {
+            return this.boundary.host.afterRefresh(true);
         }
 
 

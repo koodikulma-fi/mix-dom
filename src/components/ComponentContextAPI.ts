@@ -69,9 +69,10 @@ export class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends 
     public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited: boolean = true, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
         return (includeInherited ? { ...this.host.contextAPI.getContexts(onlyNames, skipNulls), ...super.getContexts(onlyNames, skipNulls) } : super.getContexts(onlyNames, skipNulls)) as Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>>;
     }
-    public afterRefresh(fullDelay?: boolean | undefined, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
+    /** At ComponentContextAPI level, full "delay" (renderSide = true) is hooked up to awaiting host's render cycle, while "pre-delay" to the update cycle. */
+    public afterRefresh(renderSide: boolean = false, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
         // Trigger and await update cycle.
-        if (!fullDelay)
+        if (!renderSide)
             return this.host.afterRefresh(false, updateTimeout, renderTimeout);
         // Trigger update with custom times.
         this.host.triggerRefresh(updateTimeout, renderTimeout);

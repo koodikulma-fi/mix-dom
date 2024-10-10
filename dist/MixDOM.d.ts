@@ -1,4 +1,4 @@
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalMan, SignalManType, NodeJSTimeout, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalBoy, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord, ContextSettings } from 'data-signals';
 import { DOMTags, DOMElement, DOMDiffProps, DOMAttributes, DOMCleanProps, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
 import { CompareDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
@@ -270,7 +270,7 @@ type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentTy
  */
 type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-type ComponentInstance<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceTypeFrom<CompType> : Fallback;
+type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
 /** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
 type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"];
 /** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
@@ -1027,7 +1027,7 @@ declare class PseudoEmpty<Props extends PseudoEmptyProps = PseudoEmptyProps> {
 declare const PseudoEmptyRemote: ComponentRemoteType<{}>;
 
 /** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
-declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalMan<ComponentShadowSignals<Info>> {
+declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalBoy<ComponentShadowSignals<Info>> {
     /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
     components: Set<Component<Info>>;
     /** Default update modes. Can be overridden by the component's updateModes. */
@@ -1828,18 +1828,18 @@ interface RefBase {
     getComponent(): Component | null;
     getComponents(): Component[];
 }
-interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalManType<RefSignals<Type>> {
+interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoyType<RefSignals<Type>> {
     new (): Ref<Type>;
     MIX_DOM_CLASS: string;
     /** Internal call tracker. */
-    onListener(instance: RefBase & SignalMan<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
+    onListener(instance: RefBase & SignalBoy<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
     /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
     didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
     /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
     willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
 }
 /** Class to help keep track of components or DOM elements in the state based tree. */
-declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalMan<RefSignals<Type>> {
+declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoy<RefSignals<Type>> {
     static MIX_DOM_CLASS: string;
     /** The collection (for clarity) of tree nodes where is attached to.
      * It's not needed internally but might be useful for custom needs. */
@@ -1863,9 +1863,9 @@ declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentType
      * - Except that if the last one is removed, falls back to earlier existing. */
     getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> : Component | null;
     /** This returns all the currently reffed components (in the order added). */
-    getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<ComponentTypeEither & Type>[] : Component[];
+    getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[];
     /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
-    static onListener(ref: RefBase & SignalMan<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void;
+    static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void;
     /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
     static didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
     /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
