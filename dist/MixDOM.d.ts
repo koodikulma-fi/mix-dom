@@ -1074,12 +1074,12 @@ interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends C
     contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
 
-declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowAPI<{
+declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowAPI<{
     props: ParentProps;
     state: MixedProps;
 }> {
     /** The additional props created by the builder are stored here. */
-    builtProps: BuildProps | null;
+    builtProps: BuiltProps | null;
     /** Default update modes. These will be used for each wired component instance.
      * - Note that we add `{ props: "never" }` as default in the constructor.
      * - This is because we want the update checks to skip props and use the `state` (that we pass as props to the inner component).
@@ -1087,12 +1087,12 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
     updateModes?: Partial<MixDOMUpdateCompareModesBy>;
     constructor();
     /** This is used to get the new props by the builder. It's only used when manually called with .refresh() or when the wired source component (if any) updates. */
-    buildProps(): BuildProps | null;
+    buildProps(): BuiltProps | null;
     /** Get the final mixed props for a component instance of our wired class. */
     getMixedProps(wired: Component): MixedProps;
     /** Call this to manually update the wired part of props and force a refresh.
      * - This is most often called by the static refresh method above, with props coming from the builder / built props. */
-    setProps(builtProps: BuildProps | null, forceUpdate?: boolean | "all" | "trigger", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setProps(builtProps: BuiltProps | null, forceUpdate?: boolean | "all" | "trigger", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Call this to rebuild the wired part of props and trigger a refresh on the instances.
      * - If the props stay the same, you should set `forceUpdate = "trigger"`, or rather just call `update()` directly if you know there's no builder. */
     refresh(forceUpdate?: boolean | "all" | "trigger", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
@@ -1100,9 +1100,9 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
      * - This sets the state of each wired components using the getMixedProps method to produce the final mixed props (that will be passed to the renderer component as props). */
     update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Optional callback to build the common props upon refresh start. These are then fed to the mixer as extra info. */
-    onBuildProps?(lastProps: BuildProps | null): BuildProps | null;
+    onBuildProps?(lastProps: BuiltProps | null): BuiltProps | null;
     /** Optional callback to build the common props upon refresh start. These are then fed to the mixer as extra info. */
-    onMixProps?(parentProps: ParentProps & {}, buildProps: [this["onBuildProps"]] extends [Function] ? BuildProps : null, wired: Component<{
+    onMixProps?(parentProps: ParentProps & {}, buildProps: [this["onBuildProps"]] extends [Function] ? BuiltProps : null, wired: Component<{
         props?: ParentProps;
     }>): MixedProps;
 }
@@ -1122,10 +1122,10 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
  * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
  */
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps>(mixer: null, renderer: ComponentTypeAny<{
+declare function createWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuiltProps>(mixer: null, renderer: ComponentTypeAny<{
     props: MixedProps;
-}>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps, Mixer extends (parentProps: ParentProps, buildProps: null, wired: Component<{
+}>, name?: string): ComponentWiredFunc<ParentProps, BuiltProps, MixedProps>;
+declare function createWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuiltProps, Mixer extends (parentProps: ParentProps, buildProps: null, wired: Component<{
     props: ParentProps;
     state: MixedProps;
 }>) => MixedProps = (parentProps: ParentProps, buildProps: null, wired: Component<{
@@ -1133,8 +1133,8 @@ declare function createWired<ParentProps extends Record<string, any> = {}, Build
     state: MixedProps;
 }>) => MixedProps>(mixer: Mixer, renderer: ComponentTypeAny<{
     props: MixedProps;
-}>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps, Mixer extends (parentProps: ParentProps, buildProps: null, wired: Component<{
+}>, name?: string): ComponentWiredFunc<ParentProps, BuiltProps, MixedProps>;
+declare function createWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuiltProps, Mixer extends (parentProps: ParentProps, buildProps: null, wired: Component<{
     props: ParentProps;
     state: MixedProps;
 }>) => MixedProps = (parentProps: ParentProps, buildProps: null, wired: Component<{
@@ -1142,37 +1142,37 @@ declare function createWired<ParentProps extends Record<string, any> = {}, Build
     state: MixedProps;
 }>) => MixedProps>(builder: null, mixer: Mixer, renderer: ComponentTypeAny<{
     props: MixedProps;
-}>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: BuildProps, wired: Component<{
+}>, name?: string): ComponentWiredFunc<ParentProps, BuiltProps, MixedProps>;
+declare function createWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuiltProps, Builder extends (lastProps: BuiltProps | null) => BuiltProps = (lastProps: BuiltProps | null) => BuiltProps, Mixer extends (parentProps: ParentProps, buildProps: BuiltProps, wired: Component<{
     props: ParentProps;
     state: MixedProps;
-}>) => MixedProps = (parentProps: ParentProps, buildProps: BuildProps, wired: Component<{
+}>) => MixedProps = (parentProps: ParentProps, buildProps: BuiltProps, wired: Component<{
     props: ParentProps;
     state: MixedProps;
-}>) => MixedProps>(builder: Builder | BuildProps, mixer: Mixer | null, renderer: ComponentTypeAny<{
+}>) => MixedProps>(builder: Builder | BuiltProps, mixer: Mixer | null, renderer: ComponentTypeAny<{
     props: MixedProps;
-}>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
+}>, name?: string): ComponentWiredFunc<ParentProps, BuiltProps, MixedProps>;
 
 /** Wired can be a function with `{ api }` assigned. The access is the same: `MyWiredCompOrFunc.api`. */
-type ComponentWiredFunc<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> = ((props: ParentProps, component: ComponentWired<ParentProps>) => MixDOMRenderOutput | MixDOMDoubleRenderer<ParentProps, MixedProps>) & {
-    api: ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
+type ComponentWiredFunc<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> = ((props: ParentProps, component: ComponentWired<ParentProps>) => MixDOMRenderOutput | MixDOMDoubleRenderer<ParentProps, MixedProps>) & {
+    api: ComponentWiredAPI<ParentProps, BuiltProps, MixedProps>;
 };
 /** There is no actual pre-existing class for ComponentWired. But for typing, we can provide the info for the static side. */
-interface ComponentWiredType<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowType<{
+interface ComponentWiredType<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowType<{
     props: ParentProps;
     state: MixedProps;
 }> {
     api: ComponentShadowAPI<{
         props: ParentProps;
         state: MixedProps;
-    }> & ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
+    }> & ComponentWiredAPI<ParentProps, BuiltProps, MixedProps>;
 }
 /** There is no actual class for ComponentWired. Instead a new class is created when createWired method is used. */
-interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadow<{
+interface ComponentWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadow<{
     props: ParentProps;
     state: MixedProps;
 }> {
-    ["constructor"]: ComponentWiredType<ParentProps, BuildProps, MixedProps>;
+    ["constructor"]: ComponentWiredType<ParentProps, BuiltProps, MixedProps>;
 }
 
 type WithContentInfo = {
