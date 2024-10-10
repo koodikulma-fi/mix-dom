@@ -116,14 +116,14 @@ export class ComponentWiredAPI<
 export function createWired <
     ParentProps extends Record<string, any> = {},
     BuildProps extends Record<string, any> = {},
-    MixedProps extends Record<string, any> = {},
+    MixedProps extends Record<string, any> = ParentProps & BuildProps,
     Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
-    Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
+    Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps,
 >(mixer: Mixer | BuildProps | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
 export function createWired <
     ParentProps extends Record<string, any> = {},
     BuildProps extends Record<string, any> = {},
-    MixedProps extends Record<string, any> = {},
+    MixedProps extends Record<string, any> = ParentProps & BuildProps,
     Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
     Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
 >(builder: Builder | BuildProps | null, mixer: Mixer | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;

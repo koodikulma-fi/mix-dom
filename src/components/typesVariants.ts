@@ -6,13 +6,15 @@ import { InstanceTypeFrom } from "mixin-types";
 // Only typing (local).
 import { ComponentInfo, ComponentInfoEmpty, ReadComponentInfo, ReadComponentInfos, ReadComponentRequiredInfo } from "./typesInfo";
 import { Component, ComponentFunc, ComponentType } from "./Component";
-import { SpreadFunc } from "./ComponentSpread";
 
 
 // - Component class / func type helpers - //
 
-/** Either type of functional component: spread or a full component (with optional contextAPI). */
-export type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info> | SpreadFunc<Info["props"] & {}>;
+/** Either type of functional component: spread or a full component (with optional contextAPI).
+ * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
+ *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentFuncCtx with its 3rd arg - already included in ComponentFunc.
+ */
+export type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>; // | SpreadFunc<Info["props"] & {}>; // <-- Removed as it ruins (props) typing.
 
 // Special class/func types.
 /** Either a class type or a component func (not a spread func, nor a component class instance). */
@@ -20,7 +22,7 @@ export type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = Comp
 /** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
  * - Hint. You can use this in props: `{ ItemRenderer: ComponentTypeAny<Info>; }` and then just insert it by `<props.ItemRenderer {...itemInfo} />`
  */
-export type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info> | SpreadFunc<Info["props"] & {}>;
+export type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
 export type ComponentInstance<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceTypeFrom<CompType> : Fallback;
 

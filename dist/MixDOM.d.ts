@@ -258,14 +258,17 @@ type ReadComponentInfoFromArgsReturn<Params extends any[], Return extends any = 
     props: Params[0];
 } : {};
 
-/** Either type of functional component: spread or a full component (with optional contextAPI). */
-type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info> | SpreadFunc<Info["props"] & {}>;
+/** Either type of functional component: spread or a full component (with optional contextAPI).
+ * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
+ *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentFuncCtx with its 3rd arg - already included in ComponentFunc.
+ */
+type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>;
 /** Either a class type or a component func (not a spread func, nor a component class instance). */
 type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info>;
 /** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
  * - Hint. You can use this in props: `{ ItemRenderer: ComponentTypeAny<Info>; }` and then just insert it by `<props.ItemRenderer {...itemInfo} />`
  */
-type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info> | SpreadFunc<Info["props"] & {}>;
+type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
 type ComponentInstance<CompType extends ComponentType | ComponentFunc, Fallback = Component> = [CompType] extends [ComponentFunc] ? Component<ReadComponentInfo<CompType>> : [CompType] extends [ComponentType] ? InstanceTypeFrom<CompType> : Fallback;
 /** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
@@ -1119,7 +1122,7 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
  * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
  */
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
+declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
     props: ParentProps;
     state: MixedProps;
 }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
@@ -1128,7 +1131,7 @@ declare function createWired<ParentProps extends Record<string, any> = {}, Build
 }>) => MixedProps>(mixer: Mixer | BuildProps | null, renderer: ComponentTypeAny<{
     props: MixedProps;
 }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
+declare function createWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuildProps, Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps, Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
     props: ParentProps;
     state: MixedProps;
 }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{
@@ -1152,7 +1155,7 @@ interface ComponentWiredType<ParentProps extends Record<string, any> = {}, Build
         state: MixedProps;
     }> & ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
 }
-/** There is no actual class for ComponentWired. Instead a new class is created when createWired is used. */
+/** There is no actual class for ComponentWired. Instead a new class is created when createWired method is used. */
 interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadow<{
     props: ParentProps;
     state: MixedProps;

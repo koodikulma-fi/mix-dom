@@ -26,7 +26,7 @@ export interface ComponentWiredType<
 > extends ComponentShadowType<{ props: ParentProps; state: MixedProps; }> {
     api: ComponentShadowAPI<{ props: ParentProps; state: MixedProps }> & ComponentWiredAPI<ParentProps, BuildProps, MixedProps>;
 }
-/** There is no actual class for ComponentWired. Instead a new class is created when createWired is used. */
+/** There is no actual class for ComponentWired. Instead a new class is created when createWired method is used. */
 export interface ComponentWired<ParentProps extends Record<string, any> = {}, BuildProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadow<{ props: ParentProps; state: MixedProps; }> {
     ["constructor"]: ComponentWiredType<ParentProps, BuildProps, MixedProps>;
 }
