@@ -90,7 +90,7 @@ export class ComponentWiredAPI<
     /** Optional callback to build the common props upon refresh start. These are then fed to the mixer as extra info. */
     public onBuildProps?(lastProps: BuildProps | null): BuildProps | null;
     /** Optional callback to build the common props upon refresh start. These are then fed to the mixer as extra info. */
-    public onMixProps?(parentProps: ParentProps & {}, buildProps: [this["onBuildProps"]] extends [() => any] ? BuildProps : null, wired: Component<{ props?: ParentProps; }>): MixedProps;
+    public onMixProps?(parentProps: ParentProps & {}, buildProps: [this["onBuildProps"]] extends [Function] ? BuildProps : null, wired: Component<{ props?: ParentProps; }>): MixedProps;
 
 }
 
@@ -113,20 +113,36 @@ export class ComponentWiredAPI<
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
  * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
  */
-export function createWired <
+export function createWired<
+    ParentProps extends Record<string, any> = {},
+    BuildProps extends Record<string, any> = {},
+    MixedProps extends Record<string, any> = ParentProps & BuildProps,
+>(mixer: null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
+export function createWired<
+    ParentProps extends Record<string, any> = {},
+    BuildProps extends Record<string, any> = {},
+    MixedProps extends Record<string, any> = ParentProps & BuildProps,
+    Mixer extends
+        (parentProps: ParentProps, buildProps: null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps =
+        (parentProps: ParentProps, buildProps: null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
+>(mixer: Mixer, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
+export function createWired<
+    ParentProps extends Record<string, any> = {},
+    BuildProps extends Record<string, any> = {},
+    MixedProps extends Record<string, any> = ParentProps & BuildProps,
+    Mixer extends
+        (parentProps: ParentProps, buildProps: null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps =
+        (parentProps: ParentProps, buildProps: null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
+>(builder: null, mixer: Mixer, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
+export function createWired<
     ParentProps extends Record<string, any> = {},
     BuildProps extends Record<string, any> = {},
     MixedProps extends Record<string, any> = ParentProps & BuildProps,
     Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
-    Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps,
->(mixer: Mixer | BuildProps | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
-export function createWired <
-    ParentProps extends Record<string, any> = {},
-    BuildProps extends Record<string, any> = {},
-    MixedProps extends Record<string, any> = ParentProps & BuildProps,
-    Builder extends (lastProps: BuildProps | null) => BuildProps = (lastProps: BuildProps | null) => BuildProps,
-    Mixer extends (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps = (parentProps: ParentProps, buildProps: [Builder] extends [() => any] ? BuildProps : null, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
->(builder: Builder | BuildProps | null, mixer: Mixer | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
+    Mixer extends
+        (parentProps: ParentProps, buildProps: BuildProps, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps =
+        (parentProps: ParentProps, buildProps: BuildProps, wired: Component<{ props: ParentProps; state: MixedProps; }>) => MixedProps
+>(builder: Builder | BuildProps, mixer: Mixer | null, renderer: ComponentTypeAny<{ props: MixedProps; }>, name?: string): ComponentWiredFunc<ParentProps, BuildProps, MixedProps>;
 export function createWired(...args: any[]): ComponentWiredFunc { 
     // Parse.
     const nArgs = args.length;
