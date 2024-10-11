@@ -1,4 +1,4 @@
-import { ContextsAllType, ContextAPIType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalBoy, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord, ContextSettings } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalBoy, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord, ContextSettings } from 'data-signals';
 import { DOMTags, DOMElement, DOMDiffProps, DOMAttributes, DOMCleanProps, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
 import { CompareDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
@@ -38,9 +38,9 @@ declare class HostShadowAPI<Contexts extends ContextsAllType = {}> {
 /** Class type for HostContextAPI. */
 interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
     /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor<CtxName extends string & keyof Contexts>(contextAPI: HostContextAPI<Contexts>, ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
+    getListenersFor(contextAPI: HostContextAPI<any>, ctxName: string, signalName?: string): SignalListener[] | undefined;
     /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(contextAPI: HostContextAPI<Contexts>, ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
+    callDataListenersFor(contextAPI: HostContextAPI<any>, ctxDataKeys?: true | string[]): void;
 }
 /** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
  * - It also has the afterRefresh method assign to the host's cycles.
@@ -117,7 +117,7 @@ type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: M
     _Info?: Info;
 };
 /** Class type for ComponentContextAPI. */
-interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends ContextAPIType<Contexts> {
+interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> {
 }
 interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     /** Constructor as a typed property. */

@@ -10,6 +10,7 @@ import { Host } from "../host/index";
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
 import { Component } from "./Component";
+import { AsClass } from "mixin-types";
 
 
 // - Component with ContextAPI - //
@@ -29,7 +30,7 @@ export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> =
 // - ComponentContextAPI class - //
 
 /** Class type for ComponentContextAPI. */
-export interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends ContextAPIType<Contexts> { }
+export interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> { }
 export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
 
     /** Constructor as a typed property. */

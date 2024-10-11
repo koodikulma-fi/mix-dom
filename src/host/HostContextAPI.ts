@@ -3,7 +3,7 @@
 
 // Library.
 import { AsClass } from "mixin-types";
-import { ContextAPI, ContextsAllType, SignalListener, GetJoinedDataKeysFrom, GetDataFromContexts, ContextAPIType } from "data-signals";
+import { ContextAPI, ContextsAllType, SignalListener, ContextAPIType } from "data-signals";
 // Only typing.
 import { Host } from "./Host";
 
@@ -13,9 +13,9 @@ import { Host } from "./Host";
 /** Class type for HostContextAPI. */
 export interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
     /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor<CtxName extends string & keyof Contexts>(contextAPI: HostContextAPI<Contexts>, ctxName: CtxName, signalName?: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
+    getListenersFor(contextAPI: HostContextAPI<any>, ctxName: string, signalName?: string): SignalListener[] | undefined;
     /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(contextAPI: HostContextAPI<Contexts>, ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
+    callDataListenersFor(contextAPI: HostContextAPI<any>, ctxDataKeys?: true | string[]): void;
 }
 /** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
  * - It also has the afterRefresh method assign to the host's cycles.
