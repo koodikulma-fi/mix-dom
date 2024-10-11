@@ -184,7 +184,7 @@ export class SourceBoundary extends BaseBoundary {
             }
             // - DEV-LOG - //
             else {
-                if (settings.devLogWarnings) {
+                if (settings.debugMode) {
                     console.warn("__SourceBoundary.render: Warning: The component tried to render for over " + ((iRecursion + 1).toString()) + " times.",
                         (this._outerDef.tag as ComponentType).MIX_DOM_CLASS ? component.constructor : this._outerDef.tag,
                         component

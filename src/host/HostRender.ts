@@ -39,7 +39,7 @@ export type HostRenderSettings = Pick<HostSettings,
     | "disableRendering"
     | "duplicateDOMNodeHandler"
     | "duplicateDOMNodeBehaviour"
-    | "devLogWarnings"
+    | "debugMode"
 >;
 
 
@@ -133,7 +133,7 @@ export class HostRender {
         // Must have a assimilation root.
         const rootTreeNode = this.assimilationRoot;
         if (!rootTreeNode) {
-            if (this.settings.devLogWarnings)
+            if (this.settings.debugMode)
                 console.warn("__HostRender.reassimilate: Warning: No assimilation root assigned. ", this);
             return;
         }
@@ -555,7 +555,7 @@ export class HostRender {
                     const domElement = treeNode.domNode instanceof Element ? treeNode.domNode : null;
                     const newProps = treeNode.def.props || {};
                     // Apply and assign new.
-                    const diffs = applyDOMProps(treeNode.domNode instanceof Element ? treeNode.domNode : null, newProps, treeNode.domProps || {}, settings.devLogWarnings);
+                    const diffs = applyDOMProps(treeNode.domNode instanceof Element ? treeNode.domNode : null, newProps, treeNode.domProps || {}, settings.debugMode);
                     treeNode.domProps = newProps;
                     // Call update.
                     if (diffs && renderInfo.update) {
@@ -1065,12 +1065,6 @@ export class HostRender {
             // Read.
             if (readFromDOM === true || readFromDOM === "attributes")
                 treeNode.domProps = readDOMProps(node);
-
-
-            // if ((node.nodeType === Node.TEXT_NODE) && (readFromDOM === true || readFromDOM === "content")) {
-
-            //     // node.textContent = ""; // <-- Is it too much.
-            // }
             // Bookkeeping.
             treeNode.domNode = node;
             reused.add(node);

@@ -176,8 +176,8 @@ export interface HostSettings {
      * - The treeNode in the arguments defines where would be inserted. */
     duplicatableHost: boolean | ((host: Host, treeNode: MixDOMTreeNodeHost) => Host | boolean | null);
 
-    /** For weird behaviour. */
-    devLogWarnings: boolean;
+    /** For debugging information and logging (rare) warnings. */
+    debugMode: boolean;
 
 }
 
@@ -485,6 +485,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
      * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
      * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
      * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * @returns If host.settings.debugMode is true and container given, then returns info: `{ created: Set<Node>; reused: Set<Node>; unused: Set<Node>; }`. Otherwise no return.
      * 
      * ```
      * 
@@ -509,12 +510,12 @@ export class Host<Contexts extends ContextsAllType = {}> {
      * // .... To account for text content inconsistencies, set readFromDOM to "content" (or true).
      * // .. If container given, the method actually outputs info about usage `Record<"created" | "reused" | "unused", Set<Node>>`, otherwise `null`.
      * // .... This is useful for debugging, in case things don't look right while the new app state is similar to old.
-
+     *
      * ```
      */
     public remount(container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; };
-    public remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
-    public remount(container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | null {
+    public remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
+    public remount(container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | void {
         return this.remountWith(this.services.getRootDef(true), container, readFromDOM, removeUnused, validator, suggester);
     }
 
@@ -528,6 +529,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
      * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
      * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
      * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * @returns If host.settings.debugMode is true and container given, then returns info: `{ created: Set<Node>; reused: Set<Node>; unused: Set<Node>; }`. Otherwise no return.
      * 
      * ```
      * 
@@ -553,8 +555,8 @@ export class Host<Contexts extends ContextsAllType = {}> {
      * 
      */
     public remountWith(content: MixDOMRenderOutput, container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; };
-    public remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
-    public remountWith(content: MixDOMRenderOutput, container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | null {
+    public remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
+    public remountWith(content: MixDOMRenderOutput, container: Node | null = null, readFromDOM: boolean | "attributes" | "content" = false, removeUnused: boolean = true, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): { created: Set<Node>; reused: Set<Node>; unused: Set<Node>; } | void {
     
         // Idea.
         // 1. Pre-map: Build a MixDOMAssimilateItem map from the container node, if given.
@@ -578,15 +580,13 @@ export class Host<Contexts extends ContextsAllType = {}> {
         this.clearRoot(true, null, null);
     
         // 3. Set sourceRemount.
+        const debugMode = this.settings.debugMode || undefined;
         const renderer = this.services.renderer;
-        const created = new Set<Node>();
-        const reused = new Set<Node>();
-        const unused = new Set<Node>();
         const sRemount = renderer.sourceRemount = vInfo ? {
             ...vInfo,
-            reused,
-            created,
-            unused,
+            reused: debugMode && new Set<Node>(),   // Optional, but will be created internally anyway - it's required for processing.
+            created: debugMode && new Set<Node>(),  // Optional.
+            unused: debugMode && new Set<Node>(),   // Optional.
             readFromDOM,
             removeUnused,
             validator,
@@ -600,7 +600,8 @@ export class Host<Contexts extends ContextsAllType = {}> {
         delete renderer.sourceRemount;
 
         // Return.
-        return sRemount ? { created: sRemount.created!, reused: sRemount.reused!, unused: sRemount.unused! } : null;
+        if (debugMode && sRemount)
+            return { created: sRemount.created!, reused: sRemount.reused!, unused: sRemount.unused! };
     }
     
     
@@ -726,7 +727,7 @@ export class Host<Contexts extends ContextsAllType = {}> {
             renderDOMPropsOnSwap: true,
             // - DEV-LOG - //
             // Dev log.
-            devLogWarnings: false,
+            debugMode: false,
         };
         // Return combined.
         return dSettings;

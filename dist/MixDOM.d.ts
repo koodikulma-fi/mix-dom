@@ -488,8 +488,8 @@ interface HostSettings {
      * - Note that if uses a custom Host class, the new duplicate will be made from the normal Host class. Use the callback to provide manually.
      * - The treeNode in the arguments defines where would be inserted. */
     duplicatableHost: boolean | ((host: Host, treeNode: MixDOMTreeNodeHost) => Host | boolean | null);
-    /** For weird behaviour. */
-    devLogWarnings: boolean;
+    /** For debugging information and logging (rare) warnings. */
+    debugMode: boolean;
 }
 /** The main class to orchestrate and start rendering in MixDOM. */
 declare class Host<Contexts extends ContextsAllType = {}> {
@@ -615,6 +615,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
      * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
      * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
      * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * @returns If host.settings.debugMode is true and container given, then returns info: `{ created: Set<Node>; reused: Set<Node>; unused: Set<Node>; }`. Otherwise no return.
      *
      * ```
      *
@@ -639,7 +640,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
      * // .... To account for text content inconsistencies, set readFromDOM to "content" (or true).
      * // .. If container given, the method actually outputs info about usage `Record<"created" | "reused" | "unused", Set<Node>>`, otherwise `null`.
      * // .... This is useful for debugging, in case things don't look right while the new app state is similar to old.
-
+     *
      * ```
      */
     remount(container: Node, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): {
@@ -647,7 +648,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
         reused: Set<Node>;
         unused: Set<Node>;
     };
-    remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
+    remount(container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
     /** Remounts the whole Host, optionally assimilating into given DOM structure (found inside the container, if given).
      * - The assimilation part comes in when mounting the DOM elements, as can reuse/smuggle/assimilate the DOM nodes from the container.
      * - See `remount` method for more information.
@@ -658,6 +659,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
      * @param removeUnused Remove the other unused DOM elements found in the container. Defaults to true in remounting.
      * @param validator Can veto any DOM element from being used. Return true to accept, false to not accept.
      * @param suggester Can be used to suggest better DOM elements in a custom fashion. Should return a DOM Node, MixDOMAssimilateItem or null.
+     * @returns If host.settings.debugMode is true and container given, then returns info: `{ created: Set<Node>; reused: Set<Node>; unused: Set<Node>; }`. Otherwise no return.
      *
      * ```
      *
@@ -687,7 +689,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
         reused: Set<Node>;
         unused: Set<Node>;
     };
-    remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): null;
+    remountWith(content: MixDOMRenderOutput, container?: Node | null, readFromDOM?: boolean | "attributes" | "content", removeUnused?: boolean, validator?: MixDOMAssimilateValidator, suggester?: MixDOMAssimilateSuggester): void;
     /** Read the whole rendered contents as a html string. Typically used with settings.disableRendering (and settings.renderTimeout = null). */
     readDOMString(): string;
     /** Get a (shallow) copy of the root def. Use this only for technical special cases and only as _readonly_ - do not mutate the def. Should not be needed in normal circumstances. */
@@ -719,7 +721,7 @@ declare class Host<Contexts extends ContextsAllType = {}> {
     static getDefaultSettings(): HostSettings;
 }
 
-type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "devLogWarnings">;
+type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "debugMode">;
 declare class HostRender {
     /** These implies which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
     static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
