@@ -358,6 +358,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
         // - Extend signal delay handling - //
 
         // Overridden.
+        /** At Component level, full "delay" (renderSide = true) is hooked up to awaiting host's render cycle, while "pre-delay" to the update cycle. */
         public afterRefresh(renderSide: boolean = false, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): Promise<void> {
             // Trigger and await update cycle.
             if (!renderSide)
