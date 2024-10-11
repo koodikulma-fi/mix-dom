@@ -151,7 +151,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
     public static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void {
         // Add our only listener, using the callback as the key.
-        if (ref.treeNodes.size) {
+        if (ref.treeNodes.size && ref.signals[name]) {
             const listener: SignalListener = ref.signals[name][index];
             const callback = listener[0];
             // Add our only listener, using the callback as the key.
