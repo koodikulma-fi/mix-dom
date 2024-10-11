@@ -51,7 +51,7 @@ export type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [
  * 
  * // Base class with static type.
  * interface MyBaseType extends ClassType<MyBase> {
- *     SOME_STATIC: boolean;
+ *      SOME_STATIC: boolean;
  * }
  * class MyBase { something: boolean = false; static SOME_STATIC: boolean = false; }
  * 
@@ -62,7 +62,15 @@ export type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [
  * const MyComponent = mixinComponent<MyInfo>(Object);
  * class MyComponentClass extends mixinComponent<MyInfo>(Object) {}
  * // .. With typed base class.
- * const MyComponentWith1 = mixinComponent<MyInfo, typeof MyBase>(MyBase);
+ * class MyComponentWith extends mixinComponent<MyInfo, typeof MyBase>(MyBase) {
+ *  	test() {
+ *  		this.something = false; 	// Test MyBase instance side.
+ *  		this.props.someProp; 		// Typed boolean, if using typing.
+ *  		// Test static typing.
+ *  		this.constructor.MIX_DOM_CLASS;
+ *  		this.constructor.SOME_STATIC;
+ *  	}
+ * }
  * const MyComponentWith2 = mixinComponent<MyInfo, MyBaseType>(MyBase);
  * const MyComponentWith3 = (mixinComponent as AsMixin<Component<MyInfo>>)(MyBase);
  * const MyComponentWith4 = (mixinComponent as ReMixin<ComponentType<MyInfo>>)(MyBase);
@@ -81,14 +89,14 @@ export type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [
  * 
  * // Test props.
  * const Test: SpreadFunc = () =>
- *     <>
- *         <MyComponent test={false} />
- *         <MyComponentClass test={false} />
- *         <MyComponentWith1 test={false} />
- *         <MyComponentWith2 test={false} />
- *         <MyComponentWith3 test={false} />
- *         <MyComponentWith4 test={false} />
- *     </>;
+ *      <>
+ *          <MyComponent test={false} />
+ *          <MyComponentClass test={false} />
+ *          <MyComponentWith1 test={false} />
+ *          <MyComponentWith2 test={false} />
+ *          <MyComponentWith3 test={false} />
+ *          <MyComponentWith4 test={false} />
+ *      </>;
  * 
  * 
  * // - Advanced typed example - //
