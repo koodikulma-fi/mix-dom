@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { Context, ContextSettings, SetLike, SignalsRecord } from "data-signals";
+import { SetLike } from "data-signals";
 // Typing.
 import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/index";
 // Routines.
