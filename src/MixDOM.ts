@@ -55,29 +55,6 @@ import {
 // Def.
 export { newDef, newDefHTML } from "./static/routinesDefs";
 
-// Add shortcuts.
-/** Create a Context instance. The class is directly the same as in `data-signals`.
- * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
- */
-export const newContext = <
-    Data extends Record<string, any> = {},
-    Signals extends SignalsRecord = SignalsRecord
->(data?: Data, settings?: Partial<ContextSettings>): Context<Data, Signals> => new Context<Data, Signals>(data!, settings);
-/** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
- * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
- * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
- * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
- */
-export const newContexts = <
-    Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> },
-    AllData extends Record<string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }
->(contextsData: AllData, settings?: Partial<ContextSettings>): Contexts => {
-    const contexts: Record<string, Context> = {};
-    for (const name in contextsData)
-        contexts[name] = newContext(contextsData[name], settings);
-    return contexts as Contexts;
-};
-
 // Collected shortcuts and static methods.
 /** Shortcut dictionary to contain all the main features of MixDOM library. */
 export const MixDOM = {
