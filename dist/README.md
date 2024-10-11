@@ -1,7 +1,7 @@
 
 ## MixDOM
 
-MixDOM is a state based DOM rendering library for JavaScript/TypeScript. It provides a flexible framework for building user interfaces all the way up to complex application with laterally interconnected parts running in different syncs. Get the most out of MixDOM using a JSX/TSX compiler.
+MixDOM is a state based DOM rendering library for JavaScript/TypeScript. It provides a flexible framework for building user interfaces all the way up to complex applications with laterally interconnected parts running in different syncs. Get the most out of MixDOM using a JSX/TSX compiler.
 
 ## Documentation
 

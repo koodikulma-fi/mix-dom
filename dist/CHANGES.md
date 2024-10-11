@@ -4,7 +4,7 @@
 
 - The `mix-dom` library is now dependent on the `mixin-types`, `data-signals`, `data-memo` and `dom-types` libraries.
   - `dom-types` provides typing for DOM and JS helpers especially suited for state based rendering flow.
-  - `mixin-types` provides typing for class mixin related features (used by Component).
+  - `mixin-types` provides typing for class mixin related features (used by Component and `data-signals`).
   - `data-signals` provides the signal and data listening mixins (for Component and Ref) and classes: `Context` and `ContextAPI`.
   - `data-memo` provides shallow comparison and data-reuse helpers, also useful for external use.
 
