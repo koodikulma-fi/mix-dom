@@ -1,7 +1,7 @@
 {
     "name": "mix-dom",
     "version": "4.0.0",
-    "description": "Powerful state based DOM rendering library (in JS/TS)",
+    "description": "Powerful state based DOM rendering library (JSX/TSX)",
     "keywords": [
         "MixDOM",
         "mix-dom",
@@ -12,6 +12,7 @@
         "render",
         "react",
         "user interface",
+        "ui",
         "virtual dom",
         "front-end",
         "library",
