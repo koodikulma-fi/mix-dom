@@ -41,7 +41,7 @@ export function mergeShadowWiredAPIs(apis: Array<ComponentShadowAPI | ComponentW
         }
         // Combine listeners.
         for (const signalName in api.signals)
-            finalAPI.signals[signalName] = [ ...finalAPI.signals[signalName] || [], ...api.signals[signalName] ];
+            finalAPI.signals[signalName] = [ ...finalAPI.signals[signalName] || [], ...api.signals[signalName]! ];
         // ComponentWiredAPI specials.
         // .. Note that this kind of mixing builtProps, onBuildProps and onMixProps from here and there is kind of messy.
         // .. However, very likely this is never used like this. Furthermore this whole function is also probably almost never used.

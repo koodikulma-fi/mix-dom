@@ -1825,7 +1825,7 @@ type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither,
 } & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
 type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
 interface RefBase {
-    signals: Record<string, SignalListener[]>;
+    signals: Partial<Record<string, SignalListener[]>>;
     treeNodes: Set<MixDOMTreeNode>;
     getTreeNode(): MixDOMTreeNode | null;
     getTreeNodes(): MixDOMTreeNode[];

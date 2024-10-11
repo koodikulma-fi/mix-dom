@@ -117,7 +117,7 @@ export class SourceBoundary extends BaseBoundary {
                 shadowAPI.components.add(component);
                 // Add listeners.
                 for (const name in shadowAPI.signals) {
-                    for (const listener of shadowAPI.signals[name]) {
+                    for (const listener of shadowAPI.signals[name]!) {
                         const [callback, extraArgs, flags ] = listener as [callback: (...args: any[]) => any, extraArgs: any[] | null, flags: SignalListenerFlags, groupId: any | null, origListeners?: SignalListener[] ];
                         component.listenTo(name as any, (...args: any[]) => extraArgs ? callback(component, ...args, ...extraArgs) : callback(component, ...args), null, flags, callback);
                     }

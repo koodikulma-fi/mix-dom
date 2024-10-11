@@ -39,8 +39,8 @@ export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extend
     /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
     public static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean) {
         // Add our only listener, using the callback as the key.
-        if (compContextAPI.components.size) {
-            const listener: SignalListener = compContextAPI.signals[name][index];
+        if (compContextAPI.components.size && compContextAPI.signals[name]) {
+            const listener: SignalListener = compContextAPI.signals[name]![index];
             const callback = listener[0];
             // Add our only listener, using the callback as the key.
             if (wasAdded)

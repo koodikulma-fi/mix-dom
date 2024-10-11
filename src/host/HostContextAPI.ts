@@ -104,7 +104,7 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
             for (const sName in contextAPI.signals) {
                 // If matches the context name + ".", then get the listeners.
                 if (sName.startsWith(ctxSignalName))
-                    listeners = listeners.concat(contextAPI.signals[sName]);
+                    listeners = listeners.concat(contextAPI.signals[sName]!);
             }
             // Likewise, add from all the components.
             return listeners.concat(
@@ -118,7 +118,7 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
                     for (const sName in signals) {
                         // If matches the context name + ".", then get the listeners.
                         if (sName.startsWith(ctxSignalName))
-                            cum = cum.concat(signals[sName]);
+                            cum = cum.concat(signals[sName]!);
                     }
                     return cum;
                 }, [] as SignalListener[])
@@ -131,7 +131,7 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
             // Only allow those that match and are _not_ on components that have direct overrides for the given context name - as they would be collected directly if related. (If unrelated, then nothing to do.)
             .filter(comp => comp.contextAPI.signals[ctxSignalName] && (comp.contextAPI.contexts[ctxName] === undefined))
             // Convert to the listeners and reduce the double structure away.
-            .map(comp => comp.contextAPI.signals[ctxSignalName]).reduce((a, c) => a.concat(c), [])
+            .map(comp => comp.contextAPI.signals[ctxSignalName]!).reduce((a, c) => a.concat(c), [])
         );
         return listeners[0] && listeners;
     }

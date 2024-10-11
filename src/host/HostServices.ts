@@ -590,7 +590,7 @@ export class HostServices {
             const signalName: "didUpdate" | "didMount" | "didMove" = change === "mounted" ? "didMount" : change === "moved" ? "didMove" : "didUpdate";
             // Call the component. Pre-check here some common cases to not need to call.
             if (component.signals[signalName])
-                callListeners(component.signals[signalName], change === "updated" ? [prevProps, prevState] : undefined);
+                callListeners(component.signals[signalName]!, change === "updated" ? [prevProps, prevState] : undefined);
         }
     }
     

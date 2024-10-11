@@ -44,7 +44,7 @@ export type RefComponentSignals<Type extends ComponentTypeEither = ComponentType
 export type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
 
 export interface RefBase {
-    signals: Record<string, SignalListener[]>;
+    signals: Partial<Record<string, SignalListener[]>>;
     treeNodes: Set<MixDOMTreeNode>;
     getTreeNode(): MixDOMTreeNode | null;
     getTreeNodes(): MixDOMTreeNode[];
@@ -152,7 +152,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     public static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void {
         // Add our only listener, using the callback as the key.
         if (ref.treeNodes.size && ref.signals[name]) {
-            const listener: SignalListener = ref.signals[name][index];
+            const listener: SignalListener = ref.signals[name]![index];
             const callback = listener[0];
             // Add our only listener, using the callback as the key.
             if (wasAdded)
@@ -180,7 +180,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
             // Add listeners.
             const component = treeNode.boundary?.component;
             for (const name in ref.signals) {
-                for (const listener of ref.signals[name]) {
+                for (const listener of ref.signals[name]!) {
                     const [callback, extraArgs, flags] = listener as [callback: (...args: any[]) => any, extraArgs: any[] | null, flags: SignalListenerFlags, groupId: any | null, origListeners?: SignalListener[] ];
                     component.listenTo(name as any, (...args: any[]) => extraArgs ? callback(component, ...args, ...extraArgs) : callback(component, ...args), null, flags, callback);
                 }
@@ -208,7 +208,7 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
                         callListeners(ref.signals.willDetach, [component]);
                     // Remove listeners by using the original callback as the groupId.
                     for (const name in ref.signals)
-                        for (const listener of ref.signals[name])
+                        for (const listener of ref.signals[name]!)
                             component.unlistenTo(name as any, listener[0]);
                 }
             }
