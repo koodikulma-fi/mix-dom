@@ -71,6 +71,7 @@
 
   - The shortcuts referring to ContextAPI has now "Ctx" ending (not "With"): `MixDOM.componentCtx` and `MixDOM.shadowCtx`.
   - Some methods are now found from sub modules instead, like `MixDOM.range` -> `numberRange` from `data-memo`.
+  - Removed the "newHost", "newRef", "newContext" and "newContexts" shortcuts.
 
 - Type changes and JSX declarations:
 

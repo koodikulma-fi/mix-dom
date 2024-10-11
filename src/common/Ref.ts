@@ -223,9 +223,3 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     }
 
 }
-
-
-// - Shortcut - //
-
-/** Create a new ref instance shortcut. */
-export const newRef = <Type extends Node | ComponentTypeEither = Node | ComponentTypeEither>() => new Ref<Type>();

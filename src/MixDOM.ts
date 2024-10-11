@@ -8,9 +8,9 @@ import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/ind
 // Routines.
 import { domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDefHTML, treeNodesWithin } from "./static/index";
 // Common.
-import { MixDOMContent, MixDOMContentCopy, newRef, Ref } from "./common/index";
+import { MixDOMContent, MixDOMContentCopy, Ref } from "./common/index";
 // Host.
-import { newHost, Host, HostRender } from "./host/index";
+import { Host, HostRender } from "./host/index";
 // Components.
 import {
     // Pseudos.
@@ -165,24 +165,6 @@ export const MixDOM = {
      * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
      */
     EmptyRemote: PseudoEmptyRemote,
-
-
-    // - Instance classes - //
-
-    /** Create a Host instance to orchestrate rendering. You need one to start using MixDOM. */
-    newHost,
-    /** Create a Ref instance. Refs help to get a reference to elements and/or components. */
-    newRef,
-    /** Create a Context instance. The class is directly the same as in `data-signals`.
-     * - The hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
-     */
-    newContext,
-    /** Create multiple named Contexts as a dictionary - the Context class is the same as in `data-signals`.
-     * - Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like).
-     * - The ComponentInfo includes portion for `{ contexts }` which can be fully typed using a set of named contexts - like one created using newContexts.
-     * - Note that the hosts and components have their dedicated HostContextAPI and ComponentContextAPI (extending ContextAPI) classes to automate syncing and orchestrating the update and render flow.
-     */
-    newContexts,
 
 
     // - Create components - //

@@ -733,15 +733,3 @@ export class Host<Contexts extends ContextsAllType = {}> {
     }
 
 }
-
-
-// - Shortcut - //
-
-/** Create a new host and start rendering into it. */
-export function newHost<Contexts extends ContextsAllType = {}>(
-    content?: MixDOMRenderOutput,
-    container?: Element | null,
-    settings?: HostSettingsUpdate | null,
-    contexts?: Contexts,
-    // shadowAPI?: HostShadowAPI | null
-): Host<Contexts> { return new Host<Contexts>(content, container, settings, contexts); } //, shadowAPI);
