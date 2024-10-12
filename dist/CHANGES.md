@@ -2,7 +2,7 @@
 
 ### Added support for `{ static }` component info
 - The static info is supported for both: classes and functions, and it also works for the component mixing methods.
-- In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg).
+- In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx` (as the 3rd arg, keeping "signals" as the 2nd arg).
 
 ### Minor changes
 - In typing, changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
