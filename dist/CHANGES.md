@@ -5,10 +5,10 @@
 - In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx` (as the 3rd arg, keeping "signals" as the 2nd arg).
 
 ### Added type helpers for component funcs with generic args
-- Now can use `ComponentReInstance<Info>`, `ComponentCtxReInstance<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers. For example:
+- Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers. For example:
   - ```typescript 
       // Imports.
-      import { MixDOM, ComponentProps, ComponentReInstance, ComponentFuncReturn, ComponentFuncCtxArgs } from "mix-dom";
+      import { MixDOM, ComponentProps, ComponentWith, ComponentFuncReturn, ComponentFuncCtxArgs } from "mix-dom";
       // Info interface with generic args.
       interface MyItemInfo<Id extends number | string = any> {
           props: { id: Id; };
@@ -16,9 +16,9 @@
       }
       // Component func with generic args.
       // .. The 2nd arg could also be Component<MyItemInfo<Id>>.
-      // .. However using ComponentReInstance enforces the "class" and "static" sides on the type.
+      // .. However using ComponentWith enforces the "class" and "static" sides on the type.
       const MyItem = <Id extends number | string = any>
-          (_props: ComponentProps<MyItemInfo<Id>>, component: ComponentReInstance<MyItemInfo<Id>>) => {
+          (_props: ComponentProps<MyItemInfo<Id>>, component: ComponentWith<MyItemInfo<Id>>) => {
           // Do some inits - just to showcase.
           component.state = { lastId: null };
           // For the renderer, use ComponentFuncReturn<Info>, so our (props, state) and return are fully typed.

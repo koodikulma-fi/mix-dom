@@ -8,7 +8,7 @@ import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context, Con
 import { Host } from "../host/index";
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
-import { Component, ComponentCtxReInstance, ComponentFuncReturn, ComponentProps } from "./Component";
+import { Component, ComponentCtxWith, ComponentFuncReturn, ComponentProps } from "./Component";
 
 
 // - Component with ContextAPI - //
@@ -22,7 +22,7 @@ export interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends 
 export type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & { ["constructor"]: Info["static"]; };
 
 /** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
+export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
 
 
 // - ComponentContextAPI class - //
