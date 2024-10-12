@@ -4,8 +4,40 @@
 - The static info is supported for both: classes and functions, and it also works for the component mixing methods.
 - In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx` (as the 3rd arg, keeping "signals" as the 2nd arg).
 
+### Added type helpers for component funcs with generic args
+- Now can use `ComponentReInstance<Info>`, `ComponentCtxReInstance<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers. For example:
+  - ```typescript 
+      // Imports.
+      import { MixDOM, ComponentProps, ComponentReInstance, ComponentFuncReturn, ComponentFuncCtxArgs } from "mix-dom";
+      // Info interface with generic args.
+      interface MyItemInfo<Id extends number | string = any> {
+          props: { id: Id; };
+          state: { lastId: Id | null; }
+      }
+      // Component func with generic args.
+      // .. The 2nd arg could also be Component<MyItemInfo<Id>>.
+      // .. However using ComponentReInstance enforces the "class" and "static" sides on the type.
+      const MyItem = <Id extends number | string = any>
+          (_props: ComponentProps<MyItemInfo<Id>>, component: ComponentReInstance<MyItemInfo<Id>>) => {
+          // Do some inits - just to showcase.
+          component.state = { lastId: null };
+          // For the renderer, use ComponentFuncReturn<Info>, so our (props, state) and return are fully typed.
+          return ((props, state) => { return <div class="my-item"></div>; }) as ComponentFuncReturn<MyItemInfo<Id>>;
+      };
+      // Alternative with prepared args, also using contextAPI.
+      const MyItemAlt = <Id extends number | string = any, Args extends any[] = ComponentFuncCtxArgs<MyItemInfo<Id>>>
+          // Note that on JS side should always define args one by one, not as ...args, as it affects func.length.
+          (_props: Args[0], component: Args[1], cApi: Args[2]) => {
+          // Otherwise the same + can use cApi.
+          component.state = { lastId: null };
+          return ((props, state) => { return <div class="my-item"></div>; }) as ComponentFuncReturn<MyItemInfo<Id>>;
+      };
+      ```
+
 ### Minor changes
-- In typing, changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
+- In typing:
+  - Changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
+  - Renamed `ComponentContextApiType` to `ComponentContextAPIType` (with capital "API").
 - In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
 
 ---
@@ -103,7 +135,7 @@
 
   - Example:
 
-    - ```
+    - ```typescript
       // Import.
       import { JSX_camelCase } from "mix-dom";
       // Declare this once in a TS file refered to in tsconfig.json ("include" part).

@@ -2,39 +2,37 @@
 // - Import - //
 
 // Libraries.
+import { AsClass } from "mixin-types";
 import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context, ContextAPIType } from "data-signals";
-// Typing.
-import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Host.
 import { Host } from "../host/index";
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
-import { Component } from "./Component";
-import { AsClass } from "mixin-types";
+import { Component, ComponentCtxReInstance, ComponentFuncReturn, ComponentProps } from "./Component";
 
 
 // - Component with ContextAPI - //
 
 /** Type for Component class instance with ContextAPI. Also includes the signals that ContextAPI brings. */
 export interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    /** The ContextAPI instance hooked up to this component. */
     contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
 /** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
 export type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & { ["constructor"]: Info["static"]; };
 
 /** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> =
-    ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
+export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
 
 
 // - ComponentContextAPI class - //
 
 /** Class type for ComponentContextAPI. */
-export interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> { }
+export interface ComponentContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> { }
 export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
 
     /** Constructor as a typed property. */
-    ["constructor"]: ComponentContextApiType<Contexts>;
+    ["constructor"]: ComponentContextAPIType<Contexts>;
 
     /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
      * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).

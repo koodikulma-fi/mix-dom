@@ -26,8 +26,7 @@ import { runBoundaryUpdate } from "./routinesApply";
 // Only typing (local).
 import { Host } from "./Host";
 // Only typing (distant).
-import { ComponentTypeAny } from "../components/typesVariants"
-import { ComponentFunc } from "../components/Component";
+import { ComponentFunc, ComponentTypeAny } from "../components/Component";
 import { ComponentShadowAPI } from "../components/ComponentShadowAPI";
 import { ComponentWiredAPI } from "../components/ComponentWiredAPI";
 

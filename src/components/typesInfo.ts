@@ -7,8 +7,7 @@ import { ContextsAllType } from "data-signals";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
-import { ComponentTypeAny } from "./typesVariants";
-import { Component, ComponentFunc, ComponentType } from "./Component";
+import { Component, ComponentFunc, ComponentType, ComponentTypeAny } from "./Component";
 import { SpreadFunc } from "./ComponentSpread";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";

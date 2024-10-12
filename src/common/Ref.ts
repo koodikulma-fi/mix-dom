@@ -11,8 +11,7 @@ import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { ComponentExternalSignalsFrom } from "../components/typesSignals";
-import { ComponentInstance, ComponentTypeEither } from "../components/typesVariants";
-import { Component } from "../components/Component";
+import { Component, ComponentInstance, ComponentTypeEither } from "../components/Component";
 import { ReadComponentInfo } from "../components";
 
 

@@ -8,15 +8,40 @@ import { newDef } from "../static/index";
 // Common.
 import { MixDOMContent } from "../common/index";
 // Local.
-import { ReadComponentInfo, ComponentInfo, ComponentInfoEmpty, ReadComponentInfos } from "./typesInfo";
-import { ComponentTypeAny, GetComponentTypeFrom, ComponentHOCBase, ComponentMixinType, ExtendsComponent, ExtendsComponents } from "./typesVariants";
+import { ReadComponentInfo, ComponentInfo, ComponentInfoEmpty, ReadComponentInfos, ReadComponentRequiredInfo } from "./typesInfo";
 import { SpreadFunc } from "./ComponentSpread";
-import { Component, ComponentFunc, ComponentType } from "./Component";
+import { Component, ComponentFunc, ComponentType, ComponentTypeAny, GetComponentTypeFrom } from "./Component";
 import { ComponentContextAPI, ComponentCtx, ComponentFuncCtx } from "./ComponentContextAPI";
 import { ComponentShadowFunc } from "./ComponentShadow";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 import { ComponentWiredFunc } from "./ComponentWired";
 import { ComponentWiredAPI } from "./ComponentWiredAPI";
+
+
+// - Extra typing - //
+
+// HOCs.
+export type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
+export type ComponentHOCBase = (InnerComp: ComponentTypeAny) => ComponentTypeAny;
+
+// Mixins.
+export type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo extends Partial<ComponentInfo> = {}> = (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
+
+// Types for combining and extending Component functions.
+export type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & { _Required?: ComponentFunc<RequiresInfo>; };
+export type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & { _Required?: RequiredFunc; };
+
+// Extending.
+/** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+export type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfo<BaseAnything> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
+/** Helper to test if the component info from the ExtendingAnything extends the merged infos from the previous components (BaseAnythings) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+export type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
 
 
 // - Helper to merge ComponentShadowAPI and ComponentWiredAPIs - //

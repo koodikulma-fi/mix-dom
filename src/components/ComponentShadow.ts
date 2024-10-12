@@ -7,7 +7,7 @@ import { MixDOMPreComponentOnlyProps, MixDOMDoubleRenderer, MixDOMRenderOutput }
 import { ComponentInfo } from "./typesInfo";
 import { ComponentExternalSignalsFrom } from "./typesSignals";
 import { ComponentContextAPI } from "./ComponentContextAPI";
-import { Component, ComponentType } from "./Component";
+import { Component, ComponentFuncReturn, ComponentType } from "./Component";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
@@ -16,12 +16,12 @@ import { ComponentShadowAPI } from "./ComponentShadowAPI";
 /** Type for the ComponentShadowAPI signals. */
 export type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
 export type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)
+    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)
     ) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 export type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> =
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
+    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 export type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> =
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
+    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 
 
 // - Class types - //

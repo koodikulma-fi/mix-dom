@@ -8,7 +8,7 @@ import { MixDOMPreDOMTagProps, MixDOMRenderOutput, MixDOMDefTarget } from "../ty
 // Host.
 import { MixDOMCloneNodeBehaviour } from "../host/index";
 // Only typing (local).
-import { ComponentTypeEither } from "./typesVariants";
+import { ComponentTypeEither } from "./Component";
 import { ComponentRemote, ComponentRemoteProps, ComponentRemoteType } from "./ComponentRemote";
 
 

@@ -1,4 +1,4 @@
-import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, SetLike, Context, ContextsAllTypeWith, SignalBoy, RefreshCycle, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, RefreshCycle, SignalBoy, SetLike, Context, ContextsAllTypeWith, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
 import { DOMTags, DOMElement, DOMDiffProps, DOMAttributes, DOMCleanProps, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
 import { CompareDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
@@ -82,6 +82,80 @@ declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends Cont
     static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys?: true | string[]): void;
 }
 
+interface HostUpdateCycleInfo {
+    updates: Set<SourceBoundary>;
+}
+interface HostRenderCycleInfo {
+    rCalls: MixDOMSourceBoundaryChange[][];
+    rInfos: MixDOMRenderInfo[][];
+}
+declare class HostServices {
+    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and reassimilation. */
+    renderer: HostRender;
+    /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
+    host: Host;
+    updateCycle: RefreshCycle<HostUpdateCycleInfo>;
+    renderCycle: RefreshCycle<HostRenderCycleInfo>;
+    /** A simple counter is used to create unique id for each boundary (per host). */
+    private bIdCount;
+    /** This is the target render definition that defines the host's root boundary's render output. */
+    private rootDef;
+    /** Temporary value (only needed for .onlyRunInContainer setting). */
+    private _rootDisabled?;
+    /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
+     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
+     * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
+     *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
+     *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
+     *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
+     *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
+     * - It's also used for a special case related to _simultaneous same scope remote content pass + insertion_.
+     *      * The case is similar to above in that it is related to toggling (Remote) content feed on / off, while using a stable WithContent in the same scope.
+     *          - If the WithContent is _earlier_ in the scope, there is no problem: first run will not ground it, then it's updated with new content.
+     *          - But if it's _later_, then without the special detection would actually create another instance of the WithContent, and result in treeNode confusion and partial double rendering.
+     *      * So in this case, the _whileUpdating id is assigned to each sourceBoundary's _updateId at the moment its update routine begins during HostServices.runUpdates cycle.
+     *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
+     */
+    _whileUpdating?: {};
+    constructor(host: Host);
+    /** This creates a new boundary id in the form of "h-hostId:b-bId", where hostId and bId are strings from the id counters. For example: "h-1:b:5"  */
+    createBoundaryId(): MixDOMSourceBoundaryId;
+    clearTimers(forgetPending?: boolean): void;
+    createRoot(content: MixDOMRenderOutput): ComponentTypeAny;
+    updateRoot(content: MixDOMRenderOutput, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    refreshRoot(forceUpdate?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    clearRoot(forgetPending?: boolean): void;
+    getRootDef(shallowCopy?: boolean): MixDOMDefTarget | null;
+    hasPending(updateSide?: boolean, postSide?: boolean): boolean;
+    addRefreshCall(callback: () => void, renderSide?: boolean): void;
+    cancelUpdates(boundary: SourceBoundary): void;
+    /** This is the main method to update a boundary.
+     * - It applies the updates to bookkeeping immediately.
+     * - The actual update procedure is either timed out or immediate according to settings.
+     *   .. It's recommended to use a tiny update timeout (eg. 0ms) to group multiple updates together. */
+    absorbUpdates(boundary: SourceBoundary, updates: MixDOMComponentUpdates, refresh?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** This triggers the update cycle. */
+    triggerRefresh(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
+    updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
+     * - It handles the updates bookkeeping and should update checking and return infos for changes.
+     * - It should only be called from a few places: 1. runUpdates flow above, 2. within applyDefPairs for updating nested, 3. HostServices.updatedInterestedInClosure for updating indirectly interested sub boundaries.
+     * - If gives bInterested, it's assumed to be be unordered, otherwise give areOrdered = true. */
+    updateBoundary(boundary: SourceBoundary, forceUpdate?: boolean | "all", movedNodes?: MixDOMTreeNode[], bInterested?: Set<SourceBoundary> | null): MixDOMChangeInfos | null;
+    /** This absorbs infos from the updates done. Infos are for update calls and to know what to render. Triggers calling runRender. */
+    absorbChanges(renderInfos: MixDOMRenderInfo[] | null, boundaryChanges?: MixDOMSourceBoundaryChange[] | null, forceRenderTimeout?: number | null): void;
+    /** Initialize cycles. */
+    static initializeCyclesFor(services: HostServices): void;
+    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
+     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
+     */
+    static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
+    static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
+    static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
+    static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]): void;
+}
+
 /** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
 type SpreadFunc<Props extends Record<string, any> = {}> = (props: Props) => MixDOMRenderOutput;
 /** Typing for a SpreadFunc with extra arguments. Note that it's important to define the JS side as (props, ...args) so that the func.length === 1.
@@ -105,56 +179,6 @@ declare const createSpread: <Props extends Record<string, any> = {}>(func: (prop
  * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
  */
 declare const createSpreadWith: <Props extends Record<string, any>, ExtraArgs extends any[]>(func: (props: Props, ...args: ExtraArgs) => MixDOMRenderOutput) => SpreadFuncWith<Props, ExtraArgs>;
-
-/** Type for Component class instance with ContextAPI. Also includes the signals that ContextAPI brings. */
-interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
-    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
-}
-/** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-};
-/** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
-    _Info?: Info;
-};
-/** Class type for ComponentContextAPI. */
-interface ComponentContextApiType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> {
-}
-interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    /** Constructor as a typed property. */
-    ["constructor"]: ComponentContextApiType<Contexts>;
-    /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
-     * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).
-     * - It's assigned as a member to write ComponentContextAPI as a clean class.
-     */
-    host: Host<Contexts>;
-    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately.
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
-     */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-    /** Get the named context for the component.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContext<Name extends keyof Contexts & string>(name: Name, includeInherited?: boolean): Contexts[Name] | null | undefined;
-    /** Get the contexts for the component, optionally only for given names.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
-}
-/** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
-declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    host: Host<Contexts>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
-    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
-    awaitDelay(): Promise<void>;
-}
 
 type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     /** Special call - called right after constructing. */
@@ -243,15 +267,15 @@ type ComponentExternalSignals<Comp extends Component = Component> = {
 
 /** Type for the ComponentShadowAPI signals. */
 type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
-type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)) & {
+type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)) & {
     Info?: Info;
     api: ComponentShadowAPI<Info>;
 };
-type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
+type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
     Info?: Info;
     api: ComponentShadowAPI<Info>;
 };
-type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
+type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & {
     Info?: Info;
     api: ComponentShadowAPI<Info>;
 };
@@ -287,7 +311,7 @@ declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClas
 declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowFunc<Info>;
 declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
 /** Create a shadow component function with ComponentContextAPI omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]) => ComponentShadowFuncWith<Info>;
+declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]) => ComponentShadowFuncWith<Info>;
 
 /** Typing infos for Components. */
 interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
@@ -408,119 +432,53 @@ type ReadComponentInfoFromArgsReturn<Params extends any[], Return extends any = 
     props: Params[0];
 } : {};
 
-/** Either type of functional component: spread or a full component (with optional contextAPI).
- * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
- *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentFuncCtx with its 3rd arg - already included in ComponentFunc.
- */
-type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>;
-/** Either a class type or a component func (not a spread func, nor a component class instance). */
-type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info>;
-/** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
- * - Hint. You can use this in props: `{ ItemRenderer: ComponentTypeAny<Info>; }` and then just insert it by `<props.ItemRenderer {...itemInfo} />`
- */
-type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
-/** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
-/** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"] & {
-    ["constructor"]: ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
-};
-/** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
-/** Get a clean Component function type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Anything, ComponentInfoEmpty>>;
-type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
-type ComponentHOCBase = (InnerComp: ComponentTypeAny) => ComponentTypeAny;
-type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo extends Partial<ComponentInfo> = {}> = (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
-type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & {
-    _Required?: ComponentFunc<RequiresInfo>;
-};
-type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
-    _Required?: RequiredFunc;
-};
-/** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
- * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
- * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
- */
-type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfo<BaseAnything> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
-/** Helper to test if the component info from the ExtendingAnything extends the merged infos from the previous components (BaseAnythings) - typically in the mixing chain.
- * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
- * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
- */
-type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
-
-interface HostUpdateCycleInfo {
-    updates: Set<SourceBoundary>;
+/** Type for Component class instance with ContextAPI. Also includes the signals that ContextAPI brings. */
+interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    /** The ContextAPI instance hooked up to this component. */
+    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
-interface HostRenderCycleInfo {
-    rCalls: MixDOMSourceBoundaryChange[][];
-    rInfos: MixDOMRenderInfo[][];
+/** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
+type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+};
+/** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
+type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
+    _Info?: Info;
+} & Info["static"];
+/** Class type for ComponentContextAPI. */
+interface ComponentContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> {
 }
-declare class HostServices {
-    /** Dedicated render handler class instance. It's public internally, as it has some direct-to-use functionality: like pausing, resuming and reassimilation. */
-    renderer: HostRender;
-    /** Ref up. This whole class could be in host, but for internal clarity the more private and technical side is here. */
-    host: Host;
-    updateCycle: RefreshCycle<HostUpdateCycleInfo>;
-    renderCycle: RefreshCycle<HostRenderCycleInfo>;
-    /** A simple counter is used to create unique id for each boundary (per host). */
-    private bIdCount;
-    /** This is the target render definition that defines the host's root boundary's render output. */
-    private rootDef;
-    /** Temporary value (only needed for .onlyRunInContainer setting). */
-    private _rootDisabled?;
-    /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
-     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
-     * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
-     *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
-     *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
-     *      * The matching _whileUpdating id is put on the def that was _widely moved_ and all that were inside, and can then be detected for in clean up / (through treeNode's sourceBoundary's host).
-     *      * The updateId is cleaned away from defs upon next pairing - to avoid cluttering old info (it's just confusing and serves no purpose as information).
-     * - It's also used for a special case related to _simultaneous same scope remote content pass + insertion_.
-     *      * The case is similar to above in that it is related to toggling (Remote) content feed on / off, while using a stable WithContent in the same scope.
-     *          - If the WithContent is _earlier_ in the scope, there is no problem: first run will not ground it, then it's updated with new content.
-     *          - But if it's _later_, then without the special detection would actually create another instance of the WithContent, and result in treeNode confusion and partial double rendering.
-     *      * So in this case, the _whileUpdating id is assigned to each sourceBoundary's _updateId at the moment its update routine begins during HostServices.runUpdates cycle.
-     *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
+interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    /** Constructor as a typed property. */
+    ["constructor"]: ComponentContextAPIType<Contexts>;
+    /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
+     * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).
+     * - It's assigned as a member to write ComponentContextAPI as a clean class.
      */
-    _whileUpdating?: {};
-    constructor(host: Host);
-    /** This creates a new boundary id in the form of "h-hostId:b-bId", where hostId and bId are strings from the id counters. For example: "h-1:b:5"  */
-    createBoundaryId(): MixDOMSourceBoundaryId;
-    clearTimers(forgetPending?: boolean): void;
-    createRoot(content: MixDOMRenderOutput): ComponentTypeAny;
-    updateRoot(content: MixDOMRenderOutput, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    refreshRoot(forceUpdate?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    clearRoot(forgetPending?: boolean): void;
-    getRootDef(shallowCopy?: boolean): MixDOMDefTarget | null;
-    hasPending(updateSide?: boolean, postSide?: boolean): boolean;
-    addRefreshCall(callback: () => void, renderSide?: boolean): void;
-    cancelUpdates(boundary: SourceBoundary): void;
-    /** This is the main method to update a boundary.
-     * - It applies the updates to bookkeeping immediately.
-     * - The actual update procedure is either timed out or immediate according to settings.
-     *   .. It's recommended to use a tiny update timeout (eg. 0ms) to group multiple updates together. */
-    absorbUpdates(boundary: SourceBoundary, updates: MixDOMComponentUpdates, refresh?: boolean, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** This triggers the update cycle. */
-    triggerRefresh(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** Update times without triggering a refresh. However, if forceUpdateTimeout is null, performs it instantly. */
-    updateRefreshTimes(forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** This is the core whole command to update a source boundary including checking if it should update and if has already been updated.
-     * - It handles the updates bookkeeping and should update checking and return infos for changes.
-     * - It should only be called from a few places: 1. runUpdates flow above, 2. within applyDefPairs for updating nested, 3. HostServices.updatedInterestedInClosure for updating indirectly interested sub boundaries.
-     * - If gives bInterested, it's assumed to be be unordered, otherwise give areOrdered = true. */
-    updateBoundary(boundary: SourceBoundary, forceUpdate?: boolean | "all", movedNodes?: MixDOMTreeNode[], bInterested?: Set<SourceBoundary> | null): MixDOMChangeInfos | null;
-    /** This absorbs infos from the updates done. Infos are for update calls and to know what to render. Triggers calling runRender. */
-    absorbChanges(renderInfos: MixDOMRenderInfo[] | null, boundaryChanges?: MixDOMSourceBoundaryChange[] | null, forceRenderTimeout?: number | null): void;
-    /** Initialize cycles. */
-    static initializeCyclesFor(services: HostServices): void;
-    /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
-     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
+    host: Host<Contexts>;
+    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
+     * - If there's nothing pending, then will resolve immediately.
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      */
-    static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
-    static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
-    static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
-    static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]): void;
+    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+    /** Get the named context for the component.
+     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
+     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
+     */
+    getContext<Name extends keyof Contexts & string>(name: Name, includeInherited?: boolean): Contexts[Name] | null | undefined;
+    /** Get the contexts for the component, optionally only for given names.
+     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
+     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
+     */
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
+}
+/** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
+declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    host: Host<Contexts>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
+    awaitDelay(): Promise<void>;
 }
 
 /** The basic dom node cloning modes - either deep or shallow: element.clone(mode === "deep").
@@ -1208,6 +1166,25 @@ type WithContentInfo = {
 };
 declare const MixDOMWithContent: ComponentType<WithContentInfo>;
 
+type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
+type ComponentHOCBase = (InnerComp: ComponentTypeAny) => ComponentTypeAny;
+type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo extends Partial<ComponentInfo> = {}> = (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
+type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & {
+    _Required?: ComponentFunc<RequiresInfo>;
+};
+type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
+    _Required?: RequiredFunc;
+};
+/** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfo<BaseAnything> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
+/** Helper to test if the component info from the ExtendingAnything extends the merged infos from the previous components (BaseAnythings) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
 /** This creates a new ComponentShadowAPI or ComponentWiredAPI and merges updateModes and signals.
  * - If is a ComponentWiredAPI also attaches the last builtProps member, and onBuildProps and onMixProps methods.
  */
@@ -1338,6 +1315,47 @@ declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeA
 
 /** The common component constructor arguments from component info. (Only uses "props" from it.) */
 type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]];
+/** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
+type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
+/** Same as `Component<Info>` but enforces the "class" and "static" infos on the resulting type. */
+type ComponentReInstance<Info extends ComponentInfoPartial = {}> = Component<Info> & Info["class"] & {
+    ["constructor"]: ComponentType<Info> & Info["static"];
+};
+/** Same as `ComponentReInstance<Info>` but makes sure contextAPI is assigned as non-optional member. (Enforces the "class" and "static" infos on the resulting type.) */
+type ComponentCtxReInstance<Info extends ComponentInfoPartial = {}> = ComponentCtx<Info> & Info["class"] & {
+    ["constructor"]: ComponentType<Info> & Info["static"];
+};
+/** Typing for the first initProps argument of functional (non-spread) components. The typing includes the special props, eg. `{ _signals, _key, ... }`. */
+type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"];
+/** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
+type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
+    _Info?: Info;
+} & Info["static"];
+/** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentFuncCtxArgs<Info>` instead. */
+type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentReInstance<Info>];
+/** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
+type ComponentFuncCtxArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentCtxReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>];
+/** Typing for functional component's return - same as component's `render` method. */
+type ComponentFuncReturn<Info extends ComponentInfoPartial = {}> = MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
+/** Either type of functional component: spread or a full component (with optional contextAPI).
+ * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
+ *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentFuncCtx with its 3rd arg - already included in ComponentFunc.
+ */
+type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>;
+/** Either a class type or a component func (not a spread func, nor a component class instance). */
+type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info>;
+/** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
+ * - Hint. You can use this in props: `{ ItemRenderer: ComponentTypeAny<Info>; }` and then just insert it by `<props.ItemRenderer {...itemInfo} />`
+ */
+type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFuncAny<Info>;
+/** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
+type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"] & {
+    ["constructor"]: ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
+};
+/** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
+type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
+/** Get a clean Component function type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
+type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Anything, ComponentInfoEmpty>>;
 /** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
  * - For examples of how to use mixins, see: [mixin-types README](https://www.npmjs.com/package/mixin-types).
  * - To read typing of the base class use one of the below:
@@ -1452,18 +1470,9 @@ type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: 
  *
  */
 declare function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<ComponentType<Info> & BaseClass, Component<Info> & InstanceType<BaseClass>, ComponentConstructorArgs<Info>>;
-/** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
-type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
-    _Info?: Info;
-} & Info["static"];
 /** Class type (vs. instance) for component fed with ComponentInfo. Note that this does not include the Info["static"] part directly. */
 interface ComponentType<Info extends ComponentInfoPartial = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, // & Info["static"],
-// & Info["static"],
-Component<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-}, ComponentConstructorArgs<Info>> {
+ComponentReInstance<Info>, ComponentConstructorArgs<Info>> {
     /** Class type. */
     MIX_DOM_CLASS: string;
     /** May feature a ComponentShadowAPI. It's potential existence is pre-typed here to make typing easier. */
@@ -1551,16 +1560,14 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
     removeWired(Wired: ComponentWiredFunc): void;
     /** The most important function of any component: the render function. If not using functional rendering, override this manually on the class.
      */
-    render(props: Info["props"] & {}, state: Info["state"] & {}): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
+    render(props: Info["props"] & {}, state: Info["state"] & {}): ComponentFuncReturn<Info>;
 }
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
-declare function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: Component<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
+declare function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: ComponentReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
 declare function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtx<Info> & Info["class"] & {
     ["constructor"]: Info["static"];
-}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
+}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
 
 interface ContentPasserProps<CustomProps extends Record<string, any> = {}> {
     /** Use a copy instead of a true pass. */
@@ -2438,7 +2445,7 @@ declare const MixDOM: {
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, ...args: [name?: string | undefined] | [staticProps?: Record<string, any> | null | undefined, name?: string | undefined]) => ComponentShadowFuncWith<Info>;
+    shadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, ...args: [name?: string | undefined] | [staticProps?: Record<string, any> | null | undefined, name?: string | undefined]) => ComponentShadowFuncWith<Info>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
@@ -2660,4 +2667,4 @@ declare const MixDOM: {
     readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary) => string;
 };
 
-export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextApiType, ComponentCtx, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncCtx, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMReassimilateInfo, MixDOMRemountInfo, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };
+export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxReInstance, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncCtx, ComponentFuncCtxArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentReInstance, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentSpread, ComponentSpreadProps, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMChangeInfos, MixDOMCloneNodeBehaviour, MixDOMComponentTag, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMContentNull, MixDOMContentSimple, MixDOMContentValue, MixDOMDOMProps, MixDOMDefApplied, MixDOMDefAppliedBase, MixDOMDefAppliedPseudo, MixDOMDefBoundary, MixDOMDefContent, MixDOMDefContentInner, MixDOMDefDOM, MixDOMDefElement, MixDOMDefFragment, MixDOMDefHost, MixDOMDefKeyTag, MixDOMDefPass, MixDOMDefPortal, MixDOMDefTarget, MixDOMDefTargetBase, MixDOMDefTargetPseudo, MixDOMDefType, MixDOMDefTypesAll, MixDOMDoubleRenderer, MixDOMPostTag, MixDOMPreBaseProps, MixDOMPreComponentOnlyProps, MixDOMPreComponentProps, MixDOMPreDOMProps, MixDOMPreDOMTagProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMPreTag, MixDOMProcessedDOMProps, MixDOMPseudoTag, MixDOMReassimilateInfo, MixDOMRemountInfo, MixDOMRenderInfo, MixDOMRenderOutput, MixDOMRenderOutputMulti, MixDOMRenderOutputSingle, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMSourceBoundaryChange, MixDOMSourceBoundaryChangeType, MixDOMSourceBoundaryId, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };

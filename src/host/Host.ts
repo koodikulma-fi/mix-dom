@@ -29,7 +29,7 @@ import { HostShadowAPI } from "./HostShadowAPI";
 import { HostContextAPI } from "./HostContextAPI";
 import { HostServices } from "./HostServices";
 // Only typing (distant).
-import { ComponentTypeAny } from "../components/typesVariants";
+import { ComponentTypeAny } from "../components/Component";
 import { ComponentCtx } from "../components/ComponentContextAPI";
 import { HostRender } from "./HostRender";
 

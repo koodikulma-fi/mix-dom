@@ -8,8 +8,7 @@ import { newDef } from "../static/index";
 // Helpers.
 import { MixDOMContent } from "../common/index";
 // Local.
-import { ComponentTypeAny } from "./typesVariants";
-import { Component } from "./Component";
+import { Component, ComponentTypeAny } from "./Component";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 // Only typing (local).
 import { ComponentWired, ComponentWiredFunc } from "./ComponentWired";

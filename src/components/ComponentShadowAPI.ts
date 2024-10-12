@@ -4,12 +4,11 @@
 // Libraries.
 import { SignalListener, SignalBoy } from "data-signals";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy } from "../typing";
+import { MixDOMUpdateCompareModesBy } from "../typing";
 // Local.
 import { ComponentInfo } from "./typesInfo";
-import { ComponentTypeEither } from "./typesVariants";
 import { ComponentContextAPI } from "./ComponentContextAPI";
-import { Component, ComponentFunc, ComponentType, createComponent, createComponentCtx } from "./Component";
+import { Component, ComponentFunc, ComponentFuncReturn, ComponentType, ComponentTypeEither, createComponent, createComponentCtx } from "./Component";
 // Only typing (local).
 import { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
 
@@ -92,7 +91,7 @@ export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrCla
 }
 
 /** Create a shadow component function with ComponentContextAPI omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentShadowFuncWith<Info> => {
+export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentShadowFuncWith<Info> => {
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;
     // Create.

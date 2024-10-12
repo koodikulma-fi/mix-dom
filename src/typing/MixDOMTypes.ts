@@ -4,7 +4,7 @@
 // Libraries.
 import { CompareDepthMode } from "data-memo";
 import { SignalsRecord, Context } from "data-signals";
-import { DOMCleanProps, DOMTags, DOMAttributes, CSSProperties } from "dom-types";
+import { DOMCleanProps, DOMTags, DOMAttributes } from "dom-types";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
@@ -13,8 +13,8 @@ import { RefBase, RefDOMSignals } from "../common/Ref";
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { SourceBoundary } from "../boundaries/SourceBoundary";
 import { Host } from "../host/Host";
-import { ComponentTypeAny } from "../components/typesVariants";
 import { ComponentSignals } from "../components/typesSignals";
+import { ComponentTypeAny } from "../components/Component";
 import { PseudoElement, PseudoElementProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, PseudoEmpty, PseudoEmptyProps } from "../components/ComponentPseudos";
 
 

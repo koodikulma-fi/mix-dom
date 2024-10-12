@@ -3,7 +3,6 @@
 
 // Typing.
 export * from "./typesInfo";
-export * from "./typesVariants";
 export * from "./typesSignals";
 // All pseudo and helper classes.
 export * from "./ComponentPseudos";

@@ -4,7 +4,6 @@
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
 import { Component } from "./Component";
-import { GetComponentFrom } from "./typesVariants";
 
 
 // - Component signals - //
