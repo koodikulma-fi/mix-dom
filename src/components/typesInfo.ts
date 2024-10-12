@@ -11,6 +11,7 @@ import { ComponentTypeAny } from "./typesVariants";
 import { Component, ComponentFunc, ComponentType } from "./Component";
 import { SpreadFunc } from "./ComponentSpread";
 import { ComponentContextAPI } from "./ComponentContextAPI";
+import { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
 // - Component info - //
@@ -19,11 +20,11 @@ import { ComponentContextAPI } from "./ComponentContextAPI";
 export interface ComponentInfo<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
-    Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
+    Class extends Record<string, any> = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {},
-    Static extends Record<string, (...args: any[]) => any> = {}
+    Contexts extends ContextsAllType = {}
 > {
     /** Typing for the props for the component - will be passed by parent. */
     props: Props;
@@ -51,12 +52,12 @@ export interface ComponentInfo<
 export interface ComponentInfoPartial<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
-    Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
+    Class extends Record<string, any> = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {},
-    Static extends Record<string, (...args: any[]) => any> = {}
-> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
+    Contexts extends ContextsAllType = {}
+> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
 
 /** Empty component info type. */
 export type ComponentInfoEmpty = {
@@ -72,38 +73,38 @@ export type ComponentInfoEmpty = {
 
 // - Create by info args - //
 
-/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 export interface ComponentOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
-    Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
+    Class extends Record<string, any> = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = {},
-    Contexts extends ContextsAllType = {},
-    Static extends Record<string, any> = {}
-> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
+    Contexts extends ContextsAllType = {}
+> extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
 
-/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 export interface ComponentTypeOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
-    Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
+    Class extends Record<string, any> = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = {},
-    Contexts extends ContextsAllType = {},
-    Static extends Record<string, any> = {}
-> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
+    Contexts extends ContextsAllType = {}
+> extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
 
-/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 export type ComponentFuncOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
-    Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
+    Class extends Record<string, any> = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {},
-    Static extends Record<string, any> = {}
-> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+    Contexts extends ContextsAllType = {}
+> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 
 
 // - Read component info - //

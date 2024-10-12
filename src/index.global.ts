@@ -5,7 +5,7 @@ import { MixDOM as _MixDOM } from "./MixDOM";
 import * as _MixinTypes from "mixin-types";
 import * as _DataSignals from "data-signals";
 import * as _DataMemo from "data-memo";
-import * as _DomTypes from "dom-types";
+import * as _DOMTypes from "dom-types";
 
 
 // - Typing - //
@@ -16,7 +16,7 @@ declare global {
         DataMemo: typeof _DataMemo;
         DataSignals: typeof _DataSignals;
         MixinTypes: typeof _MixinTypes;
-        DomTypes: typeof _DomTypes;
+        DOMTypes: typeof _DOMTypes;
     }
 }
 
@@ -27,4 +27,4 @@ window.MixDOM = _MixDOM;
 window.DataSignals = _DataSignals;
 window.DataMemo = _DataMemo;
 window.MixinTypes = _MixinTypes;
-window.DomTypes = _DomTypes;
+window.DOMTypes = _DOMTypes;

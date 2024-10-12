@@ -1,4 +1,4 @@
-import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, SetLike, Context, ContextsAllTypeWith, RefreshCycle, SignalBoy, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
+import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, SetLike, Context, ContextsAllTypeWith, SignalBoy, RefreshCycle, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
 import { DOMTags, DOMElement, DOMDiffProps, DOMAttributes, DOMCleanProps, DOMAttributesBy_native, DOMAttributesBy } from 'dom-types';
 import { CompareDepthMode } from 'data-memo';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
@@ -156,8 +156,143 @@ declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends
     awaitDelay(): Promise<void>;
 }
 
+type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
+    /** Special call - called right after constructing. */
+    preMount: () => void;
+    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
+    didMount: () => void;
+    /** This is a callback that will always be called when the component is checked for updates.
+     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
+     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
+     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+    beforeUpdate: () => void;
+    /** Callback to determine whether should update or not.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - If returns true, component will update. If false, will not.
+     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
+     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
+     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+    shouldUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => boolean | null;
+    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
+     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+    preUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined, willUpdate: boolean) => void;
+    /** Called after the component has updated and changes been rendered into the dom.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it. */
+    didUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => void;
+    /** Called when the component has moved in the tree structure. */
+    didMove: () => void;
+    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
+    willUnmount: () => void;
+};
+type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<any> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
+    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
+        ["constructor"]: Info["static"];
+    }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
+};
+type ComponentExternalSignals<Comp extends Component = Component> = {
+    /** Special call - called right after constructing the component instance. */
+    preMount: (component: Comp) => void;
+    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
+    didMount: (component: Comp) => void;
+    /** This is a callback that will always be called when the component is checked for updates.
+     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
+     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
+     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+    beforeUpdate: (component: Comp) => void;
+    /** Callback to determine whether should update or not.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - If returns true, component will update. If false, will not.
+     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
+     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
+     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+    shouldUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"]) => boolean | null;
+    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
+     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+    preUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"], willUpdate: boolean) => void;
+    /** Called after the component has updated and changes been rendered into the dom.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     */
+    didUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"]) => void;
+    /** Called when the component has moved in the tree structure. */
+    didMove: (component: Comp) => void;
+    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
+    willUnmount: (component: Comp) => void;
+};
+
+/** Type for the ComponentShadowAPI signals. */
+type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
+type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+/** The static class type for ComponentShadow. */
+interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
+    api: ComponentShadowAPI<Info>;
+}
+/** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
+interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    ["constructor"]: ComponentShadowType<Info>;
+}
+/** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
+interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
+    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
+}
+
+/** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
+declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalBoy<ComponentShadowSignals<Info>> {
+    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
+    components: Set<Component<Info>>;
+    /** Default update modes. Can be overridden by the component's updateModes. */
+    updateModes?: Partial<MixDOMUpdateCompareModesBy>;
+    /** Call this to trigger an update on the instanced components. */
+    update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
+    static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean): void;
+}
+/** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
+ * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
+ * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
+*/
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
+/** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
+declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
+
 /** Typing infos for Components. */
-interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, (...args: any[]) => any> = {}> {
+interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI<any>;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> {
     /** Typing for the props for the component - will be passed by parent. */
     props: Props;
     /** Typing for the local state of the component. */
@@ -181,7 +316,9 @@ interface ComponentInfo<Props extends Record<string, any> = {}, State extends Re
     static: Static;
 }
 /** Partial version of the ComponentInfo. */
-interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, (...args: any[]) => any> = {}> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
+interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI<any>;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
 /** Empty component info type. */
 type ComponentInfoEmpty = {
@@ -193,14 +330,20 @@ type ComponentInfoEmpty = {
     contexts?: {};
     static?: {};
 };
-/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
-interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
+/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI<any>;
+} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
-/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
-interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
+/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI<any>;
+} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
-/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
-type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI<any>;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 /** Type for anything that from which component info can be derived. */
 type ComponentInfoInterpretable = Partial<ComponentInfo> | {
     _Info?: Partial<ComponentInfo>;
@@ -890,91 +1033,6 @@ declare class HostRender {
     private static isVirtualItemOk;
 }
 
-type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
-    /** Special call - called right after constructing. */
-    preMount: () => void;
-    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
-    didMount: () => void;
-    /** This is a callback that will always be called when the component is checked for updates.
-     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
-     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
-    beforeUpdate: () => void;
-    /** Callback to determine whether should update or not.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - If returns true, component will update. If false, will not.
-     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
-     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
-     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
-    shouldUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => boolean | null;
-    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
-     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
-    preUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined, willUpdate: boolean) => void;
-    /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it. */
-    didUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => void;
-    /** Called when the component has moved in the tree structure. */
-    didMove: () => void;
-    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
-    willUnmount: () => void;
-};
-type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<any> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
-    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
-        ["constructor"]: Info["static"];
-    }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
-};
-type ComponentExternalSignals<Comp extends Component = Component> = {
-    /** Special call - called right after constructing the component instance. */
-    preMount: (component: Comp) => void;
-    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
-    didMount: (component: Comp) => void;
-    /** This is a callback that will always be called when the component is checked for updates.
-     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
-     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
-    beforeUpdate: (component: Comp) => void;
-    /** Callback to determine whether should update or not.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - If returns true, component will update. If false, will not.
-     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
-     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
-     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
-    shouldUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"]) => boolean | null;
-    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
-     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
-    preUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"], willUpdate: boolean) => void;
-    /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     */
-    didUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"]) => void;
-    /** Called when the component has moved in the tree structure. */
-    didMove: (component: Comp) => void;
-    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
-    willUnmount: (component: Comp) => void;
-};
-
 interface MixDOMPrePseudoProps {
     /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.) */
     _disable?: boolean;
@@ -1036,54 +1094,6 @@ declare class PseudoEmpty<Props extends PseudoEmptyProps = PseudoEmptyProps> {
  * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
  */
 declare const PseudoEmptyRemote: ComponentRemoteType<{}>;
-
-/** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
-declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalBoy<ComponentShadowSignals<Info>> {
-    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
-    components: Set<Component<Info>>;
-    /** Default update modes. Can be overridden by the component's updateModes. */
-    updateModes?: Partial<MixDOMUpdateCompareModesBy>;
-    /** Call this to trigger an update on the instanced components. */
-    update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
-    static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean): void;
-}
-/** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
- * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
- * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
-*/
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info>;
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
-/** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
-
-/** Type for the ComponentShadowAPI signals. */
-type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
-type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>)) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-/** The static class type for ComponentShadow. */
-interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
-    api: ComponentShadowAPI<Info>;
-}
-/** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
-interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
-    ["constructor"]: ComponentShadowType<Info>;
-}
-/** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
-interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
-    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
-}
 
 declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowAPI<{
     props: ParentProps;
@@ -2428,7 +2438,7 @@ declare const MixDOM: {
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info>;
+    shadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
