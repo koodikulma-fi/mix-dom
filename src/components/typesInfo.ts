@@ -5,10 +5,10 @@
 import { ClassType, InstanceTypeFrom, IterateBackwards } from "mixin-types";
 import { ContextsAllType } from "data-signals";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMDoubleRenderer, MixDOMInternalCompBaseProps, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
 import { Component, ComponentFunc, ComponentType, ComponentTypeAny } from "./Component";
-import { SpreadFunc } from "./ComponentSpread";
+import { SpreadFunc } from "../common/SpreadFunc";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 
@@ -103,16 +103,21 @@ export type ComponentFuncOf<
     Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
-> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+> = (initProps: MixDOMInternalCompBaseProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 
 
 // - Read component info - //
-
 /** Type for anything that from which component info can be derived. */
 export type ComponentInfoInterpretable = Partial<ComponentInfo> | { _Info?: Partial<ComponentInfo>; } | Component | ComponentType | ComponentFunc | SpreadFunc;
 
 /** Robust component info reader from any kind of type: info object, component class type or instance, component function or spread function. Define BaseInfo to enforce the known outcome, eg. using ComponentInfoEmpty. */
 export type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {}> = BaseInfo & (
+
+    // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
+    // .. Note that if we were to directly add static _Info on the _Component mixin base, it would not contain the correctly typed info.
+    // .. Note that we have to do this check first, as otherwise will be matched by some others - at least against { _Info? }.
+    Anything extends ClassType | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info?: {}; }; })["constructor"]["_Info"] :
+    // Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info?: {}; }; })["constructor"]["_Info"] :
 
     // Direct info from anything that fits the info type.
     // .. In practice this applies to fully typed component functions.
@@ -122,15 +127,11 @@ export type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {
     // From class instance through its constructor.
     Anything extends { constructor: { _Info?: Partial<ComponentInfo>; }; } | undefined ? (Anything & { constructor: { _Info?: {}; }; })["constructor"]["_Info"] :
     
-    // From class type through instance and contructor. It's kind of senseless, but this way we get through the mixin base.
-    // .. Note that if we were to directly add static _Info on the _Component mixin base, it would not contain the correctly typed info.
-    Anything extends ClassType<{ constructor: { _Info?: Partial<ComponentInfo>; } }> | undefined ? (InstanceTypeFrom<Anything> & { ["constructor"]: { _Info?: {}; }; })["constructor"]["_Info"] :
-
     // Func without info - infer from parameters.
     Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> :
 
     // Direct info.
-    Anything extends Partial<ComponentInfo> ? Anything : 
+    Anything extends Partial<ComponentInfo> | undefined ? {[Key in string & keyof ComponentInfo & keyof Anything]: Anything[Key]; } : 
     
     // Otherwise couldn't find any valid info.
     {}

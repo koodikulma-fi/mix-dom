@@ -8,7 +8,7 @@ import { MixDOMTreeNode, MixDOMTreeNodeType, MixDOMBoundary } from "./typing/ind
 // Routines.
 import { domElementByQuery, domElementsByQuery, newContentCopyDef, newDef, newDefHTML, treeNodesWithin } from "./static/index";
 // Common.
-import { MixDOMContent, MixDOMContentCopy, Ref } from "./common/index";
+import { MixDOMContent, MixDOMContentCopy, Ref, createSpread, createSpreadWith } from "./common/index";
 // Host.
 import { Host, HostRender } from "./host/index";
 // Components.
@@ -19,9 +19,6 @@ import {
     PseudoElement,
     PseudoEmpty,
     PseudoEmptyRemote,
-    // Spread.
-    createSpread,
-    createSpreadWith,
     // Component.
     createComponent,
     Component,

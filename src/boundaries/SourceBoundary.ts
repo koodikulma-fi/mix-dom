@@ -11,6 +11,7 @@ import {
     MixDOMRenderOutput,
     MixDOMSourceBoundaryId,
     MixDOMDefBoundary,
+    MixDOMInternalCompBaseProps,
 } from "../typing";
 // Boundaries.
 import { BaseBoundary } from "./BaseBoundary";
@@ -92,7 +93,7 @@ export class SourceBoundary extends BaseBoundary {
             const withContextAPI = renderFunc && renderFunc.length >= 3 || false;
             
             // Create component.
-            const component = this.component = new (renderFunc ? shadowAPI ? { [renderFunc.name]: class extends Component {}}[renderFunc.name] : Component : tag as ComponentType)(props, this) as Component;
+            const component = this.component = new (renderFunc ? shadowAPI ? { [renderFunc.name]: class extends Component {}}[renderFunc.name] : Component : tag as ComponentType)(props as MixDOMInternalCompBaseProps, this) as Component;
             this.component = component;
             if (withContextAPI)
                 component.initContextAPI();
@@ -139,7 +140,7 @@ export class SourceBoundary extends BaseBoundary {
         }
         // Fallback to empty Component - shouldn't happen.
         else
-            this.component = new Component(props, this);
+            this.component = new Component(props as MixDOMInternalCompBaseProps, this);
     }
 
 

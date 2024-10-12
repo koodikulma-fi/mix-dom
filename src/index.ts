@@ -15,8 +15,8 @@
 
 // - Export public like - //
 
-// All common typing.
-export * from "./typing/index";
+// All public typing.
+export * from "./typing/MixDOMPublic";
 // SourceBoundary for constructor args.
 export { SourceBoundary } from "./boundaries/SourceBoundary";
 // All from common (Ref and MixDOMContent).

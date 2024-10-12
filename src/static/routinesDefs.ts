@@ -9,21 +9,22 @@ import {
     MixDOMDefTarget,
     MixDOMDefType,
     MixDOMDefApplied,
-    MixDOMPreTag,
-    MixDOMComponentTag,
+    MixDOMAnyTags,
+    MixDOMComponentTags,
     MixDOMRenderOutput,
-    MixDOMContentValue,
-    MixDOMPreComponentProps,
-    MixDOMPreDOMTagProps,
-    MixDOMPreBaseProps,
-    MixDOMPreDOMProps
+    MixDOMPreProps,
+    MixDOMInternalBaseProps,
+    MixDOMInternalDOMProps,
+    OmitPartial,
 } from "../typing";
 // Only typing (distant).
 import { Ref } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host } from "../host/Host";
+import { ComponentInfoEmpty, ReadComponentInfo } from "../components/typesInfo";
+import { ComponentProps } from "../components/Component";
+import { SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
 import { PseudoPortalProps, PseudoElementProps } from "../components/ComponentPseudos";
-import { SpreadFunc, ComponentSpreadProps } from "../components/ComponentSpread";
 import { ComponentRemoteType } from "../components/ComponentRemote";
 
 
@@ -36,14 +37,25 @@ const contentKey: {} = {};
 // - Create def helpers - //
 
 /** Create a rendering definition. Supports receive direct JSX compiled output. */
-export function newDef<DOMTag extends DOMTags>(domTag: DOMTag, origProps?: MixDOMPreDOMTagProps<DOMTag> | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
-export function newDef<Props extends Record<string, any>>(componentTag: MixDOMComponentTag<Props>, origProps?: (MixDOMPreComponentProps & Props) | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
-export function newDef<Props extends MixDOMPreDOMTagProps | MixDOMPreComponentProps>(tag: MixDOMPreTag, origProps?: Props | null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null;
-export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
+export function newDef<Tag>(...args:
+    // DOM.
+    Tag extends string ? [domTag: string, origProps?: MixDOMPreProps<Tag> | null, ...contents: MixDOMRenderOutput[]] :
+    // Components, spreads and pseudos.
+    // .. Note that we allow here a bit more loosely than in TSX - for example spreads can have _contexts and _signals.
+    Tag extends MixDOMComponentTags ?
+        // Can be empty.
+        {} | undefined extends OmitPartial<ReadComponentInfo<Tag, ComponentInfoEmpty>["props"]> | undefined ? [componentTag: Tag, origProps?: ComponentProps<ReadComponentInfo<Tag>> | null, ...contents: MixDOMRenderOutput[]] :
+        // Let's just allow Spreads here.
+        [componentTag: Tag, origProps: ComponentProps<ReadComponentInfo<Tag>>, ...contents: MixDOMRenderOutput[]] :
+        // Tag extends Function & ((props?: Record<string, any>) => MixDOMRenderOutput) ? Tag["length"] extends 0 | 1 ? [spreadTag: Tag, origProps: SpreadFuncProps & ReadComponentInfo<Tag, ComponentInfoEmpty>["props"], ...contents: MixDOMRenderOutput[]] :
+    // Unrecognized.
+    [tag: Tag, origProps?: never, ...contents: MixDOMRenderOutput[]]
+): MixDOMDefTarget | null;
+export function newDef(tagOrClass: MixDOMAnyTags, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
     
     // Get type.
-    const defType = getDefType(tagOrClass);
-    if (!defType || origProps && (origProps as MixDOMPreBaseProps)._disable)
+    const defType = parseDefType(tagOrClass);
+    if (!defType || origProps && (origProps as MixDOMInternalBaseProps)._disable)
         return null;
 
     // Add childDefs to the def.
@@ -78,7 +90,7 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
         return null;
 
     // Create the basis for the def.
-    const tag = defType === "dom" && tagOrClass as DOMTags || defType === "boundary" && tagOrClass as MixDOMComponentTag || defType === "element" && "_" || (defType === "content" ? "" : null);
+    const tag = defType === "dom" && tagOrClass as DOMTags || defType === "boundary" && tagOrClass as MixDOMComponentTags || defType === "element" && "_" || (defType === "content" ? "" : null);
     const targetDef = {
         MIX_DOM_DEF: defType,
         tag,
@@ -128,7 +140,7 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
             break;
         case "element": {
             // Parse.
-            const { element, cloneMode, ...domProps } = (targetDef.props as Omit<PseudoElementProps, keyof MixDOMPreDOMProps>) || {};
+            const { element, cloneMode, ...domProps } = (targetDef.props as Omit<PseudoElementProps, keyof MixDOMInternalDOMProps>) || {};
             // Clean up.
             targetDef.props = cleanDOMProps(domProps);
             // Just pass.
@@ -146,7 +158,7 @@ export function newDef(tagOrClass: MixDOMPreTag, origProps: Record<string, any> 
  * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
  * - Normally uses a container only as a fallback if has many children.
  */
-export function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreDOMTagProps, key?: any): MixDOMDefTarget {
+export function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreProps, key?: any): MixDOMDefTarget {
     // Create def.
     const def: MixDOMDefTarget = {
         MIX_DOM_DEF: "content",
@@ -210,7 +222,7 @@ export function newDefFrom(renderContent: MixDOMRenderOutput): MixDOMDefTarget |
             };
         }
         // Otherwise it's unknown data, stringify it.
-        renderContent = String(renderContent) as MixDOMContentValue;
+        renderContent = String(renderContent) as string;
     }
     // Is simple content as a string or number.
     if (renderContent != null)
@@ -282,13 +294,84 @@ export function newContentCopyDef(key?: any): MixDOMDefTarget {
 }
 
 
-// - Helpers - //
+// - Exported helpers - //
+
+/** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
+ * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
+ * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
+ * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
+ */
+export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean): boolean | "maybe" {
+    // Loop each.
+    let maybe: false | "maybe" = false;
+    for (const def of childDefs) {
+        // Nope.
+        if (def.disabled)
+            continue;
+        // Get our value.
+        const answer: boolean | "maybe" =
+            // If is a fragment, check deeply in it.
+            def.MIX_DOM_DEF === "fragment" ? hasContentInDefs(def.childDefs as Def[], handlePass) : 
+            // If is a pass, use our predefiend answer or callback.
+            def.MIX_DOM_DEF === "pass" ? typeof handlePass === "function" ? handlePass(def) : handlePass && "maybe" :
+            // Otherwise, it's something else - so we regard it as content (on the static side).
+            true;
+        // Got a solid no.
+        if (!answer)
+            continue;
+        // Got a solid yes.
+        if (answer === true)
+            return true;
+        // Potentially.
+        maybe = "maybe";
+    }
+    // Return false or then "maybe" if had any content passes (and is on the static side).
+    return maybe;
+}
+
+
+// - Local helpers - //
+
+/** Note that "content" and "host" defs are created from the ...contents[], while "pass" type comes already as a def.
+ * - This gives any other type. If there's no valid type, returns "".
+ */
+function parseDefType(tag: MixDOMAnyTags): MixDOMDefType | "spread" | "" {
+    // Dom or pseudo-element.
+    if (typeof tag === "string")
+        return tag === "_" ? "element" : "dom"; // Note. Element is not typically given like this in early stage, but let's mark it as valid.
+    // Later in the process, null means fragment. At early parsing stage is just nothing.
+    if (!tag)
+        return "";
+    // Functions.
+    const mixDOMClass = tag["MIX_DOM_CLASS"];
+    if (!mixDOMClass)
+        return typeof tag === "function" ? (tag.length >= 2 ? "boundary" : "spread") : "";
+    // Class/Mixin or pseudo class.
+    switch(mixDOMClass) {
+        // Boundaries.
+        case "Component":
+        case "Remote":
+            return "boundary";
+        // For others below, we return the lower case type as it fits MixDOMDefType.
+        case "Fragment":
+        case "Portal":
+        case "Element":
+        case "Host":
+            return mixDOMClass.toLowerCase() as MixDOMDefType;
+        // Empty or other.
+        // case "Empty":
+        // case "EmptyRemote":
+        default:
+            return "";
+    }
+}
 
 /** The method to call and unfold spread func's render defs. (This functionality is paired with other parts in _Apply.)
  * - The returned defs are wrapped in a fragment that provides scoping detection - unless returned null, then also returns null.
  * - The children fed here are the cleaned childDefs that should replace any content pass.
- * - Note that this renders the spread func and then goes over its targetDefs while also copying the new structure and modifying it. */
-export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: SpreadFunc, origProps: ComponentSpreadProps & Props, children: MixDOMDefTarget[]): MixDOMDefTarget | null {
+ * - Note that this renders the spread func and then goes over its targetDefs while also copying the new structure and modifying it.
+ */
+function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: SpreadFunc, origProps: SpreadFuncProps & Props, children: MixDOMDefTarget[]): MixDOMDefTarget | null {
     // Render.
     const { _key, _disable, ...props } = origProps;
     let preDef = newDefFrom( spreadFunc(props) );
@@ -410,66 +493,4 @@ export function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc:
     }
     // Return target - we might have modified it.
     return baseDef;
-}
-
-/** Note that "content" and "host" defs are created from the ...contents[], while "pass" type comes already as a def.
- * .. This gives any other type. If there's no valid type, returns "". */
-export function getDefType(tag: MixDOMPreTag): MixDOMDefType | "spread" | "" {
-    // Dom.
-    if (typeof tag === "string")
-        return "dom";
-    // Functions.
-    const mixDOMClass = tag["MIX_DOM_CLASS"];
-    if (!mixDOMClass)
-        return typeof tag === "function" ? (tag.length >= 2 ? "boundary" : "spread") : "";
-    // Class/Mixin or pseudo class.
-    switch(mixDOMClass) {
-        // Boundaries.
-        case "Component":
-        case "Remote":
-            return "boundary";
-        // For others below, we return the lower case type as it fits MixDOMDefType.
-        case "Fragment":
-        case "Portal":
-        case "Element":
-        case "Host":
-            return mixDOMClass.toLowerCase() as MixDOMDefType;
-        // Empty or other.
-        // case "Empty":
-        default:
-            return "";
-    }
-}
-
-/** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
- * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
- * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
- * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
- */
-export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean): boolean | "maybe" {
-    // Loop each.
-    let maybe: false | "maybe" = false;
-    for (const def of childDefs) {
-        // Nope.
-        if (def.disabled)
-            continue;
-        // Get our value.
-        const answer: boolean | "maybe" =
-            // If is a fragment, check deeply in it.
-            def.MIX_DOM_DEF === "fragment" ? hasContentInDefs(def.childDefs as Def[], handlePass) : 
-            // If is a pass, use our predefiend answer or callback.
-            def.MIX_DOM_DEF === "pass" ? typeof handlePass === "function" ? handlePass(def) : handlePass && "maybe" :
-            // Otherwise, it's something else - so we regard it as content (on the static side).
-            true;
-        // Got a solid no.
-        if (!answer)
-            continue;
-        // Got a solid yes.
-        if (answer === true)
-            return true;
-        // Potentially.
-        maybe = "maybe";
-    }
-    // Return false or then "maybe" if had any content passes (and is on the static side).
-    return maybe;
 }

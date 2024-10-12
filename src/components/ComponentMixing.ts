@@ -9,7 +9,7 @@ import { newDef } from "../static/index";
 import { MixDOMContent } from "../common/index";
 // Local.
 import { ReadComponentInfo, ComponentInfo, ComponentInfoEmpty, ReadComponentInfos, ReadComponentRequiredInfo } from "./typesInfo";
-import { SpreadFunc } from "./ComponentSpread";
+import { SpreadFunc } from "../common/SpreadFunc";
 import { Component, ComponentFunc, ComponentType, ComponentTypeAny, GetComponentTypeFrom } from "./Component";
 import { ComponentContextAPI, ComponentCtx, ComponentFuncCtx } from "./ComponentContextAPI";
 import { ComponentShadowFunc } from "./ComponentShadow";

@@ -6,7 +6,7 @@ import { SignalListener, Context } from "data-signals";
 import { DOMTags } from "dom-types";
 // Local.
 // Only typing (local).
-import { MixDOMComponentTag, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMPostTag, MixDOMProcessedDOMProps } from "./MixDOMTypes";
+import { MixDOMComponentTags, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMAnyTags, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
 import { MixDOMTreeNode } from "./MixDOMTreeNode";
 // Only typing (distant).
 import { RefBase } from "../common/Ref";
@@ -36,7 +36,7 @@ interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedD
      * - That's why it's name so strangely (to distinguish from objects), but still somewhat sensibly to be readible.
      * - In earlier quick tests, it seemed (almost 2x) faster to use { _isDef: true} as opposed to creating a new class instance (without _isDef member). */
     MIX_DOM_DEF: MixDOMDefType;
-    tag: MixDOMPostTag;
+    tag: MixDOMAnyTags;
     childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
 
     // Internal.
@@ -116,7 +116,7 @@ export interface MixDOMDefPortal<Props extends MixDOMProcessedDOMProps = MixDOMP
 }
 export interface MixDOMDefBoundary<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
     MIX_DOM_DEF: "boundary";
-    tag: MixDOMComponentTag;
+    tag: MixDOMComponentTags;
     props: Props;
     /** Internal marker put on the applied def to mark that was passed in a content pass.
      * - This helps to form a parental chain of closures that pass the content down.

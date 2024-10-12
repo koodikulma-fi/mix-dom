@@ -2,25 +2,25 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMPreBaseProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMInternalBaseProps, MixDOMRenderOutput } from "../typing";
 
 
 // - Helper types - //
 
 /** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
-export type SpreadFunc<Props extends Record<string, any> = {}> = (props: Props) => MixDOMRenderOutput;
+export type SpreadFunc<Props extends Record<string, any> = {}> = (props: SpreadFuncProps & Props) => MixDOMRenderOutput;
 /** Typing for a SpreadFunc with extra arguments. Note that it's important to define the JS side as (props, ...args) so that the func.length === 1. 
  * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
  */
-export type SpreadFuncWith<Props extends Record<string, any> = {}, ExtraArgs extends any[] = any[]> = (props: Props, ...args: ExtraArgs) => MixDOMRenderOutput;
+export type SpreadFuncWith<Props extends Record<string, any> = {}, ExtraArgs extends any[] = any[]> = (props: SpreadFuncProps & Props, ...args: ExtraArgs) => MixDOMRenderOutput;
 
 
 // - Spread component virtual type - //
 
-/** The spread component props. */
-export interface ComponentSpreadProps extends Pick<MixDOMPreBaseProps, "_disable" | "_key"> {}
-/** There is no actual class for ComponentSpread. It's not even a real component, but only spreads out the defs instantly on the static side. */
-export interface ComponentSpread<Props extends Record<string, any> = {}> extends SpreadFunc<Props> { }
+/** The spread function props including the internal props `_disable` and `_key`. */
+export interface SpreadFuncProps extends MixDOMInternalBaseProps {} // Pick<MixDOMInternalBaseProps, "_disable" | "_key"> {}
+// /** There is no actual class for ComponentSpread. It's not even a real component, but only spreads out the defs instantly on the static side. */
+// export interface ComponentSpread<Props extends Record<string, any> = {}> extends SpreadFunc<Props> { }
 
 
 // - Functionality - //

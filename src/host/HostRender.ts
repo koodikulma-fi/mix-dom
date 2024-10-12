@@ -9,7 +9,6 @@ import {
     MixDOMTreeNode,
     MixDOMTreeNodeDOM,
     MixDOMTreeNodeType,
-    MixDOMContentValue,
     MixDOMRenderInfo,
     MixDOMDefType,
     MixDOMAssimilateItem,
@@ -503,7 +502,7 @@ export class HostRender {
                         // Set / clear text content.
                         else {
                             // Get text.
-                            const newText = content == null ? "" : (settings.renderTextHandler ? settings.renderTextHandler(content as MixDOMContentValue) : content).toString();
+                            const newText = content == null ? "" : (settings.renderTextHandler ? settings.renderTextHandler(content as string | number) : content).toString();
                             // If wasn't a Text node.
                             if (nodeWas.nodeType !== Node.TEXT_NODE && this.inBrowser)
                                 newNode = document.createTextNode(newText);

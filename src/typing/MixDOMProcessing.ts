@@ -4,7 +4,7 @@
 // Libraries.
 import { CompareDepthMode } from "data-memo";
 import { SignalsRecord, Context } from "data-signals";
-import { DOMCleanProps, DOMTags, DOMAttributes } from "dom-types";
+import { DOMCleanProps, DOMTags, DOMAttributes, DOMAttributesAny } from "dom-types";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
@@ -15,7 +15,13 @@ import { SourceBoundary } from "../boundaries/SourceBoundary";
 import { Host } from "../host/Host";
 import { ComponentSignals } from "../components/typesSignals";
 import { ComponentTypeAny } from "../components/Component";
-import { PseudoElement, PseudoElementProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, PseudoEmpty, PseudoEmptyProps } from "../components/ComponentPseudos";
+import { PseudoFragment, MixDOMPseudoTags } from "../components/ComponentPseudos";
+
+
+// - Common helpers - //
+
+export type GetPartialKeys<T> = { [Key in keyof T]: undefined extends T[Key] ? Key : never; }[keyof T];
+export type OmitPartial<T> = Omit<T, GetPartialKeys<T>>;
 
 
 // - Component & Boundary - //
@@ -27,19 +33,12 @@ export type MixDOMSourceBoundaryId = string;
 
 // - Tags - //
 
-export type MixDOMPseudoTag<Props extends Record<string, any> = {}> =
-    | ([Props] extends [PseudoFragmentProps] ? typeof PseudoFragment<Props> : never)
-    | ([Props] extends [PseudoElementProps] ? typeof PseudoElement<DOMTags, Props> : never)
-    | ([Props] extends [PseudoPortalProps] ? typeof PseudoPortal<Props> : never)
-    | ([Props] extends [PseudoEmptyProps] ? typeof PseudoEmpty<Props> : never)
-;
-export type MixDOMComponentTag<Props extends Record<string, any> = {}> = ComponentTypeAny<{ props: Props; }> | MixDOMPseudoTag<Props>;
-// export type MixDOMPreTag = DOMTags | MixDOMPseudoTag | typeof PseudoEmpty | MixDOMComponentTag;
-export type MixDOMPreTag = DOMTags | MixDOMPseudoTag | MixDOMComponentTag;
-export type MixDOMPostTag = "" | "_" | DOMTags | MixDOMComponentTag | null;
+export type MixDOMComponentTags = ComponentTypeAny | MixDOMPseudoTags;
+export type MixDOMTags = "" | "_" | DOMTags;
+export type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
  * The number type refers to the values of searchByTag in routinesPairing. */
-export type MixDOMDefKeyTag = MixDOMPostTag | MixDOMDefTarget | typeof PseudoFragment | Host | number;
+export type MixDOMDefKeyTag = MixDOMAnyTags | MixDOMDefTarget | typeof PseudoFragment | Host | number;
 
 
 // - Virtual dom for reassimilation - //
@@ -89,47 +88,48 @@ export interface MixDOMRemountInfo extends MixDOMReassimilateInfo {
 }
 
 
-// - PRE Props - //
+// - Props - //
 
-export interface MixDOMPreBaseProps {
+/** Basis for the pre processed props. */
+export interface MixDOMInternalBaseProps {
     /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.) */
     _disable?: boolean;
     /** Attach key for moving the def around. */
     _key?: any;
-    /** Attach one or many refs. */
-    _ref?: RefBase | RefBase[];
+    // /** Attach one or many refs. (Not available for SpreadFuncs.) */
+    // _ref?: RefBase | RefBase[];
 }
-export interface MixDOMPreProps<Signals extends SignalsRecord = {}> extends MixDOMPreBaseProps {
-    /** Attach signals. */
-    _signals?: Partial<Signals> | null;
-    /** Attach named contexts on a child component. Any changes in these will call component.contextAPI.setContext() accordingly. */
-    _contexts?: Partial<Record<string, Context | null>> | null;
-}
-/** Dev. note. The current decision is to rely on JSX global declaration and not include MixDOMPreComponentProps into each Component type (including funcs) or constructor(props).
- * - However, the _signals are reliant on having more typed info to be used nicely. So that's why we have this type specifically. The _signals will not be there during the render cycle, tho. 
+/** Dev. note. The current decision is to rely on JSX global declaration and not include MixDOMInternalCompProps into each Component type (including funcs) or constructor(props).
+ * - However, the _signals are reliant on having more typed info to be used nicely. So that's why we have this type specifically. The _signals will not be there during the render cycle, tho.
  * - Note that above decision relies mainly on two things: 1. The JSX intrinsic declaration is anyway needed for DOM elements, 2. It's very confusing to have _key and _disable appearing in the type inside render method / func.
  */
-export type MixDOMPreComponentOnlyProps<Signals extends SignalsRecord = {}> = {
-    /** Attach signals to component. Exceptionally the _signals prop is exposed even tho it will not be there during the render cycle. It's exposed due to getting better typing experience when using it in TSX. */
+export type MixDOMInternalCompBaseProps<Signals extends SignalsRecord = {}> = {
+    /** Attach signals to component. Exceptionally the _signals prop is exposed even tho it will not be there during the render cycle. It's exposed due to getting better typing experience when using it in TSX. (Not available for SpreadFuncs.) */
     _signals?: Partial<ComponentSignals & Signals> | null;
-    /** Attach named contexts on a child component. Any changes in these will call component.contextAPI.setContext() accordingly. */
+    /** Attach named contexts on a child component. Any changes in these will call component.contextAPI.setContext() accordingly. (Not available for SpreadFuncs.) */
     _contexts?: Partial<Record<string, Context | null>> | null;
 }
-export type MixDOMPreComponentProps<Signals extends SignalsRecord = {}> = MixDOMPreBaseProps & MixDOMPreComponentOnlyProps<Signals>;
+export interface MixDOMInternalCompProps extends MixDOMInternalBaseProps, MixDOMInternalCompBaseProps {
+    /** Attach one or many refs. (Not available for SpreadFuncs.) */
+    _ref?: RefBase | RefBase[];
+}
 
 /** This combines all the internal dom props together: "_key", "_ref", "_disable" and _"signals" with its dom specific listeners. */
-export interface MixDOMPreDOMProps extends MixDOMPreBaseProps {
+export interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
+    /** Attach one or many refs. (Not available for SpreadFuncs.) */
+    _ref?: RefBase | RefBase[];
     /** The common DOM signals are the same as with Refs: "domDidAttach", "domWillDetach", "domDidMount", "domDidUpdate", "domDidContent", "domDidMove" and "domWillUnmount". */
     _signals?: Partial<RefDOMSignals> | null;
 }
-/** This includes all the internal dom props (_key, _ref, ...) as well as common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-export type MixDOMPreDOMTagProps<Tag extends string = DOMTags> = MixDOMPreDOMProps & DOMAttributes<Tag>;
+
+// Dom props.
+/** Contains tag based DOM attributes including internal dom props (_key, _ref, _disabled, _signals). The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
+export type MixDOMPreProps<Tag extends string = DOMTags> = DOMTags extends Tag ? DOMAttributesAny & MixDOMInternalDOMProps : DOMAttributes<Tag> & MixDOMInternalDOMProps;
 
 
-// - POST Props - //
-
-/** These are any DOM props excluding internal props (like _key, _ref, ...), but also including HTML and SVG attributes (including listeners) by inputting Tag. */
-export type MixDOMDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
+// Post props.
+/** Tag based DOM props _excluding_ internal props (_key, _ref, _disabled, _signals). The same as `DOMAttributes<Tag>` from "dom-types". */
+export type MixDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
 
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
  * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.
@@ -140,11 +140,10 @@ export type MixDOMProcessedDOMProps = DOMCleanProps;
 
 // - Render output types - //
 
-export type MixDOMContentNull = null | undefined;
-export type MixDOMContentValue = string | number;
-export type MixDOMContentSimple = MixDOMContentValue | Node;
-export type MixDOMRenderOutputSingle = MixDOMDefTarget | MixDOMContentSimple | MixDOMContentNull | Host;
-export interface MixDOMRenderOutputMulti extends Array<MixDOMRenderOutputSingle | MixDOMRenderOutputMulti> {} // This is a recursive type, might be nested array.
+type MixDOMContentNull = null | undefined;
+export type MixDOMContentSimple = string | number | Node;
+type MixDOMRenderOutputSingle = MixDOMDefTarget | MixDOMContentSimple | Host | MixDOMContentNull;
+interface MixDOMRenderOutputMulti extends Array<MixDOMRenderOutputSingle | MixDOMRenderOutputMulti> {} // This is a recursive type, might be nested array.
 export type MixDOMRenderOutput = MixDOMRenderOutputSingle | MixDOMRenderOutputMulti;
 
 

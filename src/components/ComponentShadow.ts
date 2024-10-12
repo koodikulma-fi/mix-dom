@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMPreComponentOnlyProps, MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
+import { MixDOMInternalCompBaseProps, MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
 import { ComponentInfo } from "./typesInfo";
 import { ComponentExternalSignalsFrom } from "./typesSignals";
@@ -16,12 +16,12 @@ import { ComponentShadowAPI } from "./ComponentShadowAPI";
 /** Type for the ComponentShadowAPI signals. */
 export type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
 export type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)
+    ((props: MixDOMInternalCompBaseProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)
     ) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 export type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> =
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
+    ((props: MixDOMInternalCompBaseProps<Info["signals"] & {}> & Info["props"], component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 export type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> =
-    ((props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
+    ((props: MixDOMInternalCompBaseProps<Info["signals"] & {}> & Info["props"], component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & { Info?: Info; api: ComponentShadowAPI<Info>; };
 
 
 // - Class types - //

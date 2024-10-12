@@ -4,7 +4,7 @@
 // Libraries.
 import { SignalListener, SignalBoy } from "data-signals";
 // Typing.
-import { MixDOMUpdateCompareModesBy } from "../typing";
+import { MixDOMUpdateCompareModesBy, OmitPartial } from "../typing";
 // Local.
 import { ComponentInfo } from "./typesInfo";
 import { ComponentContextAPI } from "./ComponentContextAPI";
@@ -75,9 +75,9 @@ function prepareShadow(Shadow: ComponentShadowFunc | ComponentShadowFuncWith | C
  * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
  * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
 */
-export function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info>;
-export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowFunc<Info>;
-export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info>;
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowFunc<Info>;
+export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info> {
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;

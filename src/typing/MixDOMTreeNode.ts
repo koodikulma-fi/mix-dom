@@ -5,7 +5,7 @@
 import { DOMElement } from "dom-types";
 // Only typing (local).
 import { MixDOMDefApplied } from "./MixDOMDefs";
-import { MixDOMBoundary, MixDOMProcessedDOMProps } from "./MixDOMTypes";
+import { MixDOMBoundary, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
 // Only typing (distant).
 import { ContentBoundary, SourceBoundary } from "../boundaries/index";
 

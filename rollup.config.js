@@ -90,7 +90,7 @@ export default [
     },
 
 
-    // - Global (= window.MixDom) - //
+    // - Global (= window.MixDOM) - //
 
     {
         input: 'dist/modules/index.global.js',

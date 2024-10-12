@@ -6,7 +6,7 @@ import { ClassType, AsClass, ReClass } from "mixin-types";
 import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType } from "data-signals";
 import { CompareDepthMode } from "data-memo";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMPreComponentOnlyProps } from "../typing";
+import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMInternalCompBaseProps, OmitPartial } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, treeNodesWithin } from "../static/index";
 // Boundaries.
@@ -44,7 +44,7 @@ export type ComponentCtxWith<Info extends ComponentInfoPartial = {}> = Component
 
 // Arguments and return for component functions.
 /** Typing (from the given Info) for the first initProps argument of functional (non-spread) components. The typing includes the special props, eg. `{ _signals, _key, ... }`. The first argument typing is important for TSX reasons, as it's used to read what are the actual props that can be fed in TSX form. */
-export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"];
+export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInternalCompBaseProps<Info["signals"] & {}> & Info["props"];
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
 export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
 /** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentFuncCtxArgs<Info>` instead. */
@@ -457,7 +457,12 @@ export interface ComponentType<Info extends ComponentInfoPartial = {}> extends A
  * - Use the `render(props, state)` method to render the contents - the method is called automatically by the flow (calling it manually has no meaning).
  */
 export class Component<Info extends ComponentInfoPartial = {}> extends
-    (mixinComponent(Object) as any as ReClass<ComponentType, {}, [props: Record<string, any>, boundary?: SourceBoundary, ...args: any[]]>) { }
+    (mixinComponent(Object) as any as ReClass<ComponentType, {}>) {
+        // Let's define constructor with generic args.
+        constructor(props: ComponentProps<Info>, boundary?: SourceBoundary) {
+            super(props, boundary);
+        }
+    }
 export interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
 
     // Type the constructor as property. Needed for our info typing.
@@ -578,7 +583,7 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 // - Create component function - //
 
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
-export function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
+export function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
 export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentFuncCtxShortcut<Info>, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentFunc<any> {
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;
@@ -598,7 +603,7 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: Co
 }
 
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
-export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtx<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
+export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtx<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
 export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: ComponentFuncCtxShortcut<Info>, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentFuncCtx<Info> {
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;

@@ -4,7 +4,7 @@
 // Library.
 import { orderedIndex } from "data-memo";
 // Typing.
-import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMPreComponentOnlyProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMInternalCompBaseProps, MixDOMRenderOutput } from "../typing";
 // Routines.
 import { newContentPassDef, newDef, newDefFrom } from "../static/index";
 // Common.
@@ -14,7 +14,7 @@ import { SourceBoundary, ContentClosure } from "../boundaries/index";
 // Host.
 import { applyClosureEnvelope, collectInterestedInClosure } from "../host/index";
 // Local.
-import { Component, ComponentFunc, ComponentType } from "./Component";
+import { Component, ComponentFunc, ComponentType, ComponentTypeEither } from "./Component";
 
 
 // - MAIN IDEA (v4.0) - //
@@ -54,7 +54,7 @@ export interface ContentPasserProps<CustomProps extends Record<string, any> = {}
     renderer?: (remotes: ComponentRemote<CustomProps>[]) => MixDOMRenderOutput;
 }
 /** Props for the Remote component generally. Includes intrinsic signals. */
-export interface ComponentRemoteProps extends MixDOMPreComponentOnlyProps {
+export interface ComponentRemoteProps extends MixDOMInternalCompBaseProps {
     order?: number;
 }
 
@@ -75,14 +75,14 @@ export interface ComponentRemote<CustomProps extends Record<string, any> = {}> e
     Content: MixDOMDefTarget;
     ContentCopy: MixDOMDefTarget;
     copyContent: (key?: any) => MixDOMDefTarget;
-    WithContent: ComponentType<{props: { hasContent?: boolean; }; }> & {
+    WithContent: ComponentTypeEither<{props: { hasContent?: boolean; }; }> & {
         /** Should contain the content pass object.
          * - For parental passing it's the MixDOM.Content object.
          * - For remote instance it's their Content pass object with its getRemote() method.
          * - For remote static side it's a def for a boundary.
          */
         _WithContent: MixDOMDefTarget;
-    }
+    };
     /** Check whether this remote content pass has content to render (vs. null like). */
     hasContent: () => boolean;
 }
@@ -126,7 +126,7 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
      *      * However, if there was no actual content to pass, then results in `null`.
      * - This is very typically used for adding some wired elements to a popup remote, like in the above example.
      */
-    WithContent: ComponentType<{props: { hasContent?: boolean; }; }> & {
+    WithContent: ComponentTypeEither<{props: { hasContent?: boolean; }; }> & {
         /** Should contain the content pass object.
          * - For parental passing it's the MixDOM.Content object.
          * - For remote instance it's their Content pass object with its getRemote() method.
@@ -242,8 +242,8 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
         public static renderContents = (renderer) => newDef(_Remote.ContentPasser, { renderer });
         public static WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
             // Instance side.
-            constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary, ...passArgs: any[]) {
-                super(props, boundary, ...passArgs);
+            constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary) {
+                super(props, boundary);
                 // Mark to interests.
                 WithContent.withContents.add(this.boundary);
                 // Listen to unmount.

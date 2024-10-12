@@ -60,6 +60,16 @@
   - Renamed `ComponentContextApiType` to `ComponentContextAPIType` (with capital "API").
 - In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
 
+### Cleaned up typing
+- Refined typing for `newDef` method (for non-TSX use), and refined `ReadComponentInfo` to be more robust.
+- Removed some types, made some internal (= not exported) and renamed a couple of public. The new public props and tags related are:
+  - `MixDOMProps` for DOM properties without internal special props (_disable, _key, _ref, _signals).
+  - `MixDOMPreProps` like `MixDOMProps` but also includes the special props (_disable, _key, _ref, _signals).
+  - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
+  - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
+  - `MixDOMAnyTags` for any valid tags.
+  - `SpreadFuncProps<Props>` refers to props for spread functions including the internal special props: _key and _disable, where as `ComponentProps<Info>` also includes _ref, _signals and _contexts.
+
 ---
 
 ## v4.0.0 (2024-10-11)
