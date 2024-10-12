@@ -552,7 +552,7 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: Co
             function (_props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentFuncCtxShortcut<Info>)(component, contextAPI); } as ComponentFuncCtx<Info> :
             function (_props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info>) { return (func as ComponentFuncShortcut<Info>)(component); } as ComponentFunc<Info>
     }[name];
-    // Attach static side.
+    // Assign static properties.
     if (staticProps)
         for (const p in staticProps)
             f[p] = staticProps[p];
@@ -568,7 +568,7 @@ export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func:
     const name = (staticProps ? args[1] as string : args[0] as string) || func.name;
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically.
     const f = ({ [name]: function (_props: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentFuncCtxShortcut<Info>)(component, contextAPI); }})[name] as ComponentFuncCtx<Info>
-    // Attach static side.
+    // Assign static properties.
     if (staticProps)
         for (const p in staticProps)
             f[p] = staticProps[p];
