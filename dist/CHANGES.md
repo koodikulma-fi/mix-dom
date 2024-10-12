@@ -24,7 +24,7 @@
           // For the renderer, use ComponentFuncReturn<Info>, so our (props, state) and return are fully typed.
           return ((props, state) => { return <div class="my-item"></div>; }) as ComponentFuncReturn<MyItemInfo<Id>>;
       };
-      // Alternative with prepared args, also using contextAPI.
+      // Alternative with prepared args, and using contextAPI.
       const MyItemAlt = <Id extends number | string = any, Args extends any[] = ComponentFuncCtxArgs<MyItemInfo<Id>>>
           // Note that on JS side should always define args one by one, not as ...args, as it affects func.length.
           (_props: Args[0], component: Args[1], cApi: Args[2]) => {
