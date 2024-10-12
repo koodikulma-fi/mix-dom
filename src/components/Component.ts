@@ -43,7 +43,7 @@ export type ComponentReInstance<Info extends ComponentInfoPartial = {}> = Compon
 export type ComponentCtxReInstance<Info extends ComponentInfoPartial = {}> = ComponentCtx<Info> & Info["class"] & { ["constructor"]: ComponentType<Info> & Info["static"]; };
 
 // Arguments and return for component functions.
-/** Typing for the first initProps argument of functional (non-spread) components. The typing includes the special props, eg. `{ _signals, _key, ... }`. */
+/** Typing (from the given Info) for the first initProps argument of functional (non-spread) components. The typing includes the special props, eg. `{ _signals, _key, ... }`. The first argument typing is important for TSX reasons, as it's used to read what are the actual props that can be fed in TSX form. */
 export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"];
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
 export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentReInstance<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
