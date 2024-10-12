@@ -146,9 +146,9 @@ export const MixDOM = {
 
     // - Create components - //
 
-    /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
+    /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). You can also give a dictionary of static properties to assign (as the 2nd arg to MixDOM.component). */
     component: createComponent,
-    /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
+    /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. You can also give a dictionary of static properties to assign (as the 2nd arg to MixDOM.componentCtx). */
     componentCtx: createComponentCtx,
     /** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
      * - Shadow components are normal components, but they have a ShadowAPI attached as component.constructor.api.

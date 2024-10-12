@@ -58,7 +58,7 @@ export type ComponentExternalSignalsFrom<
     Comp extends Component<any> = Component<Info>,
     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]
 > =
-    { [SignalName in keyof CompSignals]: (comp: Comp & Info["class"], ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
+    { [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & { ["constructor"]: Info["static"]; }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
 
 export type ComponentExternalSignals<Comp extends Component = Component> = {
     /** Special call - called right after constructing the component instance. */

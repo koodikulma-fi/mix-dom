@@ -1,4 +1,12 @@
-## v4.0.0 
+## v4.1.0
+
+### Added support for { static } component info
+- The static info is supported for both: classes and functions, and it also works for the component mixing methods.
+- In addition, the MixDOM.component and MixDOM.componentCtx shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg).
+
+---
+
+## v4.0.0
 
 ### Splitted library to 5 modules
 

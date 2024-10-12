@@ -22,7 +22,8 @@ export interface ComponentInfo<
     Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {}
+    Contexts extends ContextsAllType = {},
+    Static extends Record<string, (...args: any[]) => any> = {}
 > {
     /** Typing for the props for the component - will be passed by parent. */
     props: Props;
@@ -43,6 +44,8 @@ export interface ComponentInfo<
      * - The actual contexts can be attached directly on the Component using its contextAPI or _contexts prop, but they are also secondarily inherited from the Host.
      */
     contexts: Contexts;
+    /** Anything on static side of class, including what is attached to the functions directly. In both cases: `SomeComponent.someStaticMember` - be their funcs or classes. */
+    static: Static;
 }
 /** Partial version of the ComponentInfo. */
 export interface ComponentInfoPartial<
@@ -51,8 +54,9 @@ export interface ComponentInfoPartial<
     Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {}
-> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {}
+    Contexts extends ContextsAllType = {},
+    Static extends Record<string, (...args: any[]) => any> = {}
+> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
 
 /** Empty component info type. */
 export type ComponentInfoEmpty = {
@@ -62,12 +66,13 @@ export type ComponentInfoEmpty = {
     signals?: {};
     timers?: {};
     contexts?: {};
+    static?: {};
 }
 
 
 // - Create by info args - //
 
-/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
+/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
 export interface ComponentOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
@@ -75,9 +80,10 @@ export interface ComponentOf<
     Signals extends Record<string, (...args: any[]) => any> = {},
     Timers extends any = {},
     Contexts extends ContextsAllType = {},
-> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {}
+    Static extends Record<string, any> = {}
+> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
 
-/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
+/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
 export interface ComponentTypeOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
@@ -85,17 +91,19 @@ export interface ComponentTypeOf<
     Signals extends Record<string, (...args: any[]) => any> = {},
     Timers extends any = {},
     Contexts extends ContextsAllType = {},
-> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {}
+    Static extends Record<string, any> = {}
+> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {}
 
-/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
+/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
 export type ComponentFuncOf<
     Props extends Record<string, any> = {},
     State extends Record<string, any> = {},
     Class extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Timers extends any = any,
-    Contexts extends ContextsAllType = {}
-> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+    Contexts extends ContextsAllType = {},
+    Static extends Record<string, any> = {}
+> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 
 
 // - Read component info - //

@@ -30,9 +30,9 @@ export type ComponentInstance<CompType extends ComponentType | ComponentFunc> = 
 // - Component with class requirements - //
 
 /** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-export type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"];
+export type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"] & { ["constructor"]: ReadComponentInfo<Anything, ComponentInfoEmpty>["static"]; };
 /** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-export type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>>; // & ClassType<ReadComponentInfo<Anything, ComponentInfoEmpty>["class"]>; // Not needed, enforced in constructor's new.
+export type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["static"]; // & ClassType<ReadComponentInfo<Anything, ComponentInfoEmpty>["class"]>; // Not needed, enforced in constructor's new.
 /** Get a clean Component function type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
 export type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Anything, ComponentInfoEmpty>>;
 

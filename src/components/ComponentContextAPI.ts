@@ -20,11 +20,11 @@ export interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends 
     contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
 /** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
-export type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"];
+export type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & { ["constructor"]: Info["static"]; };
 
 /** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
 export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> =
-    ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
+    ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & { _Info?: Info; };
 
 
 // - ComponentContextAPI class - //

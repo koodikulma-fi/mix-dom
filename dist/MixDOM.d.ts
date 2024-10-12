@@ -111,9 +111,13 @@ interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Compone
     contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
 /** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"];
+type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+};
 /** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
+type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: ComponentCtx<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
     _Info?: Info;
 };
 /** Class type for ComponentContextAPI. */
@@ -153,7 +157,7 @@ declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends
 }
 
 /** Typing infos for Components. */
-interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> {
+interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, (...args: any[]) => any> = {}> {
     /** Typing for the props for the component - will be passed by parent. */
     props: Props;
     /** Typing for the local state of the component. */
@@ -173,9 +177,11 @@ interface ComponentInfo<Props extends Record<string, any> = {}, State extends Re
      * - The actual contexts can be attached directly on the Component using its contextAPI or _contexts prop, but they are also secondarily inherited from the Host.
      */
     contexts: Contexts;
+    /** Anything on static side of class, including what is attached to the functions directly. In both cases: `SomeComponent.someStaticMember` - be their funcs or classes. */
+    static: Static;
 }
 /** Partial version of the ComponentInfo. */
-interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {
+interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, (...args: any[]) => any> = {}> extends Partial<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
 }
 /** Empty component info type. */
 type ComponentInfoEmpty = {
@@ -185,15 +191,16 @@ type ComponentInfoEmpty = {
     signals?: {};
     timers?: {};
     contexts?: {};
+    static?: {};
 };
-/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
-interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {
+/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> extends Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
 }
-/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
-interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> {
+/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> extends ComponentType<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> {
 }
-/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts> */
-type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Class, Signals, Timers, Contexts, Static> */
+type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Class extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Timers extends any = any, Contexts extends ContextsAllType = {}, Static extends Record<string, any> = {}> = (initProps: MixDOMPreComponentOnlyProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Class, Signals, Timers, Contexts, Static>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 /** Type for anything that from which component info can be derived. */
 type ComponentInfoInterpretable = Partial<ComponentInfo> | {
     _Info?: Partial<ComponentInfo>;
@@ -272,9 +279,11 @@ type ComponentTypeAny<Info extends Partial<ComponentInfo> = {}> = ComponentType<
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
 type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
 /** Get a clean Component class instance type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"];
+type GetComponentFrom<Anything> = Component<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["class"] & {
+    ["constructor"]: ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
+};
 /** Get a clean Component class type (non-instanced) from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
-type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>>;
+type GetComponentTypeFrom<Anything> = ComponentType<ReadComponentInfo<Anything, ComponentInfoEmpty>> & ReadComponentInfo<Anything, ComponentInfoEmpty>["static"];
 /** Get a clean Component function type from anything (info, class type/instance, func, spread, HOC, mixin, mixable func, ...). Enforces the "class" requirements. */
 type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Anything, ComponentInfoEmpty>>;
 type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
@@ -915,7 +924,9 @@ type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     willUnmount: () => void;
 };
 type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<any> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
-    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"], ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
+    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
+        ["constructor"]: Info["static"];
+    }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
 };
 type ComponentExternalSignals<Comp extends Component = Component> = {
     /** Special call - called right after constructing the component instance. */
@@ -1045,7 +1056,7 @@ declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClas
 declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowFunc<Info>;
 declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, name?: string): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
 /** Create a shadow component with ComponentContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
+declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentShadowSignals> | null, name?: string) => ComponentShadowFuncWith<Info>;
 
 /** Type for the ComponentShadowAPI signals. */
 type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
@@ -1203,6 +1214,7 @@ declare function mergeShadowWiredAPIs(apis: Array<ComponentWiredAPI>): Component
  * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
  *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
  *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
+ * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
  */
 declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, useRenderer?: boolean): ComponentFunc<ReadComponentInfo<A>>;
 declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>>(a: A, b: B, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B]>>;
@@ -1314,7 +1326,6 @@ declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeA
 declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I): SpreadFunc<ReadComponentInfo<I, ComponentInfoEmpty>["props"] & {}>;
 declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny, J extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I, hoc10: (i: I) => J): SpreadFunc<ReadComponentInfo<J, ComponentInfoEmpty>["props"] & {}>;
 
-type ComponentFuncCtxShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 /** The common component constructor arguments from component info. (Only uses "props" from it.) */
 type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: Info["props"] & {}, boundary?: SourceBoundary, ...args: any[]];
 /** Add Component features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
@@ -1431,12 +1442,18 @@ type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: 
  *
  */
 declare function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<ComponentType<Info> & BaseClass, Component<Info> & InstanceType<BaseClass>, ComponentConstructorArgs<Info>>;
-/** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). */
-type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
+/** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
+type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: MixDOMPreComponentOnlyProps<Info["signals"] & {}> & Info["props"], component: Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>) & {
     _Info?: Info;
-};
-/** Class type (vs. instance) for component fed with ComponentInfo. */
-interface ComponentType<Info extends ComponentInfoPartial = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, Component<Info> & Info["class"], ComponentConstructorArgs<Info>> {
+} & Info["static"];
+/** Class type (vs. instance) for component fed with ComponentInfo. Note that this does not include the Info["static"] part directly. */
+interface ComponentType<Info extends ComponentInfoPartial = {}> extends AsClass<SignalManType<ComponentSignals<Info> & Info["signals"]>, // & Info["static"],
+// & Info["static"],
+Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+}, ComponentConstructorArgs<Info>> {
     /** Class type. */
     MIX_DOM_CLASS: string;
     /** May feature a ComponentShadowAPI. It's potential existence is pre-typed here to make typing easier. */
@@ -1452,7 +1469,7 @@ declare const Component_base: ReClass<ComponentType<{}>, {}, [props: Record<stri
 declare class Component<Info extends ComponentInfoPartial = {}> extends Component_base {
 }
 interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<ComponentSignals<Info> & Info["signals"]> {
-    ["constructor"]: ComponentType<Info>;
+    ["constructor"]: ComponentType<Info> & Info["static"];
     /** Fresh props from the parent. */
     readonly props: Info["props"] & {};
     /** If the state has changed since last render, this contains the shallow copy of the previous state. */
@@ -1526,10 +1543,14 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
      */
     render(props: Info["props"] & {}, state: Info["state"] & {}): MixDOMRenderOutput | MixDOMDoubleRenderer & MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 }
-/** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. */
-declare function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: Component<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string): ComponentFunc<Info>;
-/** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. */
-declare const createComponentCtx: <Info extends ComponentInfoPartial<{}, {}, {}, {}, any, {}> = {}>(func: ComponentFuncCtxShortcut<Info>, name?: string) => ComponentFuncCtx<Info>;
+/** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
+declare function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
+/** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
+declare function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtx<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
+}, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, ...args: {} | undefined extends Info["static"] ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
 
 interface ContentPasserProps<CustomProps extends Record<string, any> = {}> {
     /** Use a copy instead of a true pass. */
@@ -2397,17 +2418,17 @@ declare const MixDOM: {
      * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
      */
     EmptyRemote: ComponentRemoteType<{}>;
-    /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). */
+    /** Alias for createComponent. Create a functional component. You get the component as the first parameter, and optionally contextAPI as the second if you define 2 args: (component, contextAPI). You can also give a dictionary of static properties to assign (as the 2nd arg to MixDOM.component). */
     component: typeof createComponent;
-    /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    componentCtx: <Info extends ComponentInfoPartial<{}, {}, {}, {}, any, {}> = {}>(func: (component: ComponentCtx<Info> & Info["class"], contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>, name?: string) => ComponentFuncCtx<Info>;
+    /** Create a functional component with ContextAPI. The first initProps is omitted: (component, contextAPI). The contextAPI is instanced regardless of argument count. You can also give a dictionary of static properties to assign (as the 2nd arg to MixDOM.componentCtx). */
+    componentCtx: typeof createComponentCtx;
     /** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
      * - Shadow components are normal components, but they have a ShadowAPI attached as component.constructor.api.
      * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
     */
     shadow: typeof createShadow;
     /** Create a shadow component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-    shadowCtx: <Info_1 extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info_1>, contextAPI: ComponentContextAPI<Info_1["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info_1["props"]>, NonNullable<Info_1["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info_1>;
+    shadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, any, {}, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => MixDOMRenderOutput | MixDOMDoubleRenderer<NonNullable<Info["props"]>, NonNullable<Info["state"]>>, signals?: Partial<ComponentExternalSignalsFrom<{}, ComponentShadow<{}>, ComponentSignals<{}>>> | null | undefined, name?: string) => ComponentShadowFuncWith<Info>;
     /** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
      * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
      * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.

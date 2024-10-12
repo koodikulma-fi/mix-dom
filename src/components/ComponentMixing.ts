@@ -74,6 +74,7 @@ export function mergeShadowWiredAPIs(apis: Array<ComponentShadowAPI | ComponentW
  * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
  *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
  *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
+ * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
  */
 export function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, useRenderer?: boolean): ComponentFunc<ReadComponentInfo<A>>;
 export function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>>(a: A, b: B, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B]>>;
@@ -111,13 +112,25 @@ export function mixFuncs(...args: [...funcs: ComponentFunc[], useRenderer: boole
         // Just return the last output. Don't force a renderer here - this is for pure mixing purposes.
         return useRenderer ? () => lastOutput : lastOutput;
     }
-    // Handle APIs: Check if any had 3 arguments for ContextAPI, and if any had ComponentShadowAPI | ComponentWiredAPI attached.
-    let hadContext = false;
-    const apis = (funcs as Array<ComponentShadowFunc | ComponentWiredFunc>).filter(func => (hadContext = hadContext || func.length > 2) && false || func.api).map(func => func.api);
-    // Create and return final component func, and attach ComponentShadowAPI | ComponentWiredAPI.
-    const FinalFunc = hadContext ? (initProps: Record<string, any>, component: ComponentCtx, cAPI: ComponentContextAPI) => CompFunc(initProps, component, cAPI) : (initProps: Record<string, any>, component: Component) => CompFunc(initProps, component);
+    // Create final component function.
+    const FinalFunc = funcs.some(f => f.length > 2) ? (initProps: Record<string, any>, component: ComponentCtx, cAPI: ComponentContextAPI) => CompFunc(initProps, component, cAPI) : (initProps: Record<string, any>, component: Component) => CompFunc(initProps, component);
+    // Combine static side.
+    const apis: Array<ComponentShadowAPI | ComponentWiredAPI> = [];
+    for (const f of funcs) {
+        // Other static.
+        for (const p in f) {
+            // Collect ComponentShadowAPIs.
+            if (p === "api")
+                apis.push((f as ComponentShadowFunc | ComponentWiredFunc).api);
+            // Assign normal static.
+            else
+                FinalFunc[p] = f[p];
+        }
+    }
+    // Assign shadow api.
     if (apis[0])
         (FinalFunc as ComponentShadowFunc | ComponentWiredFunc).api = mergeShadowWiredAPIs(apis); // If had even one, we should create a new one - as this is a new unique component.
+    // Return final func.
     return FinalFunc;
 }
 
@@ -238,13 +251,12 @@ export function mixClassFuncs<Class extends ComponentType, BaseFunc extends Comp
 export function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F]>>;
 export function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
 export function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [BaseFunc, A, B, C, D, E, F, G], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
-export function mixClassFuncs(BaseClass: ComponentType, ...funcArgs: ComponentFunc[] | [...funcs: ComponentFunc[], useClassRender: boolean | undefined]): any {
+export function mixClassFuncs(BaseClass: ComponentType, ...funcArgs: ComponentFunc[] | [...funcs: ComponentFunc[], useClassRender: boolean | undefined]): ComponentType<any> {
     // Mix.
     const useClassRender = typeof funcArgs[funcArgs.length - 1] !== "function" ? !!funcArgs.pop() : false;
-    // const compFunc = funcArgs.length > 1 ? mixFuncs(...funcArgs as [ComponentFunc]) : funcArgs[0] as ComponentFunc;
-    const compFunc = funcArgs.length > 1 ? (mixFuncs as any)(...funcArgs) : funcArgs[0] as ComponentFunc;
+    const compFunc = funcArgs.length > 1 ? (mixFuncs as any)(...funcArgs) as ComponentFunc : funcArgs[0] as ComponentFunc;
     // Return a new class extending the base.
-    return { [BaseClass.name]: class extends (BaseClass as ComponentType) {
+    const Class = { [BaseClass.name]: class extends (BaseClass as ComponentType) {
         // Assign render method. It will only be used for the very first time.
         render(initProps: Record<string, any>) {
             // Run the compFunc initializer once.
@@ -252,7 +264,18 @@ export function mixClassFuncs(BaseClass: ComponentType, ...funcArgs: ComponentFu
             // Return a renderer.
             return useClassRender ? super.render : typeof output === "function" ? output : () => output;
         }
-    }}[BaseClass.name] as any;
+    }}[BaseClass.name];
+    // Assign static.
+    for (const p in compFunc) {
+        // Assign/Combine ComponentShadowAPI.
+        if (p === "api")
+            Class.api = Class.api ? mergeShadowWiredAPIs([Class.api, (compFunc as ComponentShadowFunc | ComponentWiredFunc).api]) : (compFunc as ComponentShadowFunc | ComponentWiredFunc).api;
+        // Assign normal static.
+        else
+            Class[p] = compFunc[p];
+    }
+    // Return resulting class.
+    return Class;
 }
 
 /** This mixes together a Component class and one or many functions with a composer function as the last function.
