@@ -6,7 +6,7 @@
 ### Added type support for `{ static }` component info
 - The static info is supported for both: classes and functions, and it also works for the component mixing methods.
 - Accordingly added to `MixDOM.component` and `MixDOM.componentCtx` shortcuts support for receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx`.
-  - Note that for component funcs, this ultimately results in creating a custom component class (before mounting) and adding the static properties to it. So they are available both: through `component.constructor` and directly on the function.
+- Note that for component funcs, this ultimately results in creating a custom component class (before mounting) and adding the static properties to it. So they are available both: through `component.constructor` and directly on the function.
 
 ### Added type helpers for component funcs with generic args
 - Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers.
