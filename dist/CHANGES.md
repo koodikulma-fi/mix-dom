@@ -1,6 +1,6 @@
 ## v4.1.1 (2024-10-14)
 
-### Tiny fixes
+### Tiny refines
 - Fixes that `remount` flow works also when not debugging (= host settings `{ debugMode: false }`).
 
 ## v4.1.0 (2024-10-13)

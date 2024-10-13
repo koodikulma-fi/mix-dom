@@ -50,7 +50,7 @@ export class HostRender {
 
     // - Static members - //
 
-    /** These implies which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
+    /** These imply which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
     static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
 
 
@@ -88,7 +88,8 @@ export class HostRender {
     }
 
     /** Resume the renderer after pausing. Will reassimilate dom elements and reapply changes to them. 
-     * Note that calling resume will unpause rendering even when settings.disableRendering is set to true. */
+     * - Note that calling resume will unpause rendering even when settings.disableRendering is set to true.
+     */
     public resume(): void {
         // Was not paused.
         if (!this.paused)

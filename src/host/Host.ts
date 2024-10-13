@@ -37,7 +37,8 @@ import { HostRender } from "./HostRender";
 // - Typing - //
 
 /** The basic dom node cloning modes - either deep or shallow: element.clone(mode === "deep").
- * - If in "always" then is deep, and will never use the original. */
+ * - If in "always" then is deep, and will never use the original.
+ */
 export type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 export type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 export type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
@@ -59,7 +60,10 @@ export interface HostSettingsUpdate extends Partial<Omit<HostSettings, "updateCo
 }
 
 /** Settings for MixDOM behaviour for all inside a host instance.
- * The settings can be modified in real time: by host.updateSettings(someSettings) or manually, eg. host.settings.updateTimeout = null. */
+ * - The settings can be modified in real time: by `host.modifySettings(someSettings)`.
+ *      * You can also mutate the object manually, eg. `host.settings.updateTimeout = null`.
+ *      * However `settings.onlyRunInContainer` requires a refresh that is automated using modifySettings.
+ */
 export interface HostSettings {
     
 	/** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms.
@@ -185,7 +189,10 @@ export interface HostSettings {
 // - Class - //
 
 /** The main class to orchestrate and start rendering in MixDOM.
- * - Often looks something like this in JSX: `const myHost = new Host(<App/>, document.querySelector("#app-root"));`
+ * - Often the initialization looks like this as JSX:
+ *      ```typescript
+ *      const myHost = new Host(<App/>, document.querySelector("#app-root"));
+ *      ```
  * - All constructor arguments are optional: `(content?, domContainer?, settings?, contexts?, shadowAPI?)`
  *      * `content?: MixDOMRenderOutput`: Refers to the "root def" to start rendering inside the host. Typically something like `<App />` in JSX form.
  *      * `domContainer?: Element | null`: Typically a DOM element for the container is given as the 2nd constructor args, but if not you can use `host.moveRoot(newContainer)` to move/insert afterwards.
@@ -206,13 +213,14 @@ export class Host<Contexts extends ContextsAllType = {}> {
     
     // - Members - //
 
-    /** This represents abstractly what the final outcome looks like in dom. */
+    /** This represents abstractly what the final outcome looks like in DOM. */
     public groundedTree: MixDOMTreeNode;
-    /** The root boundary that renders whatever is fed to the host on .update or initial creation. */
+    /** The root boundary that renders whatever is fed to the host on `updateRoot` (or as the 1st arg in constructor). */
     public rootBoundary: SourceBoundary;
     /** The general settings for this host instance.
      * - Do not modify directly, use the .modifySettings method instead.
-     * - Otherwise rendering might have old settings, or setting.onlyRunInContainer might be uncaptured. */
+     * - Otherwise rendering might have old settings, or setting.onlyRunInContainer might be uncaptured.
+     */
     public settings: HostSettings;
     /** Internal services to keep the whole thing together and synchronized.
      * They are the semi-private internal part of Host, so separated into its own class. */
@@ -222,7 +230,8 @@ export class Host<Contexts extends ContextsAllType = {}> {
     public shadowAPI: HostShadowAPI<Contexts>;
     /** This provides the data and signal features for this Host and all the Components that are part of it.
      * - You can use .contextAPI directly for external usage.
-     * - When using from within components, it's best to use their dedicated methods (for auto-disconnection features). */
+     * - When using from within components, it's best to use their dedicated methods (for auto-disconnection features).
+     */
     public contextAPI: HostContextAPI<Contexts>;
     /** This contains all the components that have a contextAPI assigned. Automatically updated, used internally. The info can be used for custom purposes (just don't modify). */
     public contextComponents: Set<ComponentCtx>;
@@ -332,7 +341,8 @@ export class Host<Contexts extends ContextsAllType = {}> {
     /** Triggers a process that refreshes the dom nodes based on the current state.
      * - In case forceDOMRead is on will actually read from dom to look for real changes to be done.
      * - Otherwise just reapplies the situation - as if some updates had not been done.
-     * - Note. This is a partly experimental feature - it's not assumed to be used in normal usage. */
+     * - Note. This is a partly experimental feature - it's not assumed to be used in normal usage.
+     */
     public refreshDOM(forceDOMRead: boolean = false, renderTimeout?: number | null): void {
         // Go through the MixDOMTreeNode structure and refresh each.
         const refresh = forceDOMRead ? "read" : true;
@@ -632,7 +642,8 @@ export class Host<Contexts extends ContextsAllType = {}> {
         return this.rootBoundary && this.rootBoundary.treeNode.domNode;
     }
     /** Get all the root dom nodes - might be many if used with a fragment.
-     * - Optionally define whether to search in nested boundaries or not (by default does). */
+     * - Optionally define whether to search in nested boundaries or not (by default does).
+     */
     public getRootElements(inNestedBoundaries?: boolean): Node[] {
         return this.rootBoundary ? rootDOMTreeNodes(this.rootBoundary.treeNode, inNestedBoundaries, false).map(treeNode => treeNode.domNode) as Node[] : [];
     }
