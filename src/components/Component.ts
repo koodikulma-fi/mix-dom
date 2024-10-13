@@ -165,7 +165,7 @@ export type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Any
  * 		
  *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
  * 		myThing?: Info;
- * 		constructor(props: (Info & MyGenInfo)["props"], boundary?: SourceBoundary, ...args: any[]) {
+ * 		constructor(props: ComponentProps<Info & MyGenInfo>, boundary?: SourceBoundary, ...args: any[]) {
  * 			super(props, boundary, ...args);
  * 			this.state = {
  * 				enabled: false,
