@@ -184,7 +184,15 @@ export interface HostSettings {
 
 // - Class - //
 
-/** The main class to orchestrate and start rendering in MixDOM. */
+/** The main class to orchestrate and start rendering in MixDOM.
+ * - Often looks something like this in JSX: `const myHost = new Host(<App/>, document.querySelector("#app-root"));`
+ * - All constructor arguments are optional: `(content?, domContainer?, settings?, contexts?, shadowAPI?)`
+ *      * `content?: MixDOMRenderOutput`: Refers to the "root def" to start rendering inside the host. Typically something like `<App />` in JSX form.
+ *      * `domContainer?: Element | null`: Typically a DOM element for the container is given as the 2nd constructor args, but if not you can use `host.moveRoot(newContainer)` to move/insert afterwards.
+ *      * `settings?: HostSettingsUpdate | null`: Optionally customize the host settings. They define how the host runs.
+ *      * `contexts?: Contexts | null`: Assign a dictionary of named contexts to the host. They are then available at host's contextAPI and for all components part of the host.
+ *      * `shadowAPI?: HostShadowAPI | null`: This is only used internally in cases where a host is automatically duplicated. Like the ComponentShadowAPI, the HostShadowAPI helps to track instances of the same (customly created) class.
+ */
 export class Host<Contexts extends ContextsAllType = {}> {
 
     
@@ -296,13 +304,13 @@ export class Host<Contexts extends ContextsAllType = {}> {
         if (update)
             this.rootBoundary.update(true, updateTimeout, renderTimeout);
     }
-    /** Move the host root into another dom container. */
-    public moveRoot(newParent: Node | null, renderTimeout?: number | null): void {
+    /** Move the host root into another dom container. You can also use this to set the container in case the Host was started without a container. */
+    public moveRoot(newContainer: Node | null, renderTimeout?: number | null): void {
         // Already there.
-        if (this.groundedTree.domNode === newParent)
+        if (this.groundedTree.domNode === newContainer)
             return;
         // Update.
-        this.groundedTree.domNode = newParent;
+        this.groundedTree.domNode = newContainer;
         // Create render infos.
         const renderInfos = rootDOMTreeNodes(this.rootBoundary.treeNode, true).map(treeNode => ({ treeNode, move: true }) as MixDOMRenderInfo);
         // Trigger render.
