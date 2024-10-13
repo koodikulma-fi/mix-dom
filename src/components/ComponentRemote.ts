@@ -4,7 +4,7 @@
 // Library.
 import { orderedIndex } from "data-memo";
 // Typing.
-import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMInternalCompBaseProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMInternalCompProps, MixDOMRenderOutput } from "../typing";
 // Routines.
 import { newContentPassDef, newDef, newDefFrom } from "../static/index";
 // Common.
@@ -53,8 +53,8 @@ export interface ContentPasserProps<CustomProps extends Record<string, any> = {}
     /** Optionally render all the content passes in a custom way. Setting renderer ignores filterer and wrapper. */
     renderer?: (remotes: ComponentRemote<CustomProps>[]) => MixDOMRenderOutput;
 }
-/** Props for the Remote component generally. Includes intrinsic signals. */
-export interface ComponentRemoteProps extends MixDOMInternalCompBaseProps {
+/** The Remote component's own props (without intrinsic). */
+export interface ComponentRemoteProps {
     order?: number;
 }
 

@@ -5,11 +5,11 @@
 import { ReClass } from "mixin-types";
 import { DOMTags } from "dom-types";
 // Typing.
-import { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget } from "../typing";
+import { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget, MixDOMInternalBaseProps } from "../typing";
 // Host.
 import { MixDOMCloneNodeBehaviour } from "../host/index";
 // Only typing (local).
-import { ComponentTypeEither } from "./Component";
+import { ComponentProps, ComponentTypeEither } from "./Component";
 import { ComponentRemote, ComponentRemoteProps, ComponentRemoteType } from "./ComponentRemote";
 import { SourceBoundary } from "../boundaries";
 
@@ -20,19 +20,14 @@ import { SourceBoundary } from "../boundaries";
 // .. So even though they are used like: <MixDOM.Portal />, the MixDOM.Portal class is actually never instanced.
 // .. Instead it's just turned into a target def describing portal (or other) functionality - as the features are handled directly (for better performance).
 
-export interface MixDOMPrePseudoProps {
-    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.) */
-    _disable?: boolean;
-    /** Attach key for moving the def around. */
-    _key?: any;
-}
+export interface MixDOMPrePseudoProps extends MixDOMInternalBaseProps { }
 
 
 // - Fragment - //
 
 export interface PseudoFragmentProps extends MixDOMPrePseudoProps { }
 /** Fragment represent a list of render output instead of stuff under one root. Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>` */
-export class PseudoFragment<Props extends Record<string, any> = {}> {
+export class PseudoFragment<Props = {}> {
     ["constructor"]: { _Info?: { props: PseudoFragmentProps & Props; }; };
     public static MIX_DOM_CLASS: string = "Fragment";
     public readonly props: PseudoFragmentProps & Props;
@@ -47,7 +42,7 @@ export interface PseudoPortalProps extends MixDOMPrePseudoProps {
 }
 /** Portal allows to insert the content into a foreign dom node.
  * Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>` */
-export class PseudoPortal<Props extends Record<string, any> = {}> {
+export class PseudoPortal<Props = {}> {
     ["constructor"]: { _Info?: { props: PseudoPortalProps & Props; }; };
     public static MIX_DOM_CLASS: string = "Portal";
     public readonly props: PseudoPortalProps & Props;
@@ -68,7 +63,7 @@ export type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreProps<T
 /** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
  * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
  */
-export class PseudoElement<Tag extends DOMTags = DOMTags, Props extends Record<string, any> = {}> {
+export class PseudoElement<Tag extends DOMTags = DOMTags, Props = {}> {
     ["constructor"]: { _Info?: { props: PseudoElementProps<Tag> & Props; }; };
     public static MIX_DOM_CLASS: string = "Element";
     public readonly props: PseudoElementProps<Tag> & Props;
@@ -79,8 +74,8 @@ export class PseudoElement<Tag extends DOMTags = DOMTags, Props extends Record<s
 // - Empty - //
 
 /** Empty dummy component that accepts any props, but always renders null. */
-export interface PseudoEmptyProps extends Record<string, any> {}
-export class PseudoEmpty<Props extends Record<string, any> = {}> {
+export interface PseudoEmptyProps {}
+export class PseudoEmpty<Props = {}> {
     ["constructor"]: { _Info?: { props: PseudoEmptyProps & Props; }; };
     public static MIX_DOM_CLASS: string = "Empty";
     public readonly props: PseudoEmptyProps & Props;
@@ -91,6 +86,7 @@ export class PseudoEmpty<Props extends Record<string, any> = {}> {
 
 // - EmptyRemote - //
 
+export interface PseudoEmptyRemoteProps extends ComponentRemoteProps {}
 /** This is an empty dummy remote class:
  * - Its purpose is to make writing render output easier (1. no empty checks, and 2. for typing):
  *     * For example: `const MyRemote = component.state.PopupRemote || MixDOM.EmptyRemote;`
@@ -101,9 +97,9 @@ export class PseudoEmpty<Props extends Record<string, any> = {}> {
  *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
  * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
  */
-export class PseudoEmptyRemote<Props extends Record<string, any> = {}> extends (PseudoEmpty<ComponentRemoteProps> as any as ReClass<ComponentRemoteType, {}, [props: ComponentRemoteProps, boundary?: SourceBoundary]>) {
+export class PseudoEmptyRemote<Props = {}> extends (PseudoEmpty<ComponentRemoteProps> as any as ReClass<ComponentRemoteType, {}, [props: ComponentRemoteProps, boundary?: SourceBoundary]>) {
     // Basis.
-    constructor(props: ComponentRemoteProps & Props, boundary?: SourceBoundary) { super(props, boundary); }
+    constructor(props: ComponentProps<{ props: ComponentRemoteProps & Props; }>, boundary?: SourceBoundary) { super(props, boundary); }
     public static MIX_DOM_CLASS: string = "EmptyRemote";
     // Content passing.
     public static Content: MixDOMDefTarget | null = null;
@@ -122,8 +118,8 @@ export class PseudoEmptyRemote<Props extends Record<string, any> = {}> extends (
     // public static addSource(_remote: ComponentRemote, _order?: number | null | undefined): void {};
     // public static removeSource(_remote: ComponentRemote): MixDOMChangeInfos | null { return null };
 };
-export interface PseudoEmptyRemote<Props extends Record<string, any> = {}> extends ComponentRemote<Props> {
-    ["constructor"]: ComponentRemoteType<Props>;
+export interface PseudoEmptyRemote<Props = {}> extends ComponentRemote<Props & {}> {
+    ["constructor"]: ComponentRemoteType<Props & {}>;
 }
 
 

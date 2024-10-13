@@ -2,9 +2,9 @@
 // - Imports - //
 
 // Libraries.
-import { SignalListener, SignalBoy } from "data-signals";
+import { SignalListener, SignalBoy, OmitPartial } from "data-signals";
 // Typing.
-import { MixDOMUpdateCompareModesBy, OmitPartial } from "../typing";
+import { MixDOMUpdateCompareModesBy } from "../typing";
 // Local.
 import { ComponentInfo } from "./typesInfo";
 import { ComponentContextAPI } from "./ComponentContextAPI";

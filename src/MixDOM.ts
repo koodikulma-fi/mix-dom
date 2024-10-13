@@ -49,9 +49,6 @@ import {
 
 // - Export shortcuts - //
 
-// Def.
-export { newDef, newDefHTML } from "./static/routinesDefs";
-
 // Collected shortcuts and static methods.
 /** Shortcut dictionary to contain all the main features of MixDOM library. */
 export const MixDOM = {

@@ -3,6 +3,7 @@
 
 // Library.
 import { cleanDOMProps, DOMTags } from "dom-types";
+import { OmitPartial } from "data-signals";
 // Typing.
 import {
     MixDOMProcessedDOMProps,
@@ -15,17 +16,17 @@ import {
     MixDOMPreProps,
     MixDOMInternalBaseProps,
     MixDOMInternalDOMProps,
-    OmitPartial,
 } from "../typing";
 // Only typing (distant).
 import { Ref } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host } from "../host/Host";
-import { ComponentInfoEmpty, ReadComponentInfo } from "../components/typesInfo";
-import { ComponentProps } from "../components/Component";
-import { SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
-import { PseudoPortalProps, PseudoElementProps } from "../components/ComponentPseudos";
+import { ReadComponentInfo } from "../components/typesInfo";
+import { Component, ComponentProps } from "../components/Component";
+import { IsSpreadFunc, SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
+import { PseudoPortalProps, PseudoElementProps, MixDOMPseudoTags } from "../components/ComponentPseudos";
 import { ComponentRemoteType } from "../components/ComponentRemote";
+import { ClassType } from "mixin-types";
 
 
 // - Constant - //
@@ -34,22 +35,46 @@ import { ComponentRemoteType } from "../components/ComponentRemote";
 const contentKey: {} = {};
 
 
+// - Typing - //
+
+// Get props for a tag.
+/** Get init props for any MixDOM tag: DOM tags, spread funcs, component funcs, component classes, pseudo component classes, ...
+ * - Note that the props include the special props (`_disable`, `_key`, `_ref`, `_signals`, `_contexts`) based on tag and typing for them.
+ * - All string tags refer to DOM types except for "_" which refers to PseudoElement.
+ * - Provide second argument Fallback in case does not match known types.
+ */
+export type GetPropsFor<Tag, Fallback = {}> =
+    // Dom tags.
+    Tag extends string ? Tag extends "_" ? PseudoElementProps : MixDOMPreProps<Tag> :
+    // Functional.
+    Tag extends (...args: any[]) => any ?
+        // Spread.
+        IsSpreadFunc<Tag> extends true ? SpreadFuncProps & Parameters<Tag>[0] :
+        // Component.
+        ComponentProps<ReadComponentInfo<Tag>> :
+    // Pseudo.
+    Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] :
+    // Class.
+    Tag extends ClassType<Component<any>> ? ComponentProps<ReadComponentInfo<Tag>> :
+    // Nope.
+    Fallback;
+
+
 // - Create def helpers - //
 
-/** Create a rendering definition. Supports receive direct JSX compiled output. */
+/** Create a rendering definition. Supports receive direct JSX compiled output. In terms of typing, this method reflects TSX typing. */
 export function newDef<Tag>(...args:
     // DOM.
-    Tag extends string ? [domTag: string, origProps?: MixDOMPreProps<Tag> | null, ...contents: MixDOMRenderOutput[]] :
+    Tag extends string ? [domTag: string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
     // Components, spreads and pseudos.
-    // .. Note that we allow here a bit more loosely than in TSX - for example spreads can have _contexts and _signals.
     Tag extends MixDOMComponentTags ?
         // Can be empty.
-        {} | undefined extends OmitPartial<ReadComponentInfo<Tag, ComponentInfoEmpty>["props"]> | undefined ? [componentTag: Tag, origProps?: ComponentProps<ReadComponentInfo<Tag>> | null, ...contents: MixDOMRenderOutput[]] :
-        // Let's just allow Spreads here.
-        [componentTag: Tag, origProps: ComponentProps<ReadComponentInfo<Tag>>, ...contents: MixDOMRenderOutput[]] :
-        // Tag extends Function & ((props?: Record<string, any>) => MixDOMRenderOutput) ? Tag["length"] extends 0 | 1 ? [spreadTag: Tag, origProps: SpreadFuncProps & ReadComponentInfo<Tag, ComponentInfoEmpty>["props"], ...contents: MixDOMRenderOutput[]] :
+        {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ?
+            [componentTag: Tag, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
+        // Must give props.
+        [componentTag: Tag, props: GetPropsFor<Tag>, ...contents: MixDOMRenderOutput[]] :
     // Unrecognized.
-    [tag: Tag, origProps?: never, ...contents: MixDOMRenderOutput[]]
+    [unknownTag: Tag, props?: never, ...contents: MixDOMRenderOutput[]]
 ): MixDOMDefTarget | null;
 export function newDef(tagOrClass: MixDOMAnyTags, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
     

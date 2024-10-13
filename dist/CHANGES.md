@@ -62,13 +62,20 @@
 
 ### Cleaned up typing
 - Refined typing for `newDef` method (for non-TSX use), and refined `ReadComponentInfo` to be more robust.
-- Removed some types, made some internal (= not exported) and renamed a couple of public. The new public props and tags related are:
-  - `MixDOMProps` for DOM properties without internal special props (_disable, _key, _ref, _signals).
-  - `MixDOMPreProps` like `MixDOMProps` but also includes the special props (_disable, _key, _ref, _signals).
-  - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
-  - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
-  - `MixDOMAnyTags` for any valid tags.
-  - `SpreadFuncProps<Props>` refers to props for spread functions including the internal special props: _key and _disable, where as `ComponentProps<Info>` also includes _ref, _signals and _contexts.
+- Removed some types, made some internal (= not exported) and renamed a couple of public.
+  - The new tag realted are:
+    - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
+    - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
+    - `MixDOMAnyTags` for any valid tags.
+  - The prop related:
+    - `MixDOMProps` for DOM properties _without_ internal special props (`_disable`, `_key`, `_ref`, `_signals`).
+    - `MixDOMPreProps` like `MixDOMProps` but also includes the special props: `_disable`, `_key`, `_ref`, `_signals`.
+    - `SpreadFuncProps<Props>` refers to props for spread functions including their internal special props: `_disable` and `_key`.
+      - However, you don't need to type them specifically, as they are anyway supported through the intrinsic attributes / newDef method.
+    -  `ComponentProps<Info>` refers to the initial props for component funcs and classes and includes all special props: `_disable`, `_key`, `_ref`, `_signals` and `_contexts`.
+      - If ever needing to define the initProps specifically (or use the constructor), then should use `ComponentProps<Info>`.
+        - Note however that the special props will actually never be present on the JS side (nor in the render method props) - they are simply there for TSX.
+      - Note also that `_signals` and `_contexts` read specifics from the `Info`, while `_ref` is tied to a single or array of: `ComponentTypeEither<any>`.
 
 ---
 

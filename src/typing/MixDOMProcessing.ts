@@ -9,19 +9,13 @@ import { DOMCleanProps, DOMTags, DOMAttributes, DOMAttributesAny } from "dom-typ
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
 // Only typing (distant).
-import { RefBase, RefDOMSignals } from "../common/Ref";
+import { Ref, RefDOMSignals } from "../common/Ref";
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { SourceBoundary } from "../boundaries/SourceBoundary";
-import { Host } from "../host/Host";
 import { ComponentSignals } from "../components/typesSignals";
-import { ComponentTypeAny } from "../components/Component";
+import { ComponentTypeAny, ComponentTypeEither } from "../components/Component";
 import { PseudoFragment, MixDOMPseudoTags } from "../components/ComponentPseudos";
-
-
-// - Common helpers - //
-
-export type GetPartialKeys<T> = { [Key in keyof T]: undefined extends T[Key] ? Key : never; }[keyof T];
-export type OmitPartial<T> = Omit<T, GetPartialKeys<T>>;
+import { Host } from "../host/Host";
 
 
 // - Component & Boundary - //
@@ -92,33 +86,57 @@ export interface MixDOMRemountInfo extends MixDOMReassimilateInfo {
 
 /** Basis for the pre processed props. */
 export interface MixDOMInternalBaseProps {
-    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.) */
+    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.)
+     * - Note that "_disable" is a special prop only available _outside_ - for components, it's not actually part of its props.
+     */
     _disable?: boolean;
-    /** Attach key for moving the def around. */
+    /** Attach key for moving the def around.
+     * - Note that "_key" is a special prop only available _outside_ - for components, it's not actually part of its props.
+     */
     _key?: any;
-    // /** Attach one or many refs. (Not available for SpreadFuncs.) */
-    // _ref?: RefBase | RefBase[];
 }
 /** Dev. note. The current decision is to rely on JSX global declaration and not include MixDOMInternalCompProps into each Component type (including funcs) or constructor(props).
  * - However, the _signals are reliant on having more typed info to be used nicely. So that's why we have this type specifically. The _signals will not be there during the render cycle, tho.
  * - Note that above decision relies mainly on two things: 1. The JSX intrinsic declaration is anyway needed for DOM elements, 2. It's very confusing to have _key and _disable appearing in the type inside render method / func.
+ * 
+ * <--UPDATE..
  */
 export type MixDOMInternalCompBaseProps<Signals extends SignalsRecord = {}> = {
-    /** Attach signals to component. Exceptionally the _signals prop is exposed even tho it will not be there during the render cycle. It's exposed due to getting better typing experience when using it in TSX. (Not available for SpreadFuncs.) */
+    /** Attach one or many refs. (Not available for SpreadFuncs.)
+     * - Note that "_ref" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
+    _ref?: Ref<ComponentTypeEither<any>> | Ref<ComponentTypeEither<any>>[]; // RefBase | RefBase[];
+    /** Attach signals to a child component directly through props. (Not available for SpreadFuncs.)
+     * - Note that "_signals" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
     _signals?: Partial<ComponentSignals & Signals> | null;
-    /** Attach named contexts on a child component. Any changes in these will call component.contextAPI.setContext() accordingly. (Not available for SpreadFuncs.) */
+    /** Attach named contexts on a child component. Any changes call component.contextAPI.setContext() accordingly. (Not available for SpreadFuncs.)
+     * - Note that "_contexts" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
     _contexts?: Partial<Record<string, Context | null>> | null;
 }
-export interface MixDOMInternalCompProps extends MixDOMInternalBaseProps, MixDOMInternalCompBaseProps {
-    /** Attach one or many refs. (Not available for SpreadFuncs.) */
-    _ref?: RefBase | RefBase[];
+/** All internal special props for components with typing: `{ _key, _disable, _ref, _signals, _contexts }`. */
+export interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> extends MixDOMInternalBaseProps, MixDOMInternalCompBaseProps<Signals> {
+    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.)
+     * - Note that "_disable" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
+    _disable?: boolean;
+    /** Attach key for moving the def around.
+     * - Note that "_key" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
+    _key?: any;
+
 }
 
-/** This combines all the internal dom props together: "_key", "_ref", "_disable" and _"signals" with its dom specific listeners. */
+/** This combines all the internal DOM special props together: "_key", "_ref", "_disable" and "_signals" with its DOM specific listeners. */
 export interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
-    /** Attach one or many refs. (Not available for SpreadFuncs.) */
-    _ref?: RefBase | RefBase[];
-    /** The common DOM signals are the same as with Refs: "domDidAttach", "domWillDetach", "domDidMount", "domDidUpdate", "domDidContent", "domDidMove" and "domWillUnmount". */
+    /** Attach one or many refs to keep track of the DOM nodes.
+     * - Note that "_ref" is a special prop that will not be applied as an attribute, but instead it implements the Ref feature.
+     */
+    _ref?: Ref<Node> | Ref<Node>[]; // RefBase | RefBase[];
+    /** The common DOM signals are the same as with Refs: "domDidAttach", "domWillDetach", "domDidMount", "domDidUpdate", "domDidContent", "domDidMove" and "domWillUnmount".
+     * - Note that "_signals" is a special prop that will not be applied as an attribute, but instead it implements the direct signal listening feature.
+     */
     _signals?: Partial<RefDOMSignals> | null;
 }
 

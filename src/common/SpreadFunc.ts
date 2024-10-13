@@ -2,7 +2,9 @@
 // - Imports - //
 
 // Typing.
+import { IsAny } from "data-signals";
 import { MixDOMInternalBaseProps, MixDOMRenderOutput } from "../typing";
+import { Component, ComponentFunc } from "../components";
 
 
 // - Helper types - //
@@ -13,14 +15,62 @@ export type SpreadFunc<Props extends Record<string, any> = {}> = (props: SpreadF
  * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
  */
 export type SpreadFuncWith<Props extends Record<string, any> = {}, ExtraArgs extends any[] = any[]> = (props: SpreadFuncProps & Props, ...args: ExtraArgs) => MixDOMRenderOutput;
+/** Check whether the type is a SpreadFunc.
+ * ```
+ * type TestSpreads = [
+ * 
+ *      // - Simple cases - //
+ * 
+ *      // Not a spread.
+ *      IsSpreadFunc<Component>,                            // false
+ *      IsSpreadFunc<typeof Component>,                     // false
+ *      IsSpreadFunc<ComponentFunc>,                        // false
+ *      IsSpreadFunc<(props: false) => null>,               // false
+ *      // Is a spread.
+ *      IsSpreadFunc<SpreadFunc>,                           // true
+ *      IsSpreadFunc<() => null>,                           // true
+ *      IsSpreadFunc<(props: {}) => null>,                  // true
+ * 
+ * 
+ *      // - Complex cases - //
+ * 
+ *      // Not a spread.
+ *      IsSpreadFunc<(props: {}, test: any) => null>,       // false
+ *      IsSpreadFunc<(props: {}, test?: any) => null>,      // false
+ *      IsSpreadFunc<(props?: {}, test?: any) => null>,     // false
+ *      IsSpreadFunc<(props: {}, test: any, ...more: any[]) => null>,   // false
+ *      IsSpreadFunc<(props?: {}, test?: any, ...more: any[]) => null>, // false
+ *      // Is a spread.
+ *      // .. Note that on the JS side the arguments length is 1.
+ *      IsSpreadFunc<(props: {}, ...test: any[]) => null>,  // true
+ * ];
+ * ```
+ */
+export type IsSpreadFunc<Anything> =
+    // Is spread function like.
+    Anything extends (props?: Record<string, any>, ...args: any[]) => MixDOMRenderOutput ?
+        // Verify that has only 0 or 1 args on the JS side (func.length).
+        Parameters<Anything>["length"] extends 0 | 1 ? true :
+        // If is using spread args, allow - we've already verified the basic form above.
+        number extends Parameters<Anything>["length"] ?
+            // Check that rest of params look like `...any[]`, otherwise don't accept.
+            Parameters<Anything> extends [any, ...infer Rest] ?
+                // If the rest look like `...any[]`, it's fine.
+                any[] extends Rest ? true :
+                // No, not pure enough rest args for us.
+                false :
+            // Could not infer Rest, shouldn't happen.
+            false :
+        // Not a spread func - could be a component func or something else entirely.
+        false :
+    // Not spread like at all - potentially not even a function.
+    false;
 
 
 // - Spread component virtual type - //
 
 /** The spread function props including the internal props `_disable` and `_key`. */
-export interface SpreadFuncProps extends MixDOMInternalBaseProps {} // Pick<MixDOMInternalBaseProps, "_disable" | "_key"> {}
-// /** There is no actual class for ComponentSpread. It's not even a real component, but only spreads out the defs instantly on the static side. */
-// export interface ComponentSpread<Props extends Record<string, any> = {}> extends SpreadFunc<Props> { }
+export interface SpreadFuncProps extends MixDOMInternalBaseProps {}
 
 
 // - Functionality - //
