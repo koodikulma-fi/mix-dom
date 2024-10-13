@@ -1056,7 +1056,7 @@ export class HostRender {
         // Parse.
         let { reused, readFromDOM } = remountSource;
         if (!reused)
-            reused = new Set();
+            reused = remountSource.reused = new Set(); // Even if not debugging.
         // Make sure root is marked as used - so that it won't be used.
         groundedTree.domNode && reused.add(groundedTree.domNode);
         // Loop the matched pairs.
