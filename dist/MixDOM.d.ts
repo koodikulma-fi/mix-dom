@@ -1912,6 +1912,8 @@ declare class SourceBoundary extends BaseBoundary {
     update(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     updateBy(updates: MixDOMComponentUpdates, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     render(iRecursion?: number): MixDOMRenderOutput;
+    /** Get a component class for a functional component. If has static properties, creates a new class extending Component and adds the stati properties to it, otherwise uses Component directly. */
+    static getComponentFuncClass(func: ComponentFunc): ComponentType;
 }
 
 declare class BaseBoundary {

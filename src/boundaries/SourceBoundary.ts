@@ -93,7 +93,7 @@ export class SourceBoundary extends BaseBoundary {
             const withContextAPI = renderFunc && renderFunc.length >= 3 || false;
             
             // Create component.
-            const component = this.component = new (renderFunc ? shadowAPI ? { [renderFunc.name]: class extends Component {}}[renderFunc.name] : Component : tag as ComponentType)(props as MixDOMInternalCompProps, this) as Component;
+            const component = this.component = new (renderFunc ? SourceBoundary.getComponentFuncClass(renderFunc) : tag as ComponentType)(props as MixDOMInternalCompProps, this) as Component;
             this.component = component;
             if (withContextAPI)
                 component.initContextAPI();
@@ -112,7 +112,7 @@ export class SourceBoundary extends BaseBoundary {
             
             // Handle ComponentShadowAPI.
             if (shadowAPI) {
-                // Make sure is assigned for functional components. If was a class then assumes it was unique class already.
+                // Make sure is assigned. Note that if was a class then assumes it was unique class already - for functional created a new custom class above.
                 component.constructor.api = shadowAPI;
                 // Add to collection.
                 shadowAPI.components.add(component);
@@ -198,4 +198,24 @@ export class SourceBoundary extends BaseBoundary {
         // Return content.
         return content;
     }
+
+
+    // - Static helpers - //
+
+    /** Get a component class for a functional component. If has static properties, creates a new class extending Component and adds the stati properties to it, otherwise uses Component directly. */
+    public static getComponentFuncClass(func: ComponentFunc): ComponentType {
+        // See if has any properties.
+        let hasStatic = false;
+        for (const _p in func) { hasStatic = true; break; }
+        // None special, just use normal component class.
+        if (!hasStatic)
+            return Component;
+        // Has static properties, extend a new base and assign static props.
+        const Class = { [func.name]: class extends Component {}}[func.name]; // Reuse name for class.
+        for (const p in func)
+            Class[p] = func[p];
+        // Return class.
+        return Class;
+    }
+
 }
