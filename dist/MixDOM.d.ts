@@ -2333,6 +2333,10 @@ interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> extends Mi
 }
 /** This combines all the 4 internal DOM related special props together: "_key", "_ref", "_disable" and "_signals" with its DOM specific listeners. */
 interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
+    /** Disable the DOM node altogether - including all contents inside. (Technically makes the def amount to null.) */
+    _disable?: boolean;
+    /** Attach key for moving the DOM node around. */
+    _key?: any;
     /** Attach one or many refs to keep track of the DOM nodes.
      * - Note that "_ref" is a special prop that will not be applied as an attribute, but instead it implements the Ref feature.
      */
