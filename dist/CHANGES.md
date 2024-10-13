@@ -60,25 +60,26 @@
 - In typing:
   - Changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
   - Renamed `ComponentContextApiType` to `ComponentContextAPIType` (with capital "API").
+  - Renamed `ComponentFuncCtx` to `ComponentCtxFunc` (to be more consistent).
 - In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
 
 ### Cleaned up typing
 - Refined typing for `newDef` method (for non-TSX use), and refined `ReadComponentInfo` to be more robust.
 - Removed some types, made some internal (= not exported) and renamed a couple of public.
-  - The new tag realted are:
-    - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
-    - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
-    - `MixDOMAnyTags` for any valid tags.
-  - The prop related:
-    - `MixDOMProps` for DOM properties _without_ internal special props.
-    - `MixDOMPreProps` like `MixDOMProps` but also includes the special props: `_disable`, `_key`, `_ref`, `_signals`.
-      - The `_ref` is tied to a single or array of: `Node`.
-    - `SpreadFuncProps<Props>` refers to props for spread functions including their internal special props: `_disable` and `_key`.
-      - However, you don't need to type them specifically, as they are anyway supported through the intrinsic attributes / newDef method.
-    -  `ComponentProps<Info>` refers to the initial props for component funcs and classes and includes all special props: `_disable`, `_key`, `_ref`, `_signals` and `_contexts`.
-      - If ever needing to define the initProps specifically (or use the constructor), then should use `ComponentProps<Info>`.
-        - Note however that the special props will actually never be present on the JS side (nor in the render method props) - they are simply there for TSX.
-      - Note also that `_signals` and `_contexts` read specifics from the `Info`, while `_ref` is tied to a single or array of: `ComponentTypeEither<any>`.
+- The new tag related types are:
+  - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
+  - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
+  - `MixDOMAnyTags` for any valid tags.
+- The types related to props:
+  - `MixDOMProps` for DOM properties _without_ internal special props.
+  - `MixDOMPreProps` like `MixDOMProps` but also includes the special props: `_disable`, `_key`, `_ref`, `_signals`.
+    - The `_ref` is tied to a single or array of: `Node`.
+  - `SpreadFuncProps<Props>` refers to props for spread functions including their internal special props: `_disable` and `_key`.
+    - However, you don't need to type them specifically, as they are anyway supported through the intrinsic attributes / newDef method.
+  -  `ComponentProps<Info>` refers to the initial props for component funcs and classes and includes all special props: `_disable`, `_key`, `_ref`, `_signals` and `_contexts`.
+    - If ever needing to define the initProps specifically (or use the constructor), then should use `ComponentProps<Info>`.
+      - Note however that the special props will actually never be present on the JS side (nor in the render method props) - they are simply there for TSX.
+    - Note also that `_signals` and `_contexts` read specifics from the `Info`, while `_ref` is tied to a single or array of: `ComponentTypeEither<any>`.
 
 ---
 

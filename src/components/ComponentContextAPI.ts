@@ -22,7 +22,7 @@ export interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends 
 export type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & { ["constructor"]: Info["static"]; };
 
 /** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-export type ComponentFuncCtx<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
+export type ComponentCtxFunc<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
 
 
 // - ComponentContextAPI class - //

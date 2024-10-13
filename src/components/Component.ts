@@ -17,7 +17,7 @@ import { Host } from "../host/index";
 import { ComponentInfo, ComponentInfoEmpty, ComponentInfoPartial, ReadComponentInfo } from "./typesInfo";
 import { ComponentSignals } from "./typesSignals";
 // Local class.
-import { ComponentContextAPI, ComponentFuncCtx, ComponentCtx } from "./ComponentContextAPI";
+import { ComponentContextAPI, ComponentCtxFunc, ComponentCtx } from "./ComponentContextAPI";
 // Only typing (local).
 import { ComponentWiredFunc, ComponentWiredType } from "./ComponentWired";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
@@ -27,7 +27,7 @@ import { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 // Internal helpers - not exported.
 type ComponentFuncShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentWith<Info>) => ComponentFuncReturn<Info>;
-type ComponentFuncCtxShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>;
+type ComponentCtxFuncShortcut<Info extends ComponentInfoPartial = {}> = (component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>;
 
 
 // - Extra type helpers - //
@@ -55,17 +55,17 @@ export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInter
 // Functional component helpers.
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
 export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
-/** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentFuncCtxArgs<Info>` instead. */
+/** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentCtxFuncArgs<Info>` instead. */
 export type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentWith<Info>];
 /** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
-export type ComponentFuncCtxArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>];
+export type ComponentCtxFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>];
 /** Typing for functional component's return - same as component's `render` method. */
 export type ComponentFuncReturn<Info extends ComponentInfoPartial = {}> = MixDOMRenderOutput | MixDOMDoubleRenderer<Info["props"] & {}, Info["state"] & {}>;
 
 // The any/either types.
 /** Any type of functional component including spread funcs.
  * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
- *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentFuncCtx with its 3rd arg - already included in ComponentFunc.
+ *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentCtxFunc with its 3rd arg - already included in ComponentFunc.
  */
 export type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>; // | SpreadFunc<Info["props"] & {}>; // <-- Removed as it ruins (props) typing.
 /** Either a class type or a component func - not a spread func (nor a component class instance). */
@@ -592,14 +592,14 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
 export function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
-export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentFuncCtxShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFunc<any> {
+export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFunc<any> {
     // Parse.
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
     const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name;
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically. However, its mostly useful for classes, as the functions are named outside (= afterwards).
     const f = { [name]: 
         func.length > 1 ?
-            function (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentFuncCtxShortcut<Info>)(component, contextAPI); } as ComponentFuncCtx<Info> :
+            function (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentCtxFuncShortcut<Info>)(component, contextAPI); } as ComponentCtxFunc<Info> :
             function (_props: ComponentProps<Info>, component: ComponentWith<Info>) { return (func as ComponentFuncShortcut<Info>)(component); } as ComponentFunc<Info>
     }[name];
     // Assign static properties.
@@ -611,13 +611,13 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: Co
 }
 
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
-export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtxWith<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFuncCtx<Info>;
-export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: ComponentFuncCtxShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFuncCtx<Info> {
+export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: (component: ComponentCtxWith<Info> & Info["class"] & { ["constructor"]: Info["static"]; }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentCtxFunc<Info>;
+export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentCtxFunc<Info> {
     // Parse.
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
     const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name;
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically.
-    const f = ({ [name]: function (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentFuncCtxShortcut<Info>)(component, contextAPI); }})[name] as ComponentFuncCtx<Info>
+    const f = ({ [name]: function (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentCtxFuncShortcut<Info>)(component, contextAPI); }})[name] as ComponentCtxFunc<Info>
     // Assign static properties.
     if (staticProps)
         for (const p in staticProps)

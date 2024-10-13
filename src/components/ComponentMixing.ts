@@ -11,7 +11,7 @@ import { MixDOMContent } from "../common/index";
 import { ReadComponentInfo, ComponentInfo, ComponentInfoEmpty, ReadComponentInfos, ReadComponentRequiredInfo } from "./typesInfo";
 import { SpreadFunc } from "../common/SpreadFunc";
 import { Component, ComponentFunc, ComponentType, ComponentTypeAny, GetComponentTypeFrom } from "./Component";
-import { ComponentContextAPI, ComponentCtx, ComponentFuncCtx } from "./ComponentContextAPI";
+import { ComponentContextAPI, ComponentCtx, ComponentCtxFunc } from "./ComponentContextAPI";
 import { ComponentShadowFunc } from "./ComponentShadow";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 import { ComponentWiredFunc } from "./ComponentWired";
@@ -126,7 +126,7 @@ export function mixFuncs(...args: [...funcs: ComponentFunc[], useRenderer: boole
             // Collect state and meta before.
             const state = component.state;
             // Run the initial closure.
-            const output = (func as ComponentFuncCtx)(initProps, component as ComponentCtx, cAPI as ComponentContextAPI);
+            const output = (func as ComponentCtxFunc)(initProps, component as ComponentCtx, cAPI as ComponentContextAPI);
             // If returned a function (or lastOutput wasn't a func), store the output.
             if (typeof output === "function" || typeof lastOutput !== "function")
                 lastOutput = output;
