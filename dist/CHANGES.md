@@ -1,8 +1,11 @@
 ## v4.1.0 (2024-10-13)
 
+### Minor JS changes
+- In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
+
 ### Added support for `{ static }` component info
 - The static info is supported for both: classes and functions, and it also works for the component mixing methods.
-- In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx` (as the 3rd arg, keeping "signals" as the 2nd arg).
+- In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx`.
 
 ### Added type helpers for component funcs with generic args
 - Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers.
@@ -56,30 +59,25 @@
 
     ```
 
-### Minor changes
-- In typing:
-  - Changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
-  - Renamed `ComponentContextApiType` to `ComponentContextAPIType` (with capital "API").
-  - Renamed `ComponentFuncCtx` to `ComponentCtxFunc` (to be more consistent).
-- In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
-
 ### Cleaned up typing
 - Refined typing for `newDef` method (for non-TSX use), and refined `ReadComponentInfo` to be more robust.
 - Removed some types, made some internal (= not exported) and renamed a couple of public.
+- In relation to the Component related definitions:
+  - Changed the order of the `ComponentOf`, `ComponentTypeOf` and `ComponentFuncOf` type args to: `[Props, State, Signals, Class, Static, Timers, Contexts]`.
+  - Renamed `ComponentContextApiType` to `ComponentContextAPIType` (with capital "API").
+  - Renamed `ComponentFuncCtx` to `ComponentCtxFunc` (to be more consistent).
 - The new tag related types are:
-  - `MixDOMTags` for DOM tags including `""` and `"_"`. The `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
+  - `MixDOMTags` for DOM tags. The special `"_"` tag refers to PseudoElement (used internally), while `""` to text nodes.
   - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
   - `MixDOMAnyTags` for any valid tags.
 - The types related to props:
   - `MixDOMProps` for DOM properties _without_ internal special props.
   - `MixDOMPreProps` like `MixDOMProps` but also includes the special props: `_disable`, `_key`, `_ref`, `_signals`.
-    - The `_ref` is tied to a single or array of: `Node`.
   - `SpreadFuncProps<Props>` refers to props for spread functions including their internal special props: `_disable` and `_key`.
-    - However, you don't need to type them specifically, as they are anyway supported through the intrinsic attributes / newDef method.
+    - However, the types for `_key` and `_disabled` are anyway supported through the intrinsic attributes / newDef method.
   -  `ComponentProps<Info>` refers to the initial props for component funcs and classes and includes all special props: `_disable`, `_key`, `_ref`, `_signals` and `_contexts`.
     - If ever needing to define the initProps specifically (or use the constructor), then should use `ComponentProps<Info>`.
-      - Note however that the special props will actually never be present on the JS side (nor in the render method props) - they are simply there for TSX.
-    - Note also that `_signals` and `_contexts` read specifics from the `Info`, while `_ref` is tied to a single or array of: `ComponentTypeEither<any>`.
+    - Note that the special props are never present on the JS side (nor in the render method props) - they are for TSX only.
 
 ---
 
