@@ -5,9 +5,9 @@
 import { ClassType, InstanceTypeFrom, IterateBackwards } from "mixin-types";
 import { ContextsAllType } from "data-signals";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMInternalCompBaseProps, MixDOMRenderOutput } from "../typing";
+import { MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
 // Only typing (local).
-import { Component, ComponentFunc, ComponentType, ComponentTypeAny } from "./Component";
+import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeAny } from "./Component";
 import { SpreadFunc } from "../common/SpreadFunc";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
@@ -103,7 +103,7 @@ export type ComponentFuncOf<
     Static extends Record<string, any> & { api?: ComponentShadowAPI<any>; } = {},
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
-> = (initProps: MixDOMInternalCompBaseProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+> = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 
 
 // - Read component info - //

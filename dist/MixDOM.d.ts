@@ -501,7 +501,7 @@ interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends 
 /** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
     api?: ComponentShadowAPI<any>;
-} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: MixDOMInternalCompBaseProps<Signals> & Props, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 /** Type for anything that from which component info can be derived. */
 type ComponentInfoInterpretable = Partial<ComponentInfo> | {
     _Info?: Partial<ComponentInfo>;
@@ -2299,13 +2299,25 @@ interface MixDOMInternalBaseProps {
      */
     _key?: any;
 }
-/** Dev. note. The current decision is to rely on JSX global declaration and not include MixDOMInternalCompProps into each Component type (including funcs) or constructor(props).
- * - However, the _signals are reliant on having more typed info to be used nicely. So that's why we have this type specifically. The _signals will not be there during the render cycle, tho.
- * - Note that above decision relies mainly on two things: 1. The JSX intrinsic declaration is anyway needed for DOM elements, 2. It's very confusing to have _key and _disable appearing in the type inside render method / func.
- *
- * <--UPDATE..
+/** All the 5 internal special props for components with typing: `{ _key, _disable, _ref, _signals, _contexts }`.
+ * - As of v4.1, the main rule of thumb is consistency and clarity.
+ *      * The JSX basis only contains `_key` and `_disable`, and thus only directly supports SpreadFuncs.
+ *      * For components, should use ComponentProps for the initProps (1st arg) or the 1st constructor arg for classes.
+ *      * For DOM, gets them by intrinsic tag based attributes.
+ * - Accordingly, when uses ComponentProps gets the all the 5 special props: (`_disable`, `_key`, `_ref`, `_signals`, `_contexts`).
+ *      * This is for clarity and consistency. It's more confusing to just get the 2 or 3 props that require typing and leave 2 or 3 others out.
+ *      * It's also for better support for manually typed component funcs - eg. when uses generic props.
+ * - For spreads can also specifically get the 2 (`_key` and `_disable`) with SpreadFuncProps. (The DOM types have 4: no `_contexts`.)
  */
-type MixDOMInternalCompBaseProps<Signals extends SignalsRecord = {}> = {
+interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> extends MixDOMInternalBaseProps {
+    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.)
+     * - Note that "_disable" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
+    _disable?: boolean;
+    /** Attach key for moving the def around.
+     * - Note that "_key" is a special prop only available _outside_ the component - it's not actually part of props.
+     */
+    _key?: any;
     /** Attach one or many refs. (Not available for SpreadFuncs.)
      * - Note that "_ref" is a special prop only available _outside_ the component - it's not actually part of props.
      */
@@ -2318,19 +2330,8 @@ type MixDOMInternalCompBaseProps<Signals extends SignalsRecord = {}> = {
      * - Note that "_contexts" is a special prop only available _outside_ the component - it's not actually part of props.
      */
     _contexts?: Partial<Record<string, Context | null>> | null;
-};
-/** All internal special props for components with typing: `{ _key, _disable, _ref, _signals, _contexts }`. */
-interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> extends MixDOMInternalBaseProps, MixDOMInternalCompBaseProps<Signals> {
-    /** Disable the def altogether - including all contents inside. (Technically makes the def amount to null.)
-     * - Note that "_disable" is a special prop only available _outside_ the component - it's not actually part of props.
-     */
-    _disable?: boolean;
-    /** Attach key for moving the def around.
-     * - Note that "_key" is a special prop only available _outside_ the component - it's not actually part of props.
-     */
-    _key?: any;
 }
-/** This combines all the internal DOM special props together: "_key", "_ref", "_disable" and "_signals" with its DOM specific listeners. */
+/** This combines all the 4 internal DOM related special props together: "_key", "_ref", "_disable" and "_signals" with its DOM specific listeners. */
 interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
     /** Attach one or many refs to keep track of the DOM nodes.
      * - Note that "_ref" is a special prop that will not be applied as an attribute, but instead it implements the Ref feature.
