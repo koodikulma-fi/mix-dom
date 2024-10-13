@@ -3,14 +3,14 @@
 ### Minor JS changes
 - In MixDOM.global.js renamed "DomTypes" global property to "DOMTypes".
 
-### Added support for `{ static }` component info
+### Added type support for `{ static }` component info
 - The static info is supported for both: classes and functions, and it also works for the component mixing methods.
 - In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx`.
 
 ### Added type helpers for component funcs with generic args
 - Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers.
-- The `ComponentProps<Info>` type should always be used when manually typing a component func or class for the 1st argument (in the function or constructor).
-- Examples for a functional component with generic args:
+- Always use `ComponentProps<Info>` type for manually typing a component func or class for its initial props (1st arg in constructor).
+- Example for a functional component with generic args:
   - ```typescript 
       // Imports.
       import {
