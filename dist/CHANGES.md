@@ -5,7 +5,9 @@
 - In addition, the `MixDOM.component` and `MixDOM.componentCtx` shortcuts now support receiving a dictionary of static properties to add to a component function (as an optional 2nd arg), and likewise `MixDOM.shadow` and `MixDOM.shadowCtx` (as the 3rd arg, keeping "signals" as the 2nd arg).
 
 ### Added type helpers for component funcs with generic args
-- Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers. For example:
+- Now can use `ComponentWith<Info>`, `ComponentCtxWith<Info>`, `ComponentProps<Info>`, `ComponentFuncArgs<Info>`, `ComponentFuncCtxArgs<Info>` and `ComponentFuncReturn<Info>` type helpers.
+- The `ComponentProps<Info>` type should always be used when manually typing a component func or class for the 1st argument (in the function or constructor).
+- Examples for a functional component with generic args:
   - ```typescript 
       // Imports.
       import {
@@ -68,8 +70,9 @@
     - `MixDOMComponentTags` for the class and functional component tags. This includes `MixDOMPseudoTags`.
     - `MixDOMAnyTags` for any valid tags.
   - The prop related:
-    - `MixDOMProps` for DOM properties _without_ internal special props (`_disable`, `_key`, `_ref`, `_signals`).
+    - `MixDOMProps` for DOM properties _without_ internal special props.
     - `MixDOMPreProps` like `MixDOMProps` but also includes the special props: `_disable`, `_key`, `_ref`, `_signals`.
+      - The `_ref` is tied to a single or array of: `Node`.
     - `SpreadFuncProps<Props>` refers to props for spread functions including their internal special props: `_disable` and `_key`.
       - However, you don't need to type them specifically, as they are anyway supported through the intrinsic attributes / newDef method.
     -  `ComponentProps<Info>` refers to the initial props for component funcs and classes and includes all special props: `_disable`, `_key`, `_ref`, `_signals` and `_contexts`.
