@@ -15,49 +15,48 @@
   - ```typescript 
       // Imports.
       import {
-          MixDOM,
-          ComponentProps,
-          ComponentWith,
-          ComponentFuncReturn,
-          ComponentFuncCtxArgs
+        MixDOM,
+        ComponentProps,
+        ComponentWith,
+        ComponentFuncReturn,
+        ComponentCtxFuncArgs
       } from "mix-dom";
 
       // Info interface with generic args.
       interface MyItemInfo<Id extends number | string = any> {
-          props: { id: Id; };
-          state: { lastId: Id | null; }
+        props: { id: Id; };
+        state: { lastId: Id | null; }
       }
 
       // Component func with generic args.
       // .. The 2nd arg could also be Component<MyItemInfo<Id>>.
       // .. However using ComponentWith enforces the "class" and "static" sides on the type.
-      const MyItem = <Id extends number | string = any>
-          (_props: ComponentProps<MyItemInfo<Id>>, component: ComponentWith<MyItemInfo<Id>>) =>
-      {
-          // Do some inits - just to showcase.
-          component.state = { lastId: null };
-          // Use ComponentFuncReturn<Info> for the render to type (props, state) and the return.
-          return (
-              (props, state) => { return <div class="my-item"></div>; }
-          ) as ComponentFuncReturn<MyItemInfo<Id>>;
+      const MyItem = <Id extends number | string = any> (
+        _props: ComponentProps<MyItemInfo<Id>>,
+        component: ComponentWith<MyItemInfo<Id>>
+      ): ComponentFuncReturn<MyItemInfo> => {
+        // Do some inits - just to showcase.
+        component.state = { lastId: null };
+        // Use ComponentFuncReturn<Info> for the render to type (props, state) and the return.
+        return (props, state) => { return <div class="my-item"></div>; }
       };
 
-      // Alternative with prepared args, and using contextAPI.
+      // Alternative with prepared args (and return typed later), and using contextAPI.
       const MyItemAlt = <Id extends number | string = any, Args extends any[] =
-          // On JS side should always define args one by one, not as ...args, as it affects func.length.
-          ComponentFuncCtxArgs<MyItemInfo<Id>>> (_props: Args[0], component: Args[1], cApi: Args[2]) =>
+        // On JS side should always define args one by one, not as ...args, as it affects func.length.
+        ComponentCtxFuncArgs<MyItemInfo<Id>>> (_props: Args[0], component: Args[1], cApi: Args[2]) =>
       {
-          // Otherwise the same + can use cApi.
-          component.state = { lastId: null };
-          return (
-              (props, state) => { return <div class="my-item"></div>; }
-          ) as ComponentFuncReturn<MyItemInfo<Id>>;
+        // Otherwise the same + can use cApi.
+        component.state = { lastId: null };
+        // Let's type the return here for this example.
+        return (
+          (props, state) => { return <div class="my-item"></div>; }
+        ) as ComponentFuncReturn<MyItemInfo<Id>>;
       };
 
       // Test usage from outside.
       const TestGenerics = () => <MyItem<number> id={5} />;			// Requires number id.
       const TestGenericsAlt = () => <MyItemAlt<string> id="test" />; 	// Requires string id.
-
     ```
 
 ### Cleaned up typing
