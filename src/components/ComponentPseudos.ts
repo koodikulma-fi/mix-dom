@@ -5,7 +5,7 @@
 import { ReClass } from "mixin-types";
 import { DOMTags } from "dom-types";
 // Typing.
-import { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget, MixDOMInternalBaseProps } from "../typing";
+import { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget, MixDOMInternalBaseProps, MixDOMCase } from "../typing";
 // Host.
 import { MixDOMCloneNodeBehaviour } from "../host/index";
 // Only typing (local).
@@ -52,7 +52,7 @@ export class PseudoPortal<Props = {}> {
 
 // - Element - //
 
-export type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreProps<Tag> & {
+export type PseudoElementProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
     /** HTML or SVG element to smuggle in. */
     element: HTMLElement | SVGElement | null;
     /** Determines what happens when meeting duplicates.
@@ -63,11 +63,11 @@ export type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreProps<T
 /** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
  * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
  */
-export class PseudoElement<Tag extends DOMTags = DOMTags, Props = {}> {
-    ["constructor"]: { _Info?: { props: PseudoElementProps<Tag> & Props; }; };
+export class PseudoElement<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
+    ["constructor"]: { _Info?: { props: PseudoElementProps<Tag, DOMCase> & Props; }; };
     public static MIX_DOM_CLASS: string = "Element";
-    public readonly props: PseudoElementProps<Tag> & Props;
-    constructor(_props: PseudoElementProps<Tag> & Props) { }
+    public readonly props: PseudoElementProps<Tag, DOMCase> & Props;
+    constructor(_props: PseudoElementProps<Tag, DOMCase> & Props) { }
 }
 
 
@@ -127,7 +127,7 @@ export interface PseudoEmptyRemote<Props = {}> extends ComponentRemote<Props & {
 
 export type MixDOMPseudoTags<Props extends Record<string, any> = {}> =
     | typeof PseudoFragment<Props>
-    | typeof PseudoElement<DOMTags, Props>
+    | typeof PseudoElement<DOMTags, "mixedCase", Props>
     | typeof PseudoPortal<Props>
     | typeof PseudoEmpty<Props>
     | typeof PseudoEmptyRemote<Props>

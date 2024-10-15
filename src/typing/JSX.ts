@@ -2,16 +2,16 @@
 // - Imports - //
 
 // Local typing.
-import { DOMAttributesBy, DOMAttributesBy_native } from "dom-types";
+import { DOMAttributesBy_camelCase, DOMAttributesBy_native, DOMTags } from "dom-types";
 import { MixDOMInternalBaseProps, MixDOMInternalDOMProps } from "./MixDOMProcessing";
 
 
 // - JSX - Intrinsic attributes - //
 
 /** The intrinsic attributes for JSX in native (for listeners and aria props). Recommended when wanting to match traditional string like HTML code inputting (can often just copy-paste the string, and works as TSX directly). */
-type IntrinsicAttributesBy_native = { [CompOrEl: string]: MixDOMInternalDOMProps; } & {[Tag in keyof DOMAttributesBy_native]: MixDOMInternalDOMProps; } & DOMAttributesBy_native;
+type IntrinsicAttributesBy_native = { [CompOrEl: string]: MixDOMInternalDOMProps; } & Record<DOMTags, MixDOMInternalDOMProps> & DOMAttributesBy_native;
 /** The intrinsic attributes for JSX in camelCase (for listeners and aria props). Recommended as a default. */
-type IntrinsicAttributesBy_camelCase = { [CompOrEl: string]: MixDOMInternalDOMProps; } & {[Tag in keyof DOMAttributesBy]: MixDOMInternalDOMProps; } & DOMAttributesBy;
+type IntrinsicAttributesBy_camelCase = { [CompOrEl: string]: MixDOMInternalDOMProps; } & Record<DOMTags, MixDOMInternalDOMProps> & DOMAttributesBy_camelCase;
 /** The intrinsic attributes for JSX in both: native and camelCase (for listeners and aria props). Not typically recommended, but can of course be used. (It's usually best to pick either native or camelCase way and stick to it.) */
 type IntrinsicAttributesBy_mixedCase = IntrinsicAttributesBy_camelCase & IntrinsicAttributesBy_native;
 

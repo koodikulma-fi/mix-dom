@@ -13,9 +13,9 @@ import {
     MixDOMAnyTags,
     MixDOMComponentTags,
     MixDOMRenderOutput,
-    MixDOMPreProps,
     MixDOMInternalBaseProps,
     MixDOMInternalDOMProps,
+    MixDOMPreProps,
 } from "../typing";
 // Only typing (distant).
 import { Ref } from "../common/Ref";
@@ -37,15 +37,15 @@ const contentKey: {} = {};
 
 // - Typing - //
 
-// Get props for a tag.
-/** Get init props for any MixDOM tag: DOM tags, spread funcs, component funcs, component classes, pseudo component classes, ...
+/** Get init props for any MixDOM tag.
  * - Note that the props include the special props (`_disable`, `_key`, `_ref`, `_signals`, `_contexts`) based on tag and typing for them.
- * - All string tags refer to DOM types except for "_" which refers to PseudoElement.
- * - Provide second argument Fallback in case does not match known types.
+ * @param Tag The tag to get the props for. Can be any kind of tag: DOM tags, spread funcs, component funcs & classes, pseudo classes, ... All string tags refer to DOM tags except for "_" which refers to PseudoElement.
+ * @param Fallback Provide second argument Fallback in case does not match known types.
+ * @param DOMCase Use the optional 3rd arg to define whether DOM attributes typing is in native case or camelCase: eg. "fill-opacity" (native) vs. "fillOpacity" (camelCase).
  */
-export type GetPropsFor<Tag, Fallback = {}> =
+export type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase"> =
     // Dom tags.
-    Tag extends string ? Tag extends "_" ? PseudoElementProps : MixDOMPreProps<Tag> :
+    Tag extends string ? Tag extends "_" ? PseudoElementProps<Tag, DOMCase> : MixDOMPreProps<Tag, DOMCase> :
     // Functional.
     Tag extends (...args: any[]) => any ?
         // Spread.
@@ -62,7 +62,10 @@ export type GetPropsFor<Tag, Fallback = {}> =
 
 // - Create def helpers - //
 
-/** Create a rendering definition. Supports receive direct JSX compiled output. In terms of typing, this method reflects TSX typing. */
+/** Create a rendering definition. Supports receive direct JSX compiled output.
+ * - In terms of typing, this method reflects TSX typing for "mixedCase" in regards to DOM elements.
+ *      * Use `nativeDef` or `camelCaseDef` methods to explicitly use native or camelCase typing.
+ */
 export function newDef<Tag>(...args:
     // DOM.
     Tag extends string ? [domTag: string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
@@ -177,13 +180,43 @@ export function newDef(tagOrClass: MixDOMAnyTags, origProps: Record<string, any>
     // Return def.
     return targetDef;
 }
+/** Create a rendering definition. Supports receive direct JSX compiled output. (Same as newDef but using DOM attributes in native case.) */
+export const nativeDef: <Tag>(...args:
+    // DOM.
+    Tag extends string ? [domTag: string, props?: GetPropsFor<Tag, {}, "native"> | null, ...contents: MixDOMRenderOutput[]] :
+    // Components, spreads and pseudos.
+    Tag extends MixDOMComponentTags ?
+        // Can be empty.
+        {} | undefined extends OmitPartial<GetPropsFor<Tag, {}, "native">> | undefined ?
+            [componentTag: Tag, props?: GetPropsFor<Tag, {}, "native"> | null, ...contents: MixDOMRenderOutput[]] :
+        // Must give props.
+        [componentTag: Tag, props: GetPropsFor<Tag, {}, "native">, ...contents: MixDOMRenderOutput[]] :
+    // Unrecognized.
+    [unknownTag: Tag, props?: never, ...contents: MixDOMRenderOutput[]]
+) => MixDOMDefTarget | null = newDef as any;
+
+/** Create a rendering definition. Supports receive direct JSX compiled output. (Same as newDef but using DOM attributes in camelCase.) */
+export const camelCaseDef: <Tag>(...args:
+    // DOM.
+    Tag extends string ? [domTag: string, props?: GetPropsFor<Tag, {}, "camelCase"> | null, ...contents: MixDOMRenderOutput[]] :
+    // Components, spreads and pseudos.
+    Tag extends MixDOMComponentTags ?
+        // Can be empty.
+        {} | undefined extends OmitPartial<GetPropsFor<Tag, {}, "camelCase">> | undefined ?
+            [componentTag: Tag, props?: GetPropsFor<Tag, {}, "camelCase"> | null, ...contents: MixDOMRenderOutput[]] :
+        // Must give props.
+        [componentTag: Tag, props: GetPropsFor<Tag, {}, "camelCase">, ...contents: MixDOMRenderOutput[]] :
+    // Unrecognized.
+    [unknownTag: Tag, props?: never, ...contents: MixDOMRenderOutput[]]
+) => MixDOMDefTarget | null = newDef as any;
 
 /** Create a new def from a html string. Returns a def for a single html element
  * - If a wrapInTag given will use it as a container.
  * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
  * - Normally uses a container only as a fallback if has many children.
+ * - To define typing for props, use the DOMCase type argument. Defaults to "mixedCase".
  */
-export function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreProps, key?: any): MixDOMDefTarget {
+export function newDefHTML<DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase">(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreProps<any, DOMCase>, key?: any): MixDOMDefTarget {
     // Create def.
     const def: MixDOMDefTarget = {
         MIX_DOM_DEF: "content",

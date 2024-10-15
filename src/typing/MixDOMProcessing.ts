@@ -4,7 +4,7 @@
 // Libraries.
 import { CompareDepthMode } from "data-memo";
 import { SignalsRecord, Context } from "data-signals";
-import { DOMCleanProps, DOMTags, DOMAttributes, DOMAttributesAny } from "dom-types";
+import { DOMCleanProps, DOMTags, DOMAttributesAny_native, DOMAttributes_native, DOMAttributesAny_camelCase, DOMAttributes_camelCase } from "dom-types";
 // Only typing (local).
 import { MixDOMDefTarget } from "./MixDOMDefs";
 import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
@@ -152,13 +152,21 @@ export interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
 }
 
 // Dom props.
-/** Contains tag based DOM attributes including internal dom props (_key, _ref, _disabled, _signals). The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-export type MixDOMPreProps<Tag extends string = DOMTags> = DOMTags extends Tag ? DOMAttributesAny & MixDOMInternalDOMProps : DOMAttributes<Tag> & MixDOMInternalDOMProps;
+/** The spelling modes available for DOM attributes. Default is "mixedCase". */
+export type MixDOMCase = "native" | "camelCase" | "mixedCase";
+/** Contains tag based DOM attributes including internal DOM props (_key, _ref, _disabled, _signals).
+ * - The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag.
+ * - To define the native vs. camelCase spelling for DOM attributes, define the 2nd argument. Defaults to "mixedCase", so allows both.
+ */
+export type MixDOMPreProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMInternalDOMProps & MixDOMProps<Tag, DOMCase>;
 
-
-// Post props.
-/** Tag based DOM props _excluding_ internal props (_key, _ref, _disabled, _signals). The same as `DOMAttributes<Tag>` from "dom-types". */
-export type MixDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
+/** Contains tag based DOM attributes _without_ the internal DOM props (_key, _ref, _disabled, _signals).
+ * - This is the same as DOMAttributes from the "dom-types" library, but can define DOMCase as the 2nd type arg: "native" | "camelCase" | "mixedCase". Defaults to "mixedCase".
+ */
+export type MixDOMProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> =
+    DOMCase extends "camelCase" ? DOMTags extends Tag ? DOMAttributesAny_camelCase : DOMAttributes_camelCase<Tag> :
+    DOMCase extends "native" ? DOMTags extends Tag ? DOMAttributesAny_native : DOMAttributes_native<Tag> :
+    DOMTags extends Tag ? DOMAttributesAny_camelCase & DOMAttributesAny_native : DOMAttributes_camelCase<Tag> & DOMAttributes_native<Tag>;
 
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
  * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.

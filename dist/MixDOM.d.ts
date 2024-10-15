@@ -1,20 +1,16 @@
 import { CompareDepthMode } from 'data-memo';
 import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, Context, ContextsAllTypeWith, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
-import { DOMAttributesBy_native, DOMAttributesBy, DOMTags, DOMElement, DOMDiffProps, DOMAttributesAny, DOMAttributes, DOMCleanProps } from 'dom-types';
+import { DOMTags, DOMAttributesBy_native, DOMAttributesBy_camelCase, DOMElement, DOMDiffProps, DOMAttributesAny_camelCase, DOMAttributes_camelCase, DOMAttributesAny_native, DOMAttributes_native, DOMCleanProps } from 'dom-types';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
 
 /** The intrinsic attributes for JSX in native (for listeners and aria props). Recommended when wanting to match traditional string like HTML code inputting (can often just copy-paste the string, and works as TSX directly). */
 type IntrinsicAttributesBy_native = {
     [CompOrEl: string]: MixDOMInternalDOMProps;
-} & {
-    [Tag in keyof DOMAttributesBy_native]: MixDOMInternalDOMProps;
-} & DOMAttributesBy_native;
+} & Record<DOMTags, MixDOMInternalDOMProps> & DOMAttributesBy_native;
 /** The intrinsic attributes for JSX in camelCase (for listeners and aria props). Recommended as a default. */
 type IntrinsicAttributesBy_camelCase = {
     [CompOrEl: string]: MixDOMInternalDOMProps;
-} & {
-    [Tag in keyof DOMAttributesBy]: MixDOMInternalDOMProps;
-} & DOMAttributesBy;
+} & Record<DOMTags, MixDOMInternalDOMProps> & DOMAttributesBy_camelCase;
 /** The intrinsic attributes for JSX in both: native and camelCase (for listeners and aria props). Not typically recommended, but can of course be used. (It's usually best to pick either native or camelCase way and stick to it.) */
 type IntrinsicAttributesBy_mixedCase = IntrinsicAttributesBy_camelCase & IntrinsicAttributesBy_native;
 /** Include this once in your project in a file included in TS/TSX compilation:
@@ -1174,7 +1170,7 @@ declare class PseudoPortal<Props = {}> {
     readonly props: PseudoPortalProps & Props;
     constructor(_props: PseudoPortalProps & Props);
 }
-type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreProps<Tag> & {
+type PseudoElementProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
     /** HTML or SVG element to smuggle in. */
     element: HTMLElement | SVGElement | null;
     /** Determines what happens when meeting duplicates.
@@ -1185,15 +1181,15 @@ type PseudoElementProps<Tag extends DOMTags = DOMTags> = MixDOMPreProps<Tag> & {
 /** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
  * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
  */
-declare class PseudoElement<Tag extends DOMTags = DOMTags, Props = {}> {
+declare class PseudoElement<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
     ["constructor"]: {
         _Info?: {
-            props: PseudoElementProps<Tag> & Props;
+            props: PseudoElementProps<Tag, DOMCase> & Props;
         };
     };
     static MIX_DOM_CLASS: string;
-    readonly props: PseudoElementProps<Tag> & Props;
-    constructor(_props: PseudoElementProps<Tag> & Props);
+    readonly props: PseudoElementProps<Tag, DOMCase> & Props;
+    constructor(_props: PseudoElementProps<Tag, DOMCase> & Props);
 }
 /** Empty dummy component that accepts any props, but always renders null. */
 interface PseudoEmptyProps {
@@ -1241,7 +1237,7 @@ declare class PseudoEmptyRemote<Props = {}> extends PseudoEmptyRemote_base {
 interface PseudoEmptyRemote<Props = {}> extends ComponentRemote<Props & {}> {
     ["constructor"]: ComponentRemoteType<Props & {}>;
 }
-type MixDOMPseudoTags<Props extends Record<string, any> = {}> = typeof PseudoFragment<Props> | typeof PseudoElement<DOMTags, Props> | typeof PseudoPortal<Props> | typeof PseudoEmpty<Props> | typeof PseudoEmptyRemote<Props>;
+type MixDOMPseudoTags<Props extends Record<string, any> = {}> = typeof PseudoFragment<Props> | typeof PseudoElement<DOMTags, "mixedCase", Props> | typeof PseudoPortal<Props> | typeof PseudoEmpty<Props> | typeof PseudoEmptyRemote<Props>;
 
 declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowAPI<{
     props: ParentProps;
@@ -2369,10 +2365,17 @@ interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
      */
     _signals?: Partial<RefDOMSignals> | null;
 }
-/** Contains tag based DOM attributes including internal dom props (_key, _ref, _disabled, _signals). The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag. */
-type MixDOMPreProps<Tag extends string = DOMTags> = DOMTags extends Tag ? DOMAttributesAny & MixDOMInternalDOMProps : DOMAttributes<Tag> & MixDOMInternalDOMProps;
-/** Tag based DOM props _excluding_ internal props (_key, _ref, _disabled, _signals). The same as `DOMAttributes<Tag>` from "dom-types". */
-type MixDOMProps<Tag extends string = DOMTags> = DOMAttributes<Tag>;
+/** The spelling modes available for DOM attributes. Default is "mixedCase". */
+type MixDOMCase = "native" | "camelCase" | "mixedCase";
+/** Contains tag based DOM attributes including internal DOM props (_key, _ref, _disabled, _signals).
+ * - The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag.
+ * - To define the native vs. camelCase spelling for DOM attributes, define the 2nd argument. Defaults to "mixedCase", so allows both.
+ */
+type MixDOMPreProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMInternalDOMProps & MixDOMProps<Tag, DOMCase>;
+/** Contains tag based DOM attributes _without_ the internal DOM props (_key, _ref, _disabled, _signals).
+ * - This is the same as DOMAttributes from the "dom-types" library, but can define DOMCase as the 2nd type arg: "native" | "camelCase" | "mixedCase". Defaults to "mixedCase".
+ */
+type MixDOMProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = DOMCase extends "camelCase" ? DOMTags extends Tag ? DOMAttributesAny_camelCase : DOMAttributes_camelCase<Tag> : DOMCase extends "native" ? DOMTags extends Tag ? DOMAttributesAny_native : DOMAttributes_native<Tag> : DOMTags extends Tag ? DOMAttributesAny_camelCase & DOMAttributesAny_native : DOMAttributes_camelCase<Tag> & DOMAttributes_native<Tag>;
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
  * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.
  * - So, for DOM related, the rest of the props are found in { attributes }, while for non-DOM related the props are directly there.
@@ -2447,13 +2450,17 @@ type MixDOMSourceBoundaryChangeType = "mounted" | "updated" | "moved";
 type MixDOMSourceBoundaryChange = [boundary: SourceBoundary, changeType: MixDOMSourceBoundaryChangeType, prevProps?: Record<string, any>, prevState?: Record<string, any>];
 type MixDOMChangeInfos = [renderInfos: MixDOMRenderInfo[], boundaryChanges: MixDOMSourceBoundaryChange[]];
 
-/** Get init props for any MixDOM tag: DOM tags, spread funcs, component funcs, component classes, pseudo component classes, ...
+/** Get init props for any MixDOM tag.
  * - Note that the props include the special props (`_disable`, `_key`, `_ref`, `_signals`, `_contexts`) based on tag and typing for them.
- * - All string tags refer to DOM types except for "_" which refers to PseudoElement.
- * - Provide second argument Fallback in case does not match known types.
+ * @param Tag The tag to get the props for. Can be any kind of tag: DOM tags, spread funcs, component funcs & classes, pseudo classes, ... All string tags refer to DOM tags except for "_" which refers to PseudoElement.
+ * @param Fallback Provide second argument Fallback in case does not match known types.
+ * @param DOMCase Use the optional 3rd arg to define whether DOM attributes typing is in native case or camelCase: eg. "fill-opacity" (native) vs. "fillOpacity" (camelCase).
  */
-type GetPropsFor<Tag, Fallback = {}> = Tag extends string ? Tag extends "_" ? PseudoElementProps : MixDOMPreProps<Tag> : Tag extends (...args: any[]) => any ? IsSpreadFunc<Tag> extends true ? SpreadFuncProps & Parameters<Tag>[0] : ComponentProps<ReadComponentInfo<Tag>> : Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] : Tag extends ClassType<Component<any>> ? ComponentProps<ReadComponentInfo<Tag>> : Fallback;
-/** Create a rendering definition. Supports receive direct JSX compiled output. In terms of typing, this method reflects TSX typing. */
+type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase"> = Tag extends string ? Tag extends "_" ? PseudoElementProps<Tag, DOMCase> : MixDOMPreProps<Tag, DOMCase> : Tag extends (...args: any[]) => any ? IsSpreadFunc<Tag> extends true ? SpreadFuncProps & Parameters<Tag>[0] : ComponentProps<ReadComponentInfo<Tag>> : Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] : Tag extends ClassType<Component<any>> ? ComponentProps<ReadComponentInfo<Tag>> : Fallback;
+/** Create a rendering definition. Supports receive direct JSX compiled output.
+ * - In terms of typing, this method reflects TSX typing for "mixedCase" in regards to DOM elements.
+ *      * Use `nativeDef` or `camelCaseDef` methods to explicitly use native or camelCase typing.
+ */
 declare function newDef<Tag>(...args: Tag extends string ? [domTag: string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] : Tag extends MixDOMComponentTags ? {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ? [
     componentTag: Tag,
     props?: GetPropsFor<Tag> | null,
@@ -2471,8 +2478,9 @@ declare function newDef<Tag>(...args: Tag extends string ? [domTag: string, prop
  * - If a wrapInTag given will use it as a container.
  * - Otherwise, if the string refers to multiple, returns an element containing them (with settings.renderHTMLDefTag).
  * - Normally uses a container only as a fallback if has many children.
+ * - To define typing for props, use the DOMCase type argument. Defaults to "mixedCase".
  */
-declare function newDefHTML(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreProps, key?: any): MixDOMDefTarget;
+declare function newDefHTML<DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase">(innerHTML: string, wrapInTag?: DOMTags, props?: MixDOMPreProps<any, DOMCase>, key?: any): MixDOMDefTarget;
 declare function newContentCopyDef(key?: any): MixDOMDefTarget;
 
 declare const MixDOMContent: MixDOMDefTarget;
