@@ -2365,11 +2365,11 @@ interface MixDOMInternalDOMProps extends MixDOMInternalBaseProps {
      */
     _signals?: Partial<RefDOMSignals> | null;
 }
-/** The spelling modes available for DOM attributes. Default is "mixedCase". */
+/** The spelling modes available for DOM attributes. Default is "mixedCase". Used in MixDOMPreProps, MixDOMProps, PseudoElementProps and GetPropsFor type helpers (and related JS methods for deffing). */
 type MixDOMCase = "native" | "camelCase" | "mixedCase";
 /** Contains tag based DOM attributes including internal DOM props (_key, _ref, _disabled, _signals).
  * - The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag.
- * - To define the native vs. camelCase spelling for DOM attributes, define the 2nd argument. Defaults to "mixedCase", so allows both.
+ * - To define the "native" vs. "camelCase" spelling for DOM attributes, define the 2nd argument. Defaults to "mixedCase", so allows both.
  */
 type MixDOMPreProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMInternalDOMProps & MixDOMProps<Tag, DOMCase>;
 /** Contains tag based DOM attributes _without_ the internal DOM props (_key, _ref, _disabled, _signals).
