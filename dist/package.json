@@ -36,6 +36,11 @@
       "types": "./MixDOM.d.ts"
     },
     "./package.json": "./package.json",
+    "./MixDOM": {
+      "import": "./MixDOM.module.js",
+      "require": "./MixDOM.js",
+      "types": "./MixDOM.d.ts"
+    },
     "./camelCase": {
       "import": "./MixDOM.module.js",
       "require": "./MixDOM.js",

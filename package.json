@@ -32,9 +32,30 @@
     "exports": {
         ".": {
             "import": "./dist/MixDOM.module.js",
-            "require": "./dist/MixDOM.js"
+            "require": "./dist/MixDOM.js",
+            "types": "./dist/MixDOM.d.ts"
         },
-        "./package.json": "./package.json"
+        "./package.json": "./dist/package.json",
+        "./MixDOM": {
+            "import": "./dist/MixDOM.module.js",
+            "require": "./dist/MixDOM.js",
+            "types": "./dist/MixDOM.d.ts"
+        },
+        "./camelCase": {
+            "import": "./dist/MixDOM.module.js",
+            "require": "./dist/MixDOM.js",
+            "types": "./dist/camelCase.d.ts"
+        },
+        "./native": {
+            "import": "./dist/MixDOM.module.js",
+            "require": "./dist/MixDOM.js",
+            "types": "./dist/native.d.ts"
+        },
+        "./mixedCase": {
+            "import": "./dist/MixDOM.module.js",
+            "require": "./dist/MixDOM.js",
+            "types": "./dist/mixedCase.d.ts"
+        }
     },
     "files": [
         "dist",
