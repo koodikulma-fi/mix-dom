@@ -2,8 +2,8 @@
 
 ### Enhanced typing support
 - Added support to automatically declare the global JSX namespace using imports `"mix-dom/native"` and `"mix-dom/camelCase"`.
-  * So instead of manually declaring JSX namespace once (`declare global { namespace JSX { ... } }`), use one of the sub imports likewise once (per tsconfig.json).
-  * This reflects how imports are used in `dom-types@v1.1.0`: `import { HTMLAttributes } from "dom-types/camelCase";`
+  - So instead of manually declaring JSX namespace once (`declare global { namespace JSX { ... } }`), use one of the sub imports likewise once (per tsconfig.json).
+  - This reflects how imports are used in `dom-types@v1.1.0`: `import { HTMLAttributes } from "dom-types/camelCase";`
 - Accordingly refines the typing support in the def methods and couple of related helper types.
   - Added `nativeDef` and `camelCaseDef` aliases for `newDef`, which in turn uses the default "mixedCase" typing (= both native and camelCase).
   - Added type arg to `newHTMLDef<DOMCase>(...)` method to determine typing: `"native" | "camelCase" | "mixedCase" = "mixedCase"`.
