@@ -1,15 +1,18 @@
 ## v4.2.0 (2024-10-20)
 
 ### Enhanced typing suggestions
+
 - Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags`, but still allowing any string input.
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
-- The argument `extend` defaults to `true`, which means extends the original state.
+
+- The argument `extend` defaults to `true`, which results in extending the original state.
 - By setting it to `false`, the feature allows to replace the whole state (with a shallow copy of the newState).
 
 ### Internal and dependency refines
+
 - Adjusted to `data-signals` v1.1.2 (and `mixin-types` v1.1.1).
-- Accordingly, modified internally that host based contexts use the newly available `inheritedContexts` flow instead of extending signal and data listeners manually.
+- Accordingly, optimized that HostContextAPI to use the new `inheritedContexts` flow (for sharing to ComponentContextAPIs).
 
 ---
 
