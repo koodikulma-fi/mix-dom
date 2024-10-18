@@ -1170,7 +1170,7 @@ declare class PseudoPortal<Props = {}> {
     readonly props: PseudoPortalProps & Props;
     constructor(_props: PseudoPortalProps & Props);
 }
-type PseudoElementProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
+type PseudoElementProps<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
     /** HTML or SVG element to smuggle in. */
     element: HTMLElement | SVGElement | null;
     /** Determines what happens when meeting duplicates.
@@ -1181,7 +1181,7 @@ type PseudoElementProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase
 /** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
  * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
  */
-declare class PseudoElement<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
+declare class PseudoElement<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
     ["constructor"]: {
         _Info?: {
             props: PseudoElementProps<Tag, DOMCase> & Props;

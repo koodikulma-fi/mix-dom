@@ -1,3 +1,10 @@
+## v4.1.2 (unreleased)
+
+### Enhanced typing suggestions
+- Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags`, but still allowing any string input.
+
+---
+
 ## v4.1.1 (2024-10-16)
 
 ### Enhanced typing support
