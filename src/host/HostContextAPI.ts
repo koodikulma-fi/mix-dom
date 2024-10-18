@@ -96,6 +96,17 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
 
     // - Getting / Calling indirect (component) listeners - //
 
+    // Hook up the feature.
+    public static modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[] {
+        // Basis.
+        const changed = super.modifyContexts(contextAPI, contextMods, callDataIfChanged, setAsInherited);
+        // Set as inherited for components.
+        for (const component of contextAPI.host.contextComponents)
+            component.contextAPI.setContexts(contextMods, callDataIfChanged, true);
+        // Return changed.
+        return changed;
+    }
+
     // public static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined {
     //     // All within a context.
     //     const ctxSignalName = ctxName + "." + (signalName || "");
@@ -137,7 +148,7 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
     //     );
     //     return listeners[0] && listeners;
     // }
-
+    //
     // // Hook up the feature.
     // public static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys: true | string[] = true): void {
     //     // Call the direct. (That's what would happen without the presence of this method.)
@@ -155,16 +166,5 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
     //         }
     //     }
     // }
-
-    // Hook up the feature.
-    public static modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[] {
-        // Basis.
-        const changed = super.modifyContexts(contextAPI, contextMods, callDataIfChanged, setAsInherited);
-        // Set as inherited for components.
-        for (const component of contextAPI.host.contextComponents)
-            component.contextAPI.setContexts(contextMods, callDataIfChanged, true);
-        // Return changed.
-        return changed;
-    }
 
 }
