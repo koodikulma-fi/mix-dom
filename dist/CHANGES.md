@@ -12,7 +12,7 @@
 ### Internal and dependency refines
 
 - Adjusted to `data-signals` v1.1.2 (and `mixin-types` v1.1.1).
-- Accordingly, optimized that HostContextAPI to use the new `inheritedContexts` flow (for sharing to ComponentContextAPIs).
+- Accordingly, optimized HostContextAPIs to use the new `inheritedContexts` flow (for sharing to ComponentContextAPIs).
 
 ---
 
