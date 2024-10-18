@@ -38,7 +38,7 @@ interface MixDOMTreeNodeBase {
 
     // - Optional - //
 
-    /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
+    /** If refers to a boundary - either a custom class / function or then a content passing boundary. */
     boundary?: MixDOMBoundary | null;
     /** The applied def tied to this particular treeNode. */
     def?: MixDOMDefApplied;

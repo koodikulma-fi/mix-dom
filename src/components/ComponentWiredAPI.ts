@@ -80,7 +80,7 @@ export class ComponentWiredAPI<
     public update(update: boolean | "all" = true, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
         // Set state for all.
         for (const wired of this.components)
-            wired.setState(this.getMixedProps(wired as any), update, forceUpdateTimeout, forceRenderTimeout);
+            wired.setState(this.getMixedProps(wired as any), false, update, forceUpdateTimeout, forceRenderTimeout);
     }
 
 

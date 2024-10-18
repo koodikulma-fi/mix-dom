@@ -1,6 +1,6 @@
 {
   "name": "mix-dom",
-  "version": "4.1.2",
+  "version": "4.2.0",
   "description": "Powerful state based DOM rendering library (JSX/TSX)",
   "keywords": [
       "MixDOM",
@@ -59,8 +59,8 @@
   },
   "dependencies": {
     "data-memo": "~1.0.1",
-    "data-signals": "~1.1.1",
+    "data-signals": "~1.1.2",
     "dom-types": "~1.1.0",
-    "mixin-types": "~1.1.0"
+    "mixin-types": "~1.1.1"
   }
 }

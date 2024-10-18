@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { callListeners } from "data-signals";
+import { callListeners, ContextAPI } from "data-signals";
 import { equalDOMProps, getDictionaryDiffs } from "dom-types";
 // Typing.
 import {
@@ -32,7 +32,7 @@ import { pairDefs, buildDefMaps, assignTreeNodesForPass, ToApplyPair } from "./r
 import { Host } from "./Host";
 // Only typing (distant).
 import { ComponentType } from "../components/Component";
-import { ComponentCtx } from "../components/ComponentContextAPI";
+import { ComponentContextAPI, ComponentCtx } from "../components/ComponentContextAPI";
 import { ComponentShadowType } from "../components/ComponentShadow";
 import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRemote";
 
@@ -804,7 +804,7 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
                     host.shadowAPI.hosts.delete(host);
                     const cAPI = host.contextAPI;
                     for (const ctxName in cAPI.contexts)
-                        cAPI.contexts[ctxName]?.contextAPIs.delete(cAPI);
+                        cAPI.contexts[ctxName]?.contextAPIs.delete(cAPI as ContextAPI<any>);
                 }
             }
 

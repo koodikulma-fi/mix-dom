@@ -249,14 +249,15 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
                 return;
             // Create new.
             this.contextAPI = new ComponentContextAPI();
-            this.contextAPI.host = this.boundary.host;
+            const host = this.contextAPI.host = this.boundary.host;
             // Attach to host for hooking up to its contexts automatically. Will be removed on unmounting.
-            this.boundary.host.contextComponents.add(this as any as ComponentCtx);
+            host.contextComponents.add(this as any as ComponentCtx);
             // Set initial contexts.
+            this.contextAPI.setContexts(host.contextAPI.contexts as any, false, true); // Don't call data yet. Set as inherited.
             const _contexts = this.boundary._outerDef.attachedContexts;
             if (_contexts)
                 for (const ctxName in _contexts)
-                    this.contextAPI.setContext(ctxName as never, _contexts[ctxName] as never, false);
+                    this.contextAPI.setContext(ctxName as never, _contexts[ctxName] as never, false); // Don't call data yet.
         }
 
 
@@ -372,8 +373,8 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
                 delete this.constantProps;
         }
 
-        public setState(newState: Record<string, any>, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
-            this.boundary.updateBy({ state: { ...this.state, ...newState } }, forceUpdate, forceUpdateTimeout, forceRenderTimeout);
+        public setState(newState: Record<string, any>, extend: boolean = true, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
+            this.boundary.updateBy({ state: extend ? { ...this.state, ...newState } : { ...newState } }, forceUpdate, forceUpdateTimeout, forceRenderTimeout);
         }
 
         public setInState(property: string, value: any, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
@@ -561,9 +562,10 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
     setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDepthMode | number | null): void;
 
     // State.
-    /** Set many properties in the state at once. Can optionally define update related timing. */
-    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    setState(newState: Info["state"], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** Set many properties in the state at once. Can optionally define update related timing. If wanting to replace the whole state, set extend (2nd arg) to false. */
+    setState<Key extends keyof (Info["state"] & {})>(fullState: Info["state"] & {}, extend: boolean, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, extend?: false | never, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState(newState: Info["state"], extend?: false | never, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Set one property in the state with typing support. Can optionally define update related timing. */
     setInState<Key extends keyof (Info["state"] & {})>(property: Key, value: (Info["state"] & {})[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     

@@ -3,7 +3,7 @@
 
 // Libraries.
 import { AsClass } from "mixin-types";
-import { ContextsAllType, ContextsAllTypeWith, ContextAPI, SetLike, Context, ContextAPIType } from "data-signals";
+import { ContextsAllType, ContextAPI, ContextAPIType } from "data-signals";
 // Host.
 import { Host } from "../host/index";
 // Only typing (local).
@@ -44,30 +44,10 @@ export interface ComponentContextAPI<Contexts extends ContextsAllType = {}> exte
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-
-    // Extends ContextAPI methods with more args.
-    /** Get the named context for the component.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContext<Name extends keyof Contexts & string>(name: Name, includeInherited?: boolean): Contexts[Name] | null | undefined;
-    /** Get the contexts for the component, optionally only for given names.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
 }
 /** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
 export class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     host: Host<Contexts>;
-    public getContext<Name extends keyof Contexts & string>(name: Name, includeInherited: boolean = true): Contexts[Name] | null | undefined {
-        return this.contexts[name] !== undefined ? this.contexts[name] as Contexts[Name] | null : includeInherited ? this.host.contextAPI.contexts[name] as Contexts[Name] | undefined : undefined;
-    }
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited: boolean = true, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
-        return (includeInherited ? { ...this.host.contextAPI.getContexts(onlyNames, skipNulls), ...super.getContexts(onlyNames, skipNulls) } : super.getContexts(onlyNames, skipNulls)) as Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>>;
-    }
     /** At ComponentContextAPI level, full "delay" (renderSide = true) is hooked up to awaiting host's render cycle, while "pre-delay" to the update cycle. */
     public afterRefresh(renderSide: boolean = false, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void> {
         // Trigger and await update cycle.

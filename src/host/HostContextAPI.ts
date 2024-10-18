@@ -3,7 +3,7 @@
 
 // Library.
 import { AsClass } from "mixin-types";
-import { ContextAPI, ContextsAllType, SignalListener, ContextAPIType } from "data-signals";
+import { ContextAPI, ContextsAllType, ContextAPIType } from "data-signals";
 // Only typing.
 import { Host } from "./Host";
 
@@ -12,10 +12,12 @@ import { Host } from "./Host";
 
 /** Class type for HostContextAPI. */
 export interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
-    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor(contextAPI: HostContextAPI<any>, ctxName: string, signalName?: string): SignalListener[] | undefined;
-    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(contextAPI: HostContextAPI<any>, ctxDataKeys?: true | string[]): void;
+    // /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
+    // getListenersFor(contextAPI: HostContextAPI<any>, ctxName: string, signalName?: string): SignalListener[] | undefined;
+    // /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
+    // callDataListenersFor(contextAPI: HostContextAPI<any>, ctxDataKeys?: true | string[]): void;
+    /** Attached to provide automated context inheritance from host to components. */
+    modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
 }
 /** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
  * - It also has the afterRefresh method assign to the host's cycles.
@@ -36,7 +38,7 @@ export interface HostContextAPI<Contexts extends ContextsAllType = {}> extends C
      */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
 
-    // Extends ContextAPI methods with more args.
+    // Extends ContextAPI methods with changed 4th arg.
     /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
@@ -52,7 +54,7 @@ export interface HostContextAPI<Contexts extends ContextsAllType = {}> extends C
      *      * If set to true, will also modify the host.shadowAPI.contexts: if has a context adds there, if null or undefined removes from there.
      *      * It's a dictionary used for auto-assigning contexts to a new duplicated host - requires `host.settings.duplicatableHost: true`.
      */
-    setContexts(contexts: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
+    setContexts(contexts: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): Array<string & keyof Contexts>;
 }
 export class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
 
@@ -64,17 +66,17 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
         if (markAsDuplicatable)
             context ? this.host.shadowAPI.contexts[name] = context : delete this.host.shadowAPI.contexts[name];
         // Basis.
-        return super.setContext(name as never, context as never, callDataIfChanged);
+        return this.constructor.modifyContexts(this, { [name]: context }, callDataIfChanged, false)[0] !== undefined;
     }
-    public setContexts(namedContexts: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): boolean {
+    public setContexts(contextMods: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined;}>, callDataIfChanged: boolean = true, markAsDuplicatable: boolean = false): Array<string & keyof Contexts> {
         // Handle local bookkeeping.
         if (markAsDuplicatable) {
-            const dContexts = this.host.shadowAPI.contexts;
-            for (const ctxName in namedContexts)
-                namedContexts[ctxName] ? (dContexts as Record<string, any>)[ctxName] = namedContexts[ctxName] as any : delete dContexts[ctxName];
+            const dContexts = this.host.shadowAPI.contexts as Record<string, any>;
+            for (const ctxName in contextMods)
+                contextMods[ctxName] ? dContexts[ctxName] = contextMods[ctxName] : delete dContexts[ctxName];
         }
         // Basis.
-        return super.setContexts(namedContexts as any, callDataIfChanged);
+        return this.constructor.modifyContexts(this, contextMods, callDataIfChanged, false);
     }
 
 
@@ -94,64 +96,75 @@ export class HostContextAPI<Contexts extends ContextsAllType = {}> extends Conte
 
     // - Getting / Calling indirect (component) listeners - //
 
-    public static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined {
-        // All within a context.
-        const ctxSignalName = ctxName + "." + (signalName || "");
-        const ctxComponents = [...contextAPI.host.contextComponents];
-        if (!signalName) {
-            // Add all our own matching signals.
-            let listeners: SignalListener[] = [];
-            for (const sName in contextAPI.signals) {
-                // If matches the context name + ".", then get the listeners.
-                if (sName.startsWith(ctxSignalName))
-                    listeners = listeners.concat(contextAPI.signals[sName]!);
-            }
-            // Likewise, add from all the components.
-            return listeners.concat(
-                // Check all contextual components, and all signals in them.
-                ctxComponents.reduce((cum, comp) => {
-                    // Only allow from those components that do _not_ have direct overrides for the given context name - as they would be collected directly if related.
-                    if (comp.contextAPI.contexts[ctxName] !== undefined)
-                        return cum;
-                    // Check for match.
-                    const signals = comp.contextAPI.signals;
-                    for (const sName in signals) {
-                        // If matches the context name + ".", then get the listeners.
-                        if (sName.startsWith(ctxSignalName))
-                            cum = cum.concat(signals[sName]!);
-                    }
-                    return cum;
-                }, [] as SignalListener[])
-            );
-        }
-        // All directly matching - the normal case.
-        const listeners = (contextAPI.signals[ctxSignalName] || []).concat(
-            // Components.
-            ctxComponents
-            // Only allow those that match and are _not_ on components that have direct overrides for the given context name - as they would be collected directly if related. (If unrelated, then nothing to do.)
-            .filter(comp => comp.contextAPI.signals[ctxSignalName] && (comp.contextAPI.contexts[ctxName] === undefined))
-            // Convert to the listeners and reduce the double structure away.
-            .map(comp => comp.contextAPI.signals[ctxSignalName]!).reduce((a, c) => a.concat(c), [])
-        );
-        return listeners[0] && listeners;
-    }
+    // public static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined {
+    //     // All within a context.
+    //     const ctxSignalName = ctxName + "." + (signalName || "");
+    //     const ctxComponents = [...contextAPI.host.contextComponents];
+    //     if (!signalName) {
+    //         // Add all our own matching signals.
+    //         let listeners: SignalListener[] = [];
+    //         for (const sName in contextAPI.signals) {
+    //             // If matches the context name + ".", then get the listeners.
+    //             if (sName.startsWith(ctxSignalName))
+    //                 listeners = listeners.concat(contextAPI.signals[sName]!);
+    //         }
+    //         // Likewise, add from all the components.
+    //         return listeners.concat(
+    //             // Check all contextual components, and all signals in them.
+    //             ctxComponents.reduce((cum, comp) => {
+    //                 // Only allow from those components that do _not_ have direct overrides for the given context name - as they would be collected directly if related.
+    //                 if (comp.contextAPI.contexts[ctxName] !== undefined)
+    //                     return cum;
+    //                 // Check for match.
+    //                 const signals = comp.contextAPI.signals;
+    //                 for (const sName in signals) {
+    //                     // If matches the context name + ".", then get the listeners.
+    //                     if (sName.startsWith(ctxSignalName))
+    //                         cum = cum.concat(signals[sName]!);
+    //                 }
+    //                 return cum;
+    //             }, [] as SignalListener[])
+    //         );
+    //     }
+    //     // All directly matching - the normal case.
+    //     const listeners = (contextAPI.signals[ctxSignalName] || []).concat(
+    //         // Components.
+    //         ctxComponents
+    //         // Only allow those that match and are _not_ on components that have direct overrides for the given context name - as they would be collected directly if related. (If unrelated, then nothing to do.)
+    //         .filter(comp => comp.contextAPI.signals[ctxSignalName] && (comp.contextAPI.contexts[ctxName] === undefined))
+    //         // Convert to the listeners and reduce the double structure away.
+    //         .map(comp => comp.contextAPI.signals[ctxSignalName]!).reduce((a, c) => a.concat(c), [])
+    //     );
+    //     return listeners[0] && listeners;
+    // }
+
+    // // Hook up the feature.
+    // public static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys: true | string[] = true): void {
+    //     // Call the direct. (That's what would happen without the presence of this method.)
+    //     contextAPI.callDataBy(ctxDataKeys as any, true); // Skip calling back here.
+    //     // Call indirect - but only the ones who has not overridden the given context names locally.
+    //     // .. If has overridden locally, will be refreshed directly if related.
+    //     if (contextAPI.host.contextComponents.size) {
+    //         // Read context names.
+    //         const ctxNames = ContextAPI.readContextNamesFrom(ctxDataKeys === true ? Object.keys(contextAPI.contexts) : ctxDataKeys);
+    //         // Loop contextual components.
+    //         for (const comp of contextAPI.host.contextComponents) {
+    //             // If the context is not overridden by any of the names (typically only 1), then refresh.
+    //             if (ctxNames.some(ctxName => comp.contextAPI.contexts[ctxName] === undefined))
+    //                 comp.contextAPI.callDataBy(ctxDataKeys as never);
+    //         }
+    //     }
+    // }
 
     // Hook up the feature.
-    public static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys: true | string[] = true): void {
-        // Call the direct. (That's what would happen without the presence of this method.)
-        contextAPI.callDataBy(ctxDataKeys as any, true); // Skip calling back here.
-        // Call indirect - but only the ones who has not overridden the given context names locally.
-        // .. If has overridden locally, will be refreshed directly if related.
-        if (contextAPI.host.contextComponents.size) {
-            // Read context names.
-            const ctxNames = ContextAPI.readContextNamesFrom(ctxDataKeys === true ? Object.keys(contextAPI.contexts) : ctxDataKeys);
-            // Loop contextual components.
-            for (const comp of contextAPI.host.contextComponents) {
-                // If the context is not overridden by any of the names (typically only 1), then refresh.
-                if (ctxNames.some(ctxName => comp.contextAPI.contexts[ctxName] === undefined))
-                    comp.contextAPI.callDataBy(ctxDataKeys as never);
-            }
-        }
+    public static modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[] {
+        // Basis.
+        const changed = super.modifyContexts(contextAPI, contextMods, callDataIfChanged, setAsInherited);
+        // Set as inherited for components.
+        for (const component of contextAPI.host.contextComponents)
+            component.contextAPI.setContexts(contextMods, callDataIfChanged, true);
+        // Return changed.
+        return changed;
     }
 
 }

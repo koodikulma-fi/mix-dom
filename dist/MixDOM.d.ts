@@ -1,5 +1,5 @@
 import { CompareDepthMode } from 'data-memo';
-import { ContextsAllType, ContextAPIType, SignalListener, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, Context, ContextsAllTypeWith, SignalManType, SignalMan, NodeJSTimeout, SignalBoyType, SignalsRecord } from 'data-signals';
+import { ContextsAllType, ContextAPIType, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, SignalManType, SignalMan, NodeJSTimeout, SignalListener, SignalBoyType, Context, SignalsRecord } from 'data-signals';
 import { DOMTags, DOMAttributesBy_native, DOMAttributesBy_camelCase, DOMElement, DOMDiffProps, DOMAttributesAny_camelCase, DOMAttributes_camelCase, DOMAttributesAny_native, DOMAttributes_native, DOMCleanProps } from 'dom-types';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
 
@@ -138,10 +138,8 @@ declare class HostShadowAPI<Contexts extends ContextsAllType = {}> {
 
 /** Class type for HostContextAPI. */
 interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
-    /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    getListenersFor(contextAPI: HostContextAPI<any>, ctxName: string, signalName?: string): SignalListener[] | undefined;
-    /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    callDataListenersFor(contextAPI: HostContextAPI<any>, ctxDataKeys?: true | string[]): void;
+    /** Attached to provide automated context inheritance from host to components. */
+    modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
 }
 /** The Host based ContextAPI simply adds an extra argument to the setContext and setContexts methods for handling which contexts are auto-assigned to duplicated hosts.
  * - It also has the afterRefresh method assign to the host's cycles.
@@ -175,12 +173,11 @@ interface HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      */
     setContexts(contexts: Partial<{
         [CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined;
-    }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): boolean;
+    }>, callDataIfChanged?: boolean, markAsDuplicatable?: boolean): Array<string & keyof Contexts>;
 }
 declare class HostContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     awaitDelay(): Promise<void>;
-    static getListenersFor(contextAPI: HostContextAPI<ContextsAllType>, ctxName: string, signalName?: string): SignalListener[] | undefined;
-    static callDataListenersFor(contextAPI: HostContextAPI, ctxDataKeys?: true | string[]): void;
+    static modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
 }
 
 interface HostUpdateCycleInfo {
@@ -590,22 +587,10 @@ interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends Con
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      */
     afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-    /** Get the named context for the component.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContext<Name extends keyof Contexts & string>(name: Name, includeInherited?: boolean): Contexts[Name] | null | undefined;
-    /** Get the contexts for the component, optionally only for given names.
-     * - Note that for the ComponentContextAPI, its local bookkeeping will be used primarily. If a key is found there it's returned (even if `null`).
-     * - Only if the local bookkeeping gave `undefined` will the inherited contexts from the host be used, unless includeInherited is set to `false` (defaults to `true`).
-     */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean): Partial<Record<string, Context | null>> & Partial<ContextsAllTypeWith<Contexts>>;
 }
 /** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
 declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
     host: Host<Contexts>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
     /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
     awaitDelay(): Promise<void>;
 }
@@ -746,7 +731,7 @@ interface HostSettings {
  *      * `contexts?: Contexts | null`: Assign a dictionary of named contexts to the host. They are then available at host's contextAPI and for all components part of the host.
  *      * `shadowAPI?: HostShadowAPI | null`: This is only used internally in cases where a host is automatically duplicated. Like the ComponentShadowAPI, the HostShadowAPI helps to track instances of the same (customly created) class.
  */
-declare class Host<Contexts extends ContextsAllType = {}> {
+declare class Host<Contexts extends ContextsAllType = any> {
     static MIX_DOM_CLASS: string;
     static idCount: number;
     ["constructor"]: HostType<Contexts>;
@@ -1740,9 +1725,10 @@ interface Component<Info extends ComponentInfoPartial = {}> extends SignalMan<Co
      * You can also override the mode for each if you just want to use the keys of another dictionary.
      * By default extends the given constant props, if you want to reset put extend to `false`. If you want to clear, leave the constProps empty (null | [] | {}) as well. */
     setConstantProps(constProps: Partial<Record<keyof (Info["props"] & {}), CompareDepthMode | number | true>> | (keyof (Info["props"] & {}))[] | null, extend?: boolean, overrideEach?: CompareDepthMode | number | null): void;
-    /** Set many properties in the state at once. Can optionally define update related timing. */
-    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    setState(newState: Info["state"], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** Set many properties in the state at once. Can optionally define update related timing. If wanting to replace the whole state, set extend (2nd arg) to false. */
+    setState<Key extends keyof (Info["state"] & {})>(fullState: Info["state"] & {}, extend: boolean, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState<Key extends keyof (Info["state"] & {})>(partialState: Pick<Info["state"] & {}, Key> | Info["state"] & {}, extend?: false | never, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    setState(newState: Info["state"], extend?: false | never, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Set one property in the state with typing support. Can optionally define update related timing. */
     setInState<Key extends keyof (Info["state"] & {})>(property: Key, value: (Info["state"] & {})[Key], forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
     /** Trigger an update manually. Normally you never need to use this. Can optionally define update related timing */
@@ -1990,7 +1976,7 @@ interface MixDOMTreeNodeBase {
     domNode: DOMElement | Node | null;
     /** The boundary that produced this tree node - might be passed through content closures. */
     sourceBoundary: SourceBoundary | null;
-    /** If refers to a boundary - either a custom class / functino or then a content passing boundary. */
+    /** If refers to a boundary - either a custom class / function or then a content passing boundary. */
     boundary?: MixDOMBoundary | null;
     /** The applied def tied to this particular treeNode. */
     def?: MixDOMDefApplied;

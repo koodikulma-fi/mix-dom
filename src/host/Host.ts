@@ -200,7 +200,7 @@ export interface HostSettings {
  *      * `contexts?: Contexts | null`: Assign a dictionary of named contexts to the host. They are then available at host's contextAPI and for all components part of the host.
  *      * `shadowAPI?: HostShadowAPI | null`: This is only used internally in cases where a host is automatically duplicated. Like the ComponentShadowAPI, the HostShadowAPI helps to track instances of the same (customly created) class.
  */
-export class Host<Contexts extends ContextsAllType = {}> {
+export class Host<Contexts extends ContextsAllType = any> {
 
     
     // - Static - //
