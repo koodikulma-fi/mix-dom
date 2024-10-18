@@ -2,7 +2,7 @@
 
 ### Enhanced typing suggestions
 
-- Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags`, but still allowing any string input.
+- Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags` while allowing any string input.
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
 
