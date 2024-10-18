@@ -802,9 +802,9 @@ export function cleanUpDefs(unusedDefs: Iterable<MixDOMDefApplied>, nullifyDefs:
                     allChanges[0].push( { treeNode: treeNode as MixDOMTreeNodeHost, move: true });
                     // Clear from duplicatable hosts, and from contextual linking.
                     host.shadowAPI.hosts.delete(host);
-                    const cAPI = host.contextAPI;
-                    for (const ctxName in cAPI.contexts)
-                        cAPI.contexts[ctxName]?.contextAPIs.delete(cAPI as ContextAPI<any>);
+                    const ctxs = host.contextAPI.getContexts(null, true, true);
+                    for (const ctxName in ctxs)
+                        ctxs[ctxName]!.contextAPIs.delete(host.contextAPI);
                 }
             }
 
@@ -871,11 +871,13 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
         // Remove from closure chaining.
         sBoundary.sourceBoundary?.closure.chainedClosures?.delete(sBoundary.closure);
         // Remove contextual connections.
-        const cAPI = component.contextAPI;
-        if (cAPI) {
+        if (component.contextAPI) {
+            // Get.
+            const cAPI = component.contextAPI;
+            const ctxs = cAPI.getContexts(null, true, true);
             // Clear from direct connections to contexts.
-            for (const ctxName in cAPI.contexts)
-                cAPI.contexts[ctxName]?.contextAPIs.delete(cAPI);
+            for (const ctxName in ctxs)
+                ctxs[ctxName]!.contextAPIs.delete(cAPI);
             cAPI.contexts = {};
             // Clear from indirect through host.
             sBoundary.host.contextComponents.delete(component as ComponentCtx);
