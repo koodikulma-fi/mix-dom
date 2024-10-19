@@ -1,8 +1,9 @@
 ## v4.2.0 (2024-10-20)
 
-### Enhanced typing suggestions
+### Enhanced typing
 
 - Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags` while allowing any string input.
+- Refined `MixDOMComponentTags` and `ComponentFuncAny` types to be a bit looser.
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
 
