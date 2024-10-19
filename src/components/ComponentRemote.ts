@@ -205,7 +205,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
             // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
             component.listenTo("willUnmount", () => _Remote.passers.delete(component));
             // Return a renderer to render a fragment for the content pass of each source.
-            return (props): MixDOMRenderOutput => {
+            return (props) => {
                 // Use renderer.
                 if (props.renderer)
                     return props.renderer(_Remote.sources.slice());

@@ -13,7 +13,7 @@ import { Ref, RefDOMSignals } from "../common/Ref";
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { SourceBoundary } from "../boundaries/SourceBoundary";
 import { ComponentSignals } from "../components/typesSignals";
-import { ComponentTypeAny, ComponentTypeEither } from "../components/Component";
+import { ComponentFuncAny, ComponentType, ComponentTypeEither } from "../components/Component";
 import { PseudoFragment, MixDOMPseudoTags } from "../components/ComponentPseudos";
 import { Host } from "../host/Host";
 
@@ -27,7 +27,8 @@ export type MixDOMSourceBoundaryId = string;
 
 // - Tags - //
 
-export type MixDOMComponentTags = ComponentTypeAny | MixDOMPseudoTags;
+/** Any known MixDOM component related tags, from spread funcs to component ctx funcs to component classes and pseudo elements. */
+export type MixDOMComponentTags = ComponentType<any> | ComponentFuncAny<any> | MixDOMPseudoTags<Record<string, any>>;
 export type MixDOMTags = "" | "_" | DOMTags;
 export type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.

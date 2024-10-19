@@ -1518,7 +1518,7 @@ type ComponentFuncReturn<Info extends ComponentInfoPartial = {}> = MixDOMRenderO
  * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
  *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentCtxFunc with its 3rd arg - already included in ComponentFunc.
  */
-type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>;
+type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = (initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>;
 /** Either a class type or a component func - not a spread func (nor a component class instance). */
 type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info>;
 /** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
@@ -2245,7 +2245,8 @@ type MixDOMDefTarget = MixDOMDefTargetBase & MixDOMDefTypesAll;
 type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends Record<string, any> = {}> = (props: Props, state: State) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 type MixDOMBoundary = SourceBoundary | ContentBoundary;
 type MixDOMSourceBoundaryId = string;
-type MixDOMComponentTags = ComponentTypeAny | MixDOMPseudoTags;
+/** Any known MixDOM component related tags, from spread funcs to component ctx funcs to component classes and pseudo elements. */
+type MixDOMComponentTags = ComponentType<any> | ComponentFuncAny<any> | MixDOMPseudoTags<Record<string, any>>;
 type MixDOMTags = "" | "_" | DOMTags;
 type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
