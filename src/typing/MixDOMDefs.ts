@@ -86,19 +86,27 @@ export interface MixDOMDefDOM<Props extends MixDOMProcessedDOMProps = MixDOMProc
     props: Props;
     attachedRefs?: RefBase[];
 }
-export interface MixDOMDefContent extends MixDOMDefBase {
+// export interface MixDOMDefContent extends MixDOMDefBase {
+//     MIX_DOM_DEF: "content";
+//     tag: "" | DOMTags;
+//     domContent: MixDOMContentSimple;
+//     domHTMLMode?: false | never;
+//     props?: never | {};
+// }
+// export interface MixDOMDefContentInner<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
+//     MIX_DOM_DEF: "content";
+//     tag: "" | DOMTags;
+//     domContent: MixDOMContentSimple;
+//     /** If true, sets the content as innerHTML. */
+//     domHTMLMode: true;
+//     props?: Props;
+// }
+export interface MixDOMDefContent<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
     MIX_DOM_DEF: "content";
     tag: "" | DOMTags;
     domContent: MixDOMContentSimple;
-    domHTMLMode?: false;
-    props?: never;
-}
-export interface MixDOMDefContentInner<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
-    MIX_DOM_DEF: "content";
-    tag: "" | DOMTags;
-    domContent: MixDOMContentSimple;
-    /** If true, sets the content as innerHTML. */
-    domHTMLMode: true;
+    /** If true, sets the content as innerHTML, and can use Props. */
+    domHTMLMode?: boolean;
     props?: Props;
 }
 export interface MixDOMDefElement<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
@@ -155,7 +163,7 @@ export interface MixDOMDefHost extends MixDOMDefBase {
     host: Host;
     props?: never;
 }
-export type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefContentInner | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
+export type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
 
 export interface MixDOMDefAppliedBase extends MixDOMDefBase {
     childDefs: MixDOMDefApplied[];

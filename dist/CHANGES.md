@@ -1,14 +1,14 @@
 ## v4.2.0 (2024-10-20)
 
-### Enhanced typing
-
-- Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags` while allowing any string input.
-- Refined `MixDOMComponentTags` and `ComponentFuncAny` types to be a bit looser.
-
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
 
 - The argument `extend` defaults to `true`, which results in extending the original state.
 - By setting it to `false`, the feature allows to replace the whole state (with a shallow copy of the newState).
+
+### Enhanced typing
+
+- Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags` while allowing any string input.
+- Refined `MixDOMComponentTags` type to be a bit looser.
 
 ### Internal and dependency refines
 

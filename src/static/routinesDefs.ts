@@ -252,7 +252,7 @@ export function newDefFrom(renderContent: MixDOMRenderOutput): MixDOMDefTarget |
                 MIX_DOM_DEF: "content",
                 tag: "",
                 childDefs: [],
-                domContent: renderContent
+                domContent: renderContent,
             };
         }
         // Host.

@@ -1518,7 +1518,7 @@ type ComponentFuncReturn<Info extends ComponentInfoPartial = {}> = MixDOMRenderO
  * - Note. The type does not actually include SpreadFunc specifically - but includes it as being a more restricted form of a ComponentFunc.
  *      * This is simply so that (props) can be auto typed when using this type. The same goes for the ComponentCtxFunc with its 3rd arg - already included in ComponentFunc.
  */
-type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = (initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>;
+type ComponentFuncAny<Info extends Partial<ComponentInfo> = {}> = ComponentFunc<Info>;
 /** Either a class type or a component func - not a spread func (nor a component class instance). */
 type ComponentTypeEither<Info extends Partial<ComponentInfo> = {}> = ComponentType<Info> | ComponentFunc<Info>;
 /** This is a shortcut for all valid MixDOM components: class, component func or a spread func. Not including class instances, only types.
@@ -2151,19 +2151,12 @@ interface MixDOMDefDOM<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDO
     props: Props;
     attachedRefs?: RefBase[];
 }
-interface MixDOMDefContent extends MixDOMDefBase {
+interface MixDOMDefContent<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
     MIX_DOM_DEF: "content";
     tag: "" | DOMTags;
     domContent: MixDOMContentSimple;
-    domHTMLMode?: false;
-    props?: never;
-}
-interface MixDOMDefContentInner<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase {
-    MIX_DOM_DEF: "content";
-    tag: "" | DOMTags;
-    domContent: MixDOMContentSimple;
-    /** If true, sets the content as innerHTML. */
-    domHTMLMode: true;
+    /** If true, sets the content as innerHTML, and can use Props. */
+    domHTMLMode?: boolean;
     props?: Props;
 }
 interface MixDOMDefElement<Props extends MixDOMProcessedDOMProps = MixDOMProcessedDOMProps> extends MixDOMDefBase<Props> {
@@ -2220,7 +2213,7 @@ interface MixDOMDefHost extends MixDOMDefBase {
     host: Host;
     props?: never;
 }
-type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefContentInner | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
+type MixDOMDefTypesAll = MixDOMDefDOM | MixDOMDefContent | MixDOMDefElement | MixDOMDefPortal | MixDOMDefBoundary | MixDOMDefPass | MixDOMDefFragment | MixDOMDefHost;
 interface MixDOMDefAppliedBase extends MixDOMDefBase {
     childDefs: MixDOMDefApplied[];
     action: "mounted" | "moved" | "updated";
