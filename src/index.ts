@@ -18,7 +18,7 @@
 // All public typing.
 export * from "./typing/MixDOMPublic";
 // Deffing.
-export { newDef, newDefHTML, GetPropsFor } from "./static/routinesDefs";
+export { newDef, newDefHTML, GetPropsFor, hasContentInDefs } from "./static/routinesDefs";
 // SourceBoundary for constructor args.
 export { SourceBoundary } from "./boundaries/SourceBoundary";
 // All from common (Ref and MixDOMContent).

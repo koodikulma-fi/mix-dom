@@ -354,12 +354,15 @@ export function newContentCopyDef(key?: any): MixDOMDefTarget {
 
 // - Exported helpers - //
 
+const checkRecursively = (def: MixDOMDefApplied | MixDOMDefTarget): boolean => !!(def.contentPass?.envelope && hasContentInDefs(def.contentPass.envelope.applied.childDefs, checkRecursively));
+
 /** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
  * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
+ *      * If not given, defaults to a recursive pass checker - suitably for external usage, eg. reading situation from the grounded tree.
  * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
  * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
  */
-export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean): boolean | "maybe" {
+export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean = checkRecursively): boolean | "maybe" {
     // Loop each.
     let maybe: false | "maybe" = false;
     for (const def of childDefs) {
