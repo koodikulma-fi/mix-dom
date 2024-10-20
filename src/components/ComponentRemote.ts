@@ -198,7 +198,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(): Co
         /** The active ContentPasser instances: one for each insertion point. */
         private static passers: Set<Component> = new Set();
         /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
-        private static ContentPasser: ComponentFunc<{ props: ContentPasserProps<CustomProps>; }> = (_initProps, component) => {
+        private static ContentPasser: ComponentFunc<{ props: ContentPasserProps<CustomProps>; }> = function ContentPasser(_initProps, component) {
             // Bookkeeping.
             Remote.passers.add(component);
             // Listen to unmount.
