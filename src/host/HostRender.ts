@@ -3,7 +3,7 @@
 
 // Libraries.
 import { askListeners, callListeners } from "data-signals";
-import { applyDOMProps, createDOMElement, readDOMProps, DOMTags, readDOMString } from "dom-types";
+import { applyDOMProps, createDOMElement, readDOMProps, DOMTags, readDOMString, HTMLTags, domSelfClosingTags } from "dom-types";
 // Typing.
 import {
     MixDOMTreeNode,
@@ -987,11 +987,11 @@ export class HostRender {
 
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
-     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    public static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: string[] | null | undefined = ["img"]): string {
+    public static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: readonly string[] | string[] | null | undefined = domSelfClosingTags): string {
 
         // Get def.
         const def = treeNode.def;

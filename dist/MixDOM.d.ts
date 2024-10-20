@@ -1094,11 +1094,11 @@ declare class HostRender {
     static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
-     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: string[] | null | undefined): string;
+    static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined): string;
     /** Modifies the groundedTree by smuggling in already existing DOM nodes. */
     static onRemount(remountSource: MixDOMRemountInfo, groundedTree: MixDOMTreeNode): void;
     /** Create virtual items mapping from the given container node. */
@@ -2775,11 +2775,11 @@ declare const MixDOM: {
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
-     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, onlyClosedTagsFor?: string[] | null | undefined) => string;
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
 };
 
 export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };
