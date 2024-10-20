@@ -1011,6 +1011,7 @@ declare class HostRender {
     private getApprovedNode;
     /** Core handler to create a single dom node based on a treeNode info. */
     private createDOMNodeBy;
+    static escapeHTML(htmlStr: string): string;
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      *
      * ```
@@ -1094,11 +1095,12 @@ declare class HostRender {
     static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
+     * @param escapeHTML Defaults to false. If set to true escapes the `&`, `<` and `>` characters in text content.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined): string;
+    static readDOMString(treeNode: MixDOMTreeNode, escapeHTML?: boolean, indent?: number, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined): string;
     /** Modifies the groundedTree by smuggling in already existing DOM nodes. */
     static onRemount(remountSource: MixDOMRemountInfo, groundedTree: MixDOMTreeNode): void;
     /** Create virtual items mapping from the given container node. */
@@ -1273,6 +1275,61 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
  *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
  * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
+ *
+ * ```
+ *
+ *  // Imports.
+ *  import { MixDOM, ComponentTypeAny } from "mix-dom";
+ *
+ *  // Typing extra props.
+ *  interface MyWiredProps {
+ *      name: string;
+ *  }
+ *  interface MyWiredBuiltProps {
+ *      enabled: boolean;
+ *  }
+ *
+ *  // The source component.
+ *  const Source = MixDOM.component<{ props: { enableWired: boolean; }; }>(comp => {
+ *
+ *  	// Create a wired component to be passed down.
+ *      // .. The wired component can use things from our scope here.
+ *  	// .. Can feed in 3 type args: <ParentProps, BuiltProps, MixedProps>
+ *  	const MyWired = MixDOM.wired<MyWiredProps, MyWiredBuiltProps>(
+ *
+ *  		// // Could have a builder func as the 1st arg - to build common props for all instances.
+ *  		// // .. It would be called when the Source is checked for updates (even if not updated).
+ *  		// (lastProps) => ({ enabled: comp.props.enableWired }), // typed: `MyWiredBuiltProps | null`
+ *
+ *  		// The next arg is the props mixer function - to build props for each wired instance.
+ *  		// .. You can mix parent props (by flow) and props from build (by builder).
+ *          // .. To drop the mixer but use a builder, set the mixer arg to \`null\`.
+ *  		(parentProps, _buildProps, _wired) =>
+ *  			({ ...parentProps, enabled: comp.props.enableWired }),
+ *
+ *  		// The last arg is the component renderer - let's just define an inline spread func.
+ *  		// .. Its props are the individually mixed props created with the mixer above.
+ *  		(props) => <span class={props.enabled ? "enabled" : ""}>{props.name}</span>,
+ *
+ *  		// Name for debugging.
+ *  		"MyWired"
+ *  	);
+ *
+ *  	// Hook up to updates.
+ *      // .. As we use our own props in our Wired component, let's hook it up for our refreshes.
+ *  	comp.addWired(MyWired);
+ *
+ *  	// Return renderer.
+ *  	// .. Let's say SomeComponent is a component that utilizes MyWired somewhere deep down.
+ *  	return () => <SomeComponent MyWired={MyWired} />;
+ *  });
+ *
+ *  // Dummy component.
+ *  type SomeComponentInfo = { props: { MyWired: ComponentTypeAny<{ props: MyWiredProps; }>}; };
+ *  const SomeComponent = MixDOM.component<SomeComponentInfo>(() =>
+ *      (props) => <div><props.MyWired name="test" /></div>);
+ *
+ * ```
  */
 declare function createWired<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = ParentProps & BuiltProps>(mixer: null, renderer: ComponentTypeAny<{
     props: MixedProps;
@@ -1847,9 +1904,20 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
      * - Note that this only returns remove related infos - any additions or updates are run by a host listener afterwards.
      */
     removeSource(remote: ComponentRemote<CustomProps>): MixDOMChangeInfos | null;
+    /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
+    ContentPasser: ComponentType<{
+        props: ContentPasserProps<CustomProps>;
+        static: {
+            passers: Set<Component>;
+        };
+    }>;
 }
-/** Create a component for remote content. */
-declare const createRemote: <CustomProps extends Record<string, any> = {}>() => ComponentRemoteType<CustomProps>;
+/** Create a ComponentRemote class for remote flow (in / out).
+ * - For example, `export const MyRemote = createRemote("MyRemote");`.
+ * - And then to feed content in a render method: `<MyRemote>Some content..</MyRemote>`.
+ * - Finally insert it somewhere in a render method: `{MyRemote.Content}`.
+ */
+declare const createRemote: <CustomProps extends Record<string, any> = {}>(name?: string) => ComponentRemoteType<CustomProps>;
 
 interface MixDOMContentEnvelope {
     applied: MixDOMDefApplied;
@@ -2569,11 +2637,11 @@ declare const MixDOM: {
      */
     spreadWith: <Props_1 extends Record<string, any>, ExtraArgs extends any[]>(func: (props: Props_1, ...args: ExtraArgs) => MixDOMRenderOutput) => SpreadFuncWith<Props_1, ExtraArgs>;
     /** Create a ComponentRemote class for remote flow (in / out).
-     * - For example, `export const MyRemote = MixDOM.createRemote();`.
+     * - For example, `export const MyRemote = MixDOM.remote("MyRemote");`.
      * - And then to feed content in a render method: `<MyRemote>Some content..</MyRemote>`.
      * - Finally insert it somewhere in a render method: `{MyRemote.Content}`.
-    */
-    remote: <CustomProps extends Record<string, any> = {}>() => ComponentRemoteType<CustomProps>;
+     */
+    remote: <CustomProps extends Record<string, any> = {}>(name?: string) => ComponentRemoteType<CustomProps>;
     /** Creates an intermediary component (function) to help produce extra props to an inner component.
      *      * It receives its parent `props` normally, and then uses its `state` for the final props that will be passed to the inner component (as its `props`).
      * - About arguments:
@@ -2775,11 +2843,13 @@ declare const MixDOM: {
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
+     * @param escapeHTML Defaults to false. If set to true escapes the `&`, `<` and `>` characters in text content.
+     * @param indent Defaults to -1. If 0 or positive, adds line breaks and tabs to the outputted code.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, escapeHTML?: boolean, indent?: number, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
 };
 
 export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };

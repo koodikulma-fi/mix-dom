@@ -111,6 +111,61 @@ export class ComponentWiredAPI<
  *      - The `WiredAPI` extension contains then features related to the automated mixing of parent props and custom data to produce final state -> inner component props.
  * - Note that when creates a stand alone wired component (not through Component component's .createWired method), you should drive the updates manually by .setProps.
  * - Note. To hook up the new wired component (class/func) to the updates of another component use: `component.addWired(Wired)` and remove with `component.removeWired(Wired)`.
+ * 
+ * ```
+ * 
+ *  // Imports.
+ *  import { MixDOM, ComponentTypeAny } from "mix-dom";
+ *  
+ *  // Typing extra props.
+ *  interface MyWiredProps {
+ *      name: string;
+ *  }
+ *  interface MyWiredBuiltProps {
+ *      enabled: boolean;
+ *  }
+ *  
+ *  // The source component.
+ *  const Source = MixDOM.component<{ props: { enableWired: boolean; }; }>(comp => {
+ *  
+ *  	// Create a wired component to be passed down.
+ *      // .. The wired component can use things from our scope here.
+ *  	// .. Can feed in 3 type args: <ParentProps, BuiltProps, MixedProps>
+ *  	const MyWired = MixDOM.wired<MyWiredProps, MyWiredBuiltProps>(
+ *  
+ *  		// // Could have a builder func as the 1st arg - to build common props for all instances.
+ *  		// // .. It would be called when the Source is checked for updates (even if not updated).
+ *  		// (lastProps) => ({ enabled: comp.props.enableWired }), // typed: `MyWiredBuiltProps | null`
+ *  
+ *  		// The next arg is the props mixer function - to build props for each wired instance.
+ *  		// .. You can mix parent props (by flow) and props from build (by builder).
+ *          // .. To drop the mixer but use a builder, set the mixer arg to \`null\`.
+ *  		(parentProps, _buildProps, _wired) =>
+ *  			({ ...parentProps, enabled: comp.props.enableWired }),
+ *  
+ *  		// The last arg is the component renderer - let's just define an inline spread func.
+ *  		// .. Its props are the individually mixed props created with the mixer above.
+ *  		(props) => <span class={props.enabled ? "enabled" : ""}>{props.name}</span>,
+ *  
+ *  		// Name for debugging.
+ *  		"MyWired"
+ *  	);
+ *  
+ *  	// Hook up to updates.
+ *      // .. As we use our own props in our Wired component, let's hook it up for our refreshes.
+ *  	comp.addWired(MyWired);
+ *  
+ *  	// Return renderer.
+ *  	// .. Let's say SomeComponent is a component that utilizes MyWired somewhere deep down.
+ *  	return () => <SomeComponent MyWired={MyWired} />;
+ *  });
+ *  
+ *  // Dummy component.
+ *  type SomeComponentInfo = { props: { MyWired: ComponentTypeAny<{ props: MyWiredProps; }>}; };
+ *  const SomeComponent = MixDOM.component<SomeComponentInfo>(() => 
+ *      (props) => <div><props.MyWired name="test" /></div>);
+ * 
+ * ```
  */
 export function createWired<
     ParentProps extends Record<string, any> = {},

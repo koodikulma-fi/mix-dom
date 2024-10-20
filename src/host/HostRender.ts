@@ -782,6 +782,11 @@ export class HostRender {
 
     // - Static helpers - //
 
+    public static escapeHTML(htmlStr: string): string {
+        return htmlStr.replace(/\&(?!(\w+;))/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+
     /** Using the bookkeeping logic, find the parent node and next sibling as html insertion targets.
      * 
      * ```
@@ -987,12 +992,13 @@ export class HostRender {
 
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
+     * @param escapeHTML Defaults to false. If set to true escapes the `&`, `<` and `>` characters in text content.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    public static readDOMString(treeNode: MixDOMTreeNode, onlyClosedTagsFor: readonly string[] | string[] | null | undefined = domSelfClosingTags): string {
-
+    public static readDOMString(treeNode: MixDOMTreeNode, escapeHTML: boolean = false, indent: number = -1, onlyClosedTagsFor: readonly string[] | string[] | null | undefined = domSelfClosingTags): string {
+        
         // Get def.
         const def = treeNode.def;
         if (!def)
@@ -1005,7 +1011,7 @@ export class HostRender {
         if (typeof tag !== "string") {
             if (treeNode.children)
                 for (const tNode of treeNode.children)
-                    dom += HostRender.readDOMString(tNode, onlyClosedTagsFor);
+                    dom += HostRender.readDOMString(tNode, escapeHTML, indent, onlyClosedTagsFor);
             return dom;
         }
 
@@ -1026,21 +1032,26 @@ export class HostRender {
         if (!tag && !element)
             return dom;
 
+        // Content.
+        const preStr = indent >= 0 ? "\n" + "\t".repeat(indent) : "";
+        const indNext = indent >= 0 ? indent + 1 : indent;
+        const content = (
+            (def.domContent != null ?
+                def.domContent instanceof Node ? readDOMString("", null, null, def.domContent) : 
+                (escapeHTML ? HostRender.escapeHTML(def.domContent.toString()) : def.domContent.toString()) :
+            "") +
+            (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readDOMString(kidNode, escapeHTML, indNext, onlyClosedTagsFor), "") : "")
+        );
+
         // Read as a string, and any kids recursively inside first (referring to HostRender.readDOMString).
         // .. Note that this method comes from the "dom-types" library. Our HostRender method is named similarly.
-        dom += readDOMString(
+        dom += preStr + readDOMString(
             // Tag (string).
             tag,
             // Cleaned dom props.
             (treeNode as MixDOMTreeNodeDOM).domProps,
             // Content inside: string or `true` (to force opened tags).
-            (
-                (def.domContent != null ?
-                    def.domContent instanceof Node ? readDOMString("", null, null, def.domContent) : 
-                    def.domContent.toString() :
-                "") +
-                (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readDOMString(kidNode, onlyClosedTagsFor), "") : "")
-            ) || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
+            (content + (preStr && treeNode.children.some(t => t.type !== "dom" || t.def.tag) ? preStr : "")) || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
             // Element for reading further info.
             element || (def?.domContent instanceof Node ? def.domContent : null)
         );

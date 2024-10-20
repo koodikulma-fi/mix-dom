@@ -164,10 +164,10 @@ export const MixDOM = {
      */
     spreadWith: createSpreadWith,
     /** Create a ComponentRemote class for remote flow (in / out).
-     * - For example, `export const MyRemote = MixDOM.createRemote();`.
+     * - For example, `export const MyRemote = MixDOM.remote("MyRemote");`.
      * - And then to feed content in a render method: `<MyRemote>Some content..</MyRemote>`.
      * - Finally insert it somewhere in a render method: `{MyRemote.Content}`.
-    */
+     */
     remote: createRemote,
     /** Creates an intermediary component (function) to help produce extra props to an inner component.
      *      * It receives its parent `props` normally, and then uses its `state` for the final props that will be passed to the inner component (as its `props`).
@@ -391,13 +391,15 @@ export const MixDOM = {
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
+     * @param escapeHTML Defaults to false. If set to true escapes the `&`, `<` and `>` characters in text content.
+     * @param indent Defaults to -1. If 0 or positive, adds line breaks and tabs to the outputted code.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to `domSelfClosingTags` (from "dom-types").
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, onlyClosedTagsFor: readonly string[] | string[] | null | undefined = domSelfClosingTags): string => {
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, escapeHTML: boolean = false, indent: number = -1, onlyClosedTagsFor: readonly string[] | string[] | null | undefined = domSelfClosingTags): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
-        return treeNode ? HostRender.readDOMString(treeNode, onlyClosedTagsFor) : "";
+        return treeNode ? HostRender.readDOMString(treeNode, escapeHTML, indent, onlyClosedTagsFor) : "";
     },
 
 };

@@ -336,7 +336,7 @@ export class HostServices {
             boundaryChanges = boundaryChanges.concat(bUpdates);
         }
         // Add wired updates.
-        // .. So this is when this component's .createWired method was used and auto-bound to the component for updates.
+        // .. So this is when this component's .addWired method was used to auto-bound to the component for updates.
         // .. Note that we do this after having updated, so we have a fresh state.
         if (component.wired) {
             for (const Wired of component.wired) {

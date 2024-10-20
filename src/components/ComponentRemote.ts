@@ -14,7 +14,7 @@ import { SourceBoundary, ContentClosure } from "../boundaries/index";
 // Host.
 import { applyClosureEnvelope, collectInterestedInClosure } from "../host/index";
 // Local.
-import { Component, ComponentFunc, ComponentType, ComponentTypeEither } from "./Component";
+import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeEither } from "./Component";
 
 
 // - MAIN IDEA (v4.0) - //
@@ -147,196 +147,233 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
      */
     removeSource(remote: ComponentRemote<CustomProps>): MixDOMChangeInfos | null;
 
-    // Private.
-    // /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
-    // ContentPasser: ComponentFunc<{ props: ContentPasserProps; }>;
-    // /** The active ContentPasser instances: one for each insertion point. */
-    // passers: Set<Component>;
+    // Semi-public.
+    /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
+    ContentPasser: ComponentType<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
 
 }
 
 
 // - Create - //
 
-/** Create a component for remote content. */
-export const createRemote = <CustomProps extends Record<string, any> = {}>(): ComponentRemoteType<CustomProps> =>
+/** Create a ComponentRemote class for remote flow (in / out).
+ * - For example, `export const MyRemote = createRemote("MyRemote");`.
+ * - And then to feed content in a render method: `<MyRemote>Some content..</MyRemote>`.
+ * - Finally insert it somewhere in a render method: `{MyRemote.Content}`.
+ */
+export const createRemote = <CustomProps extends Record<string, any> = {}>(name: string = "Remote"): ComponentRemoteType<CustomProps> => {
 
-    class Remote extends Component<{ props: ComponentRemoteProps & CustomProps; }> {
-
-
-        // - Members & property funcs - //
-
-        /** The constructor is typed as ComponentRemoteType. */
-        ["constructor"]: ComponentRemoteType<CustomProps>;
-
-        public closure: ContentClosure = new ContentClosure(null, this.boundary);
-        public Content: MixDOMDefTarget = { ...newContentPassDef(this), contentPass: null, getRemote: () => this as ComponentRemote };
-        public ContentCopy: MixDOMDefTarget = { ...newContentPassDef(this, true), contentPass: null, getRemote: () => this as ComponentRemote };
-        public copyContent = (key?: any): MixDOMDefTarget => ({ ...newContentPassDef(key ?? Remote, true), contentPass: null, getRemote: () => this as ComponentRemote });
-        public hasContent = (): boolean => this.closure.hasContent();
-        public WithContent = (() => {
-            const remote = this as ComponentRemote<CustomProps>;
-            return class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
-                public static _WithContent = remote.Content;
-                public render() {
-                    return (this.props.hasContent != null ? this.props.hasContent : remote.closure.hasContent()) ? MixDOMContent : null;
-                }
-            };
-        })();
+    // Create a new class with dynamic name. (Don't assign static members yet.)
+    const _Remote = {
+        
+        [name]: class extends Component<{ props: ComponentRemoteProps & CustomProps; }> {
 
 
-        // - Render - //
+            // - Members & property funcs - //
 
-        // Make sure renders null.
-        public render() {
-            return null;
-        }
+            /** The constructor is typed as ComponentRemoteType. */
+            ["constructor"]: ComponentRemoteType<CustomProps>;
+
+            public closure: ContentClosure = new ContentClosure(null, this.boundary);
+            public Content: MixDOMDefTarget = { ...newContentPassDef(this), contentPass: null, getRemote: () => this as ComponentRemote };
+            public ContentCopy: MixDOMDefTarget = { ...newContentPassDef(this, true), contentPass: null, getRemote: () => this as ComponentRemote };
+            public copyContent = (key?: any): MixDOMDefTarget => ({ ...newContentPassDef(key ?? _Remote, true), contentPass: null, getRemote: () => this as ComponentRemote });
+            public hasContent = (): boolean => this.closure.hasContent();
+            public WithContent = (() => {
+                const remote = this as ComponentRemote<CustomProps>;
+                return class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
+                    public static _WithContent = remote.Content;
+                    public render() {
+                        return (this.props.hasContent != null ? this.props.hasContent : remote.closure.hasContent()) ? MixDOMContent : null;
+                    }
+                };
+            })();
 
 
-        // - Static private - //
+            // - Render - //
+
+            // Make sure renders null.
+            public render() {
+                return null;
+            }
+
+
+            // - Static members - //
+
+            // Note that the static non-methods (= static properties) are applied afterwards to retain dynamic class name (through bundling).
+            // .. Public.
+            public static MIX_DOM_CLASS: string;
+            public static sources: ComponentRemote<CustomProps>[];
+            public static Content: MixDOMDefTarget | null;
+            public static ContentCopy: MixDOMDefTarget | null;
+            public static copyContent: ComponentRemoteType<CustomProps>["copyContent"]; 
+            public static hasContent: ComponentRemoteType<CustomProps>["hasContent"];
+            public static filterContent: ComponentRemoteType<CustomProps>["filterContent"];
+            public static wrapContent: ComponentRemoteType<CustomProps>["wrapContent"];
+            public static renderContents: ComponentRemoteType<CustomProps>["renderContents"];
+            public static WithContent: ComponentRemoteType<CustomProps>["WithContent"];
+            public static ContentPasser: ComponentType<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
+
+
+            // - Static helper methods - //
+
+            public static isRemote(): boolean { return true; }
+
+            /** Add a remote source - used internally. */
+            public static addSource(remote: ComponentRemote<CustomProps>, order: number | null | undefined = remote.props.order): void {
+                // Prepare to add as an active source.
+                const iNow = _Remote.sources.indexOf(remote);
+                const atIndex = orderedIndex(order, _Remote.sources.map(remote => remote.props.order));
+                // New one - add (furher below).
+                if (iNow === -1) {}
+                // Already there - see if should move.
+                else if (atIndex === -1 ? iNow !== _Remote.sources.length - 1 : iNow !== atIndex)
+                    // Remove - will be added below.
+                    _Remote.sources.splice(iNow, 1);
+                // Really nothing to do.
+                else
+                    return;
+                // Do the addition.
+                atIndex === -1 ? _Remote.sources.push(remote) : _Remote.sources.splice(atIndex, 0, remote);
+                // Trigger a forced update for the content passing boundaries.
+                for (const passer of ContentPasser.passers)
+                    // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
+                    // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
+                    // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
+                    passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
+            }
+
+            /** Remove a remote source - used internally.
+             * - Note that this only returns remove related infos - any additions or updates are run by a host listener afterwards.
+             */
+            public static removeSource(remote: ComponentRemote<CustomProps>): MixDOMChangeInfos | null {
+                // Not found.
+                const iRemote = _Remote.sources.indexOf(remote);
+                if (iRemote === -1)
+                    return null;
+                
+                // Remove from local bookkeeping.
+                _Remote.sources.splice(iRemote, 1);
+                // Collect interested. We won't mark anything, just collect them.
+                let infos: MixDOMChangeInfos | null = null;
+                const interested: Set<SourceBoundary> | null = collectInterestedInClosure(remote.closure, remote as ComponentRemote);
+
+                // Apply null to the envelope to destroy the content.
+                infos = applyClosureEnvelope(remote.closure, null);
+                // Nullify the references, to mark that we have no active source now.
+                remote.closure.sourceBoundary = null;
+
+                // Trigger a forced update for the content passing boundaries.
+                for (const passer of ContentPasser.passers)
+                    // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
+                    // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
+                    // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
+                    passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
+
+                // Finally, add a listener to the remote's host. We'll use it to update the interested boundaries.
+                // .. Importantly, we must use "render" flush. The "update" flush is too early (with case 1 below) as it's going on already (we're called from routinesApply.destroyBoundary).
+                // .. Note. To do practical tests, see these two important special cases:
+                // .... 1. Try having one source and remove it (-> null). If the inserter has withContent, then uses the interested ones, while refreshRemote wouldn't run (= already removed source).
+                // .... 2. Try having two sources and remove one (-> refresh).
+                if (interested)
+                    remote.boundary.host.addRefreshCall(() => {
+                        for (const b of interested)
+                            b.update(true, null, null); // Force an immediate.
+                    }, true); // On the render side.
+
+                // Return infos.
+                return infos;
+            }
+
+        } as ComponentRemoteType<CustomProps>
+    }[name] as ComponentRemoteType<CustomProps> & {
+        // /** The active ContentPasser instances: one for each insertion point. */
+        // passers: Set<Component>;
+        /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
+        ContentPasser: ComponentType<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
+    };
+
+    
+    // - Finish off - //
+
+    // Create content passer, that is used with the Remote.Content.
+    // .. This is because the static side does not have a real content pass on .Content, but a component to render all active passes.
+    const ContentPasser = class extends Component<{ props: ContentPasserProps<CustomProps>; }> {
 
         /** The active ContentPasser instances: one for each insertion point. */
-        private static passers: Set<Component> = new Set();
-        /** A component to render the content passes: simply combines all the unique content passes of the child remote together. */
-        private static ContentPasser: ComponentFunc<{ props: ContentPasserProps<CustomProps>; }> = function ContentPasser(_initProps, component) {
+        static passers: Set<Component> = new Set();
+
+        constructor(props: ComponentProps<{ props: ContentPasserProps<CustomProps>; }>, boundary: SourceBoundary) {
+            super(props, boundary);
             // Bookkeeping.
-            Remote.passers.add(component);
+            ContentPasser.passers.add(this);
             // Listen to unmount.
             // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
-            component.listenTo("willUnmount", () => Remote.passers.delete(component));
-            // Return a renderer to render a fragment for the content pass of each source.
-            return (props) => {
-                // Use renderer.
-                if (props.renderer)
-                    return props.renderer(Remote.sources.slice());
-                // Render a fragment for the content pass of each source.
-                return {
-                    tag: null,
-                    MIX_DOM_DEF: "fragment",
-                    childDefs:
-                        // Use wrapper.
-                        props.wrapper ? Remote.sources.map((source, i) => props.wrapper ? newDefFrom(props.wrapper(source, i)) :
-                            props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content
-                        ).filter(def => def) as MixDOMDefTarget[] :
-                        // Use filterer.
-                        (props.filterer ? Remote.sources.filter(props.filterer) : Remote.sources)
-                            // Use copyKey.
-                            .map(source => props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content)
-                };
+            this.listenTo("willUnmount", () => ContentPasser.passers.delete(this));
+        }
+        
+        // Return a renderer to render a fragment for the content pass of each source.
+        public render(props: ContentPasserProps<CustomProps>): MixDOMRenderOutput {
+            // Use renderer.
+            if (props.renderer)
+                return props.renderer(_Remote.sources.slice());
+            // Render a fragment for the content pass of each source.
+            return {
+                tag: null,
+                MIX_DOM_DEF: "fragment",
+                childDefs:
+                    // Use wrapper.
+                    props.wrapper ? _Remote.sources.map((source, i) => props.wrapper ? newDefFrom(props.wrapper(source, i)) :
+                        props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content
+                    ).filter(def => def) as MixDOMDefTarget[] :
+                    // Use filterer.
+                    (props.filterer ? _Remote.sources.filter(props.filterer) : _Remote.sources)
+                        // Use copyKey.
+                        .map(source => props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content)
             };
-        };
-
-
-        // - Static public usage - //
-
-        public static MIX_DOM_CLASS = "Remote";
-        public static isRemote(): boolean { return true; }
-        // Note that in all below, we don't have `getRemote()` in the def. It's because we don't have an actual pass here.
-        public static Content: MixDOMDefTarget | null = newDef(Remote.ContentPasser);
-        public static ContentCopy: MixDOMDefTarget | null = newDef(Remote.ContentPasser, { copy: true });
-        public static copyContent = (key?: any): MixDOMDefTarget | null => newDef(Remote.ContentPasser, { copy: true, copyKey: key });
-        public static hasContent = (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean): boolean =>
-            filterer ? Remote.sources.some((source, i) => filterer(source, i) && source.closure.hasContent()) : Remote.sources.some(source => source.closure.hasContent());
-        public static filterContent = (filterer, copyKey?): MixDOMDefTarget | null => newDef(Remote.ContentPasser, { copyKey, filterer });
-        public static wrapContent = (wrapper, copyKey?): MixDOMDefTarget | null => newDef(Remote.ContentPasser, { copyKey, wrapper });
-        public static renderContents = (renderer) => newDef(Remote.ContentPasser, { renderer });
-        public static WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
-            // Instance side.
-            constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary) {
-                super(props, boundary);
-                // Mark to interests.
-                WithContent.withContents.add(this.boundary);
-                // Listen to unmount.
-                // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
-                this.listenTo("willUnmount", () => WithContent.withContents.delete(this.boundary))
-            }
-            // For detection.
-            public static _WithContent = Remote.Content as MixDOMDefTarget;
-            public static withContents: Set<SourceBoundary> = new Set();
-            // Render.
-            public render() {
-                return (this.props.hasContent != null ? this.props.hasContent : Remote.hasContent()) ? MixDOMContent : null;
-            }
-        };
-
-        /** The active remote source instances. */
-        public static sources: ComponentRemote<CustomProps>[] = [];
-
-
-        // - Static helpers - //
-
-        /** Add a remote source - used internally. */
-        public static addSource(remote: ComponentRemote<CustomProps>, order: number | null | undefined = remote.props.order): void {
-            // Prepare to add as an active source.
-            const iNow = Remote.sources.indexOf(remote);
-            const atIndex = orderedIndex(order, Remote.sources.map(remote => remote.props.order));
-            // New one - add (furher below).
-            if (iNow === -1) {}
-            // Already there - see if should move.
-            else if (atIndex === -1 ? iNow !== Remote.sources.length - 1 : iNow !== atIndex)
-                // Remove - will be added below.
-                Remote.sources.splice(iNow, 1);
-            // Really nothing to do.
-            else
-                return;
-            // Do the addition.
-            atIndex === -1 ? Remote.sources.push(remote) : Remote.sources.splice(atIndex, 0, remote);
-            // Trigger a forced update for the content passing boundaries.
-            for (const passer of Remote.passers)
-                // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
-                // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
-                // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
-                passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
         }
-
-        /** Remove a remote source - used internally.
-         * - Note that this only returns remove related infos - any additions or updates are run by a host listener afterwards.
-         */
-        public static removeSource(remote: ComponentRemote<CustomProps>): MixDOMChangeInfos | null {
-            // Not found.
-            const iRemote = Remote.sources.indexOf(remote);
-            if (iRemote === -1)
-                return null;
-            
-            // Remove from local bookkeeping.
-            Remote.sources.splice(iRemote, 1);
-            // Collect interested. We won't mark anything, just collect them.
-            let infos: MixDOMChangeInfos | null = null;
-            const interested: Set<SourceBoundary> | null = collectInterestedInClosure(remote.closure, remote as ComponentRemote);
-
-            // Apply null to the envelope to destroy the content.
-            infos = applyClosureEnvelope(remote.closure, null);
-            // Nullify the references, to mark that we have no active source now.
-            remote.closure.sourceBoundary = null;
-
-            // Trigger a forced update for the content passing boundaries.
-            for (const passer of Remote.passers)
-                // If uses the same host, just force an update on the passer - it will be then handled smoothly with true pass (if such is the case).
-                // .. If uses a different host, then trigger an update right after the other host has finished its update - we need to allow the current cycle to finish first.
-                // .. Actually, let's then use the render cycle and do an immediate update + render instead (as a refine).
-                passer.boundary.host === remote.boundary.host ? passer.boundary.update(true) : passer.boundary.host.addRefreshCall(() => passer.boundary.update(true, null, null), true); // Render side.
-
-            // Finally, add a listener to the remote's host. We'll use it to update the interested boundaries.
-            // .. Importantly, we must use "render" flush. The "update" flush is too early (with case 1 below) as it's going on already (we're called from routinesApply.destroyBoundary).
-            // .. Note. To do practical tests, see these two important special cases:
-            // .... 1. Try having one source and remove it (-> null). If the inserter has withContent, then uses the interested ones, while refreshRemote wouldn't run (= already removed source).
-            // .... 2. Try having two sources and remove one (-> refresh).
-            if (interested)
-                remote.boundary.host.addRefreshCall(() => {
-                    for (const b of interested)
-                        b.update(true, null, null); // Force an immediate.
-                }, true); // On the render side.
-
-            // Return infos.
-            return infos;
+    };
+    
+    // Note. We assign the static members manually afterwards, so that /bundling doesn't ruin the dynamic name for the class.
+    // .. This is because the process would move the static assignments to be applied after in any case, and then use a variable shortcut for the class (-> ruining the name).
+    (_Remote as Record<"MIX_DOM_CLASS", string>).MIX_DOM_CLASS = "Remote"; // We set a read-only value here on purpose.
+    _Remote.sources = [];
+    _Remote.ContentPasser = ContentPasser as ComponentType<{ props: ContentPasserProps<CustomProps>; }> as ComponentType<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
+    // Note that in all below, we don't have `getRemote()` in the def. It's because we don't have an actual pass here.
+    _Remote.Content = newDef(ContentPasser);
+    _Remote.ContentCopy = newDef(ContentPasser, { copy: true });
+    _Remote.copyContent = (key?: any): MixDOMDefTarget | null => newDef(ContentPasser, { copy: true, copyKey: key });
+    _Remote.hasContent = (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean): boolean =>
+        filterer ? _Remote.sources.some((source, i) => filterer(source, i) && source.closure.hasContent()) : _Remote.sources.some(source => source.closure.hasContent());
+    _Remote.filterContent = (filterer, copyKey?): MixDOMDefTarget | null => newDef(ContentPasser, { copyKey, filterer });
+    _Remote.wrapContent = (wrapper, copyKey?): MixDOMDefTarget | null => newDef(ContentPasser, { copyKey, wrapper });
+    _Remote.renderContents = (renderer) => newDef(ContentPasser, { renderer });
+    _Remote.WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
+        // Instance side.
+        constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary) {
+            super(props, boundary);
+            // Mark to interests.
+            WithContent.withContents.add(this.boundary);
+            // Listen to unmount.
+            // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
+            this.listenTo("willUnmount", () => WithContent.withContents.delete(this.boundary))
         }
-
-    } as ComponentRemoteType<CustomProps>;
+        // For detection.
+        public static _WithContent = _Remote.Content;
+        public static withContents: Set<SourceBoundary> = new Set();
+        // Render.
+        public render() {
+            return (this.props.hasContent != null ? this.props.hasContent : _Remote.hasContent()) ? MixDOMContent : null;
+        }
+    } as ComponentRemoteType<CustomProps>["WithContent"];
     //
-    // For now enforced the type here.
+    // <- For some reason, needs to be explicitly specified here.
     // .. There's some tiny typing discrepancy in lates refines that pops up here for WithContent on the static side.
     // .. The core reason seems to revolve around the RemoteComponentType's static WithContent.
     // .... It's possible related to ComponentType's { api?: ComponentShadowAPI<Info> }, though could use <any> for that.
     // .... In any case, that's not the core reason. It rather looks like the _Info is not passed somewhere along the flow.
     //       - Even after clearing other problems, says _Info is `{} | undefined` in one, and `{ props: { hasContent?: boolean; }; } | undefined` in the other.
     //       - So very likely, it's something in relation to the 
+
+    return _Remote;
+}
