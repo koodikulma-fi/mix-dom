@@ -111,7 +111,10 @@ export class HostServices {
         // Update root def.
         this.rootDef = newDefFrom(content);
         // Create a root boundary that will render our targetDef or null if disabled.
-        return ((_props, _component) => () => this._rootDisabled ? null : this.rootDef) as ComponentFunc;
+        return { HostRoot: ((_props, _component) => () => this._rootDisabled ? null : this.rootDef) as ComponentFunc }["HostRoot"];
+        // return ((_props, _component) => () => this._rootDisabled ? null : this.rootDef) as ComponentFunc;
+        // const hs = this;
+        // return function HostRoot(_props, _component) { return () => hs._rootDisabled ? null : hs.rootDef; };
     }
 
     public updateRoot(content: MixDOMRenderOutput, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {

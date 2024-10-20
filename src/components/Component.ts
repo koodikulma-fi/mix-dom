@@ -597,7 +597,7 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: (c
 export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFunc<any> {
     // Parse.
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
-    const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name;
+    const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name || "[createComponent]";
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically. However, its mostly useful for classes, as the functions are named outside (= afterwards).
     const f = { [name]: 
         func.length > 1 ?
@@ -617,7 +617,7 @@ export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func:
 export function createComponentCtx<Info extends ComponentInfoPartial = {}>(func: ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentCtxFunc<Info> {
     // Parse.
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
-    const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name;
+    const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name || "[createComponentCtx]";
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically.
     const f = ({ [name]: function (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) { return (func as ComponentCtxFuncShortcut<Info>)(component, contextAPI); }})[name] as ComponentCtxFunc<Info>
     // Assign static properties.

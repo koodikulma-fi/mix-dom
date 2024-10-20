@@ -82,7 +82,7 @@ export function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc:
 export function createShadow<Info extends Partial<ComponentInfo> = {}>(funcOrClass: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info> {
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;
-    const name = (staticProps ? args[1] as string : args[0] as string) || funcOrClass.name;
+    const name = (staticProps ? args[1] as string : args[0] as string) || funcOrClass.name || "[createShadow]";
     // Exceptionally we also support feeding in a class here. To add support for being a shadow.
     const Shadow = funcOrClass["MIX_DOM_CLASS"] ? { [name]: class extends (funcOrClass as ComponentType) {} }[name] as ComponentShadowType<Info> : createComponent(funcOrClass as any, name) as ComponentShadowFunc<Info>;
     // Attach signals and api.
@@ -96,7 +96,7 @@ export const createShadowCtx = <Info extends Partial<ComponentInfo> = {}>(func: 
     // Parse.
     const staticProps = args[0] && typeof args[0] === "object" ? args[0] : undefined;
     // Create.
-    const Shadow = createComponentCtx(func, (staticProps ? args[1] as string : args[0] as string) || func.name) as ComponentShadowFuncWith<Info>;
+    const Shadow = createComponentCtx(func, (staticProps ? args[1] as string : args[0] as string) || func.name || "[createShadowCtx]") as ComponentShadowFuncWith<Info>;
     // Attach signals and api.
     prepareShadow(Shadow, signals, staticProps);
     // Return resulting func.
