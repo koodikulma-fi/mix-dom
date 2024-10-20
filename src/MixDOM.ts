@@ -389,10 +389,14 @@ export const MixDOM = {
 
     /** Read html content as string from the given treeNode, component or boundary.
      * - Typically used with Host having settings.disableRendering (and settings.renderTimeout = null).
+     * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
+     * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
+     *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
+     *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).
      */
-    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary): string => {
+    readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, onlyClosedTagsFor: string[] | null | undefined = ["img"]): string => {
         const treeNode = from && (from.constructor["MIX_DOM_CLASS"] ? (from as Component).boundary.treeNode : (from as MixDOMBoundary).treeNode || typeof from["type"] === "string" && from as MixDOMTreeNode);
-        return treeNode ? HostRender.readDOMString(treeNode) : "";
+        return treeNode ? HostRender.readDOMString(treeNode, onlyClosedTagsFor) : "";
     },
 
 };

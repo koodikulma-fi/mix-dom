@@ -986,7 +986,7 @@ export class HostRender {
     // - Static reader helper - //
 
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
-     * @param treeNode An abstract info object. At "dom-types", the DOMTreeNode is a simple type only used for the purpose of this method.
+     * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
      * @param onlyClosedTagsFor Define how to deal with closed / open tags per tag name. Defaults to ["img"].
      *      - If an array, only uses a single closed tag (`<div />`) for elements with matching tag (if they have no kids), for others forces start and end tags.
      *      - If it's null | undefined, then uses closed tags based on whether has children or not (= only if no children).

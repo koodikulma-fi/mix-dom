@@ -7,7 +7,10 @@ export {
     MixDOMComponentTags,
     MixDOMTags,
     MixDOMAnyTags,
-    // Props for DOM.
+    // Props.
+    MixDOMInternalBaseProps,
+    MixDOMInternalDOMProps,
+    MixDOMInternalCompProps,
     MixDOMPreProps,
     MixDOMProps,
     // Updating.
