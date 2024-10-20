@@ -26,11 +26,13 @@ export class ContentBoundary extends BaseBoundary {
     /** Redefine that we always have it. It's based on the targetDef. */
     public _innerDef: MixDOMDefApplied;
     /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
-     * Note that the content might get passed through many boundaries, but now we have landed it. */
+     * - Note that the content might get passed through many boundaries, but now we have landed it.
+     */
     public sourceBoundary: SourceBoundary;
     /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
      * - Note that it gets assigned (externally) immediately after constructor is called.
-     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
+     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries.
+     */
     public parentBoundary: SourceBoundary | ContentBoundary;
 
 

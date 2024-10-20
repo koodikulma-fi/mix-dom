@@ -76,7 +76,8 @@ export interface MixDOMTreeNodeBoundary extends MixDOMTreeNodeBaseWithDef {
 export interface MixDOMTreeNodePass extends MixDOMTreeNodeBaseWithDef {
     type: "pass";
     /** This will be set to the treeNode right after instancing the content boundary.
-     * - It's null only if there's no content, otherwise there's a content boundary.*/
+     * - It's null only if there's no content, otherwise there's a content boundary.
+     */
     boundary: ContentBoundary | null;
 };
 export interface MixDOMTreeNodeHost extends MixDOMTreeNodeBaseWithDef {

@@ -33,7 +33,8 @@ export class ContentClosure {
     /** The boundary that is connected to this closure - we are its link upwards in the content chain. */
     public thruBoundary: SourceBoundary | null;
     /** The sourceBoundary is required to render anything - it defines to whom the content originally belongs.
-     * If it would ever be switched (eg. by remote flow from multiple sources), should clear the envelope first, and then assign new. */
+     * - If it would ever be switched (eg. by remote flow from multiple sources), should clear the envelope first, and then assign new.
+     */
     public sourceBoundary: SourceBoundary | null;
     /** The sealed envelope that contains the content to pass: { applied, targetDef }. */
     public envelope: MixDOMContentEnvelope | null;
@@ -44,7 +45,8 @@ export class ContentClosure {
     /** The grounded defs that are pending refresh. If all should be refreshed, contains all the keys in the groundedDefs. */
     public pendingDefs: Set<MixDOMDefApplied>;
     /** This contains the boundaries from any WithContent components that refer to us.
-     * - They will be re-updated every time our envelope changes. (Actually they would just care about null vs. non-null.) */
+     * - They will be re-updated every time our envelope changes. (Actually they would just care about null vs. non-null.)
+     */
     public withContents?: Set<SourceBoundary>;
     /** Used to detect which closures are linked together through content passing.
      * - This is further more used for the withContents feature. (But could be used for more features.)

@@ -110,11 +110,13 @@ declare class ContentBoundary extends BaseBoundary {
     /** Redefine that we always have it. It's based on the targetDef. */
     _innerDef: MixDOMDefApplied;
     /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
-     * Note that the content might get passed through many boundaries, but now we have landed it. */
+     * - Note that the content might get passed through many boundaries, but now we have landed it.
+     */
     sourceBoundary: SourceBoundary;
     /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
      * - Note that it gets assigned (externally) immediately after constructor is called.
-     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
+     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries.
+     */
     parentBoundary: SourceBoundary | ContentBoundary;
     /** Content boundaries will never feature component. So can be used for checks to know if is a source or content boundary. */
     component?: never;
@@ -1860,7 +1862,8 @@ declare class ContentClosure {
     /** The boundary that is connected to this closure - we are its link upwards in the content chain. */
     thruBoundary: SourceBoundary | null;
     /** The sourceBoundary is required to render anything - it defines to whom the content originally belongs.
-     * If it would ever be switched (eg. by remote flow from multiple sources), should clear the envelope first, and then assign new. */
+     * - If it would ever be switched (eg. by remote flow from multiple sources), should clear the envelope first, and then assign new.
+     */
     sourceBoundary: SourceBoundary | null;
     /** The sealed envelope that contains the content to pass: { applied, targetDef }. */
     envelope: MixDOMContentEnvelope | null;
@@ -1871,7 +1874,8 @@ declare class ContentClosure {
     /** The grounded defs that are pending refresh. If all should be refreshed, contains all the keys in the groundedDefs. */
     pendingDefs: Set<MixDOMDefApplied>;
     /** This contains the boundaries from any WithContent components that refer to us.
-     * - They will be re-updated every time our envelope changes. (Actually they would just care about null vs. non-null.) */
+     * - They will be re-updated every time our envelope changes. (Actually they would just care about null vs. non-null.)
+     */
     withContents?: Set<SourceBoundary>;
     /** Used to detect which closures are linked together through content passing.
      * - This is further more used for the withContents feature. (But could be used for more features.)
@@ -2013,7 +2017,8 @@ interface MixDOMTreeNodeBoundary extends MixDOMTreeNodeBaseWithDef {
 interface MixDOMTreeNodePass extends MixDOMTreeNodeBaseWithDef {
     type: "pass";
     /** This will be set to the treeNode right after instancing the content boundary.
-     * - It's null only if there's no content, otherwise there's a content boundary.*/
+     * - It's null only if there's no content, otherwise there's a content boundary.
+     */
     boundary: ContentBoundary | null;
 }
 interface MixDOMTreeNodeHost extends MixDOMTreeNodeBaseWithDef {
