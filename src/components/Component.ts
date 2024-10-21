@@ -460,6 +460,8 @@ export interface ComponentType<Info extends ComponentInfoPartial = {}> extends A
     /** This is only provided for typing related technical reasons. There's no actual _Info static member on the JS side. */
     _Info?: Info;
 };
+/** Class type (vs. instance) for component fed with ComponentInfo with enforcing the static side from Info["static"]. */
+export type ComponentTypeWith<Info extends ComponentInfoPartial = {}> = ComponentType<Info> & Info["static"];
 
 /** Standalone Component class.
  * - Provides the basic features for rendering into the MixDOM system, orchestrator by the containing Host.

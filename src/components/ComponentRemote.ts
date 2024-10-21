@@ -14,7 +14,7 @@ import { SourceBoundary, ContentClosure } from "../boundaries/index";
 // Host.
 import { applyClosureEnvelope, collectInterestedInClosure } from "../host/index";
 // Local.
-import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeEither } from "./Component";
+import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeEither, ComponentTypeWith } from "./Component";
 
 
 // - MAIN IDEA (v4.0) - //
@@ -163,6 +163,9 @@ export interface ComponentRemoteType<CustomProps extends Record<string, any> = {
  */
 export const createRemote = <CustomProps extends Record<string, any> = {}>(name: string = "Remote"): ComponentRemoteType<CustomProps> => {
 
+    // Shortcut for naming.
+    const wStr = "WithContent";
+
     // Create a new class with dynamic name. (Don't assign static members yet.)
     const _Remote = {
         
@@ -181,12 +184,16 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
             public hasContent = (): boolean => this.closure.hasContent();
             public WithContent = (() => {
                 const remote = this as ComponentRemote<CustomProps>;
-                return class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
-                    public static _WithContent = remote.Content;
-                    public render() {
-                        return (this.props.hasContent != null ? this.props.hasContent : remote.closure.hasContent()) ? MixDOMContent : null;
+                const With = {
+                    [name + "[i]." + wStr]: class extends Component<{ props: { hasContent?: boolean; }; }> {
+                        public static _WithContent: MixDOMDefTarget;
+                        public render() {
+                            return (this.props.hasContent != null ? this.props.hasContent : remote.hasContent()) ? MixDOMContent : null;
+                        }
                     }
-                };
+                }[name + "[i]." + wStr];
+                With._WithContent = remote.Content;
+                return With;
             })();
 
 
@@ -298,41 +305,83 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
 
     // Create content passer, that is used with the Remote.Content.
     // .. This is because the static side does not have a real content pass on .Content, but a component to render all active passes.
-    class ContentPasser extends Component<{ props: ContentPasserProps<CustomProps>; }> {
+    const ContentPasser = {
+        [name + ".Passer"]: class extends Component<{ props: ContentPasserProps<CustomProps>; }> {
 
-        /** The active ContentPasser instances: one for each insertion point. */
-        static passers: Set<Component> = new Set();
+            /** The active ContentPasser instances: one for each insertion point. */
+            public static passers: Set<Component>; // = new Set();
+            
+            ["constructor"]: ComponentTypeWith<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
 
-        constructor(props: ComponentProps<{ props: ContentPasserProps<CustomProps>; }>, boundary: SourceBoundary) {
-            super(props, boundary);
-            // Bookkeeping.
-            ContentPasser.passers.add(this);
-            // Listen to unmount.
-            // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
-            this.listenTo("willUnmount", () => ContentPasser.passers.delete(this));
+            constructor(props: ComponentProps<{ props: ContentPasserProps<CustomProps>; }>, boundary: SourceBoundary) {
+                super(props, boundary);
+                // Bookkeeping.
+                this.constructor.passers.add(this);
+                // Listen to unmount.
+                // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
+                this.listenTo("willUnmount", () => this.constructor.passers.delete(this));
+            }
+            
+            // Return a renderer to render a fragment for the content pass of each source.
+            public render(props: ContentPasserProps<CustomProps>): MixDOMRenderOutput {
+                // Use renderer.
+                if (props.renderer)
+                    return props.renderer(_Remote.sources.slice());
+                // Render a fragment for the content pass of each source.
+                return {
+                    tag: null,
+                    MIX_DOM_DEF: "fragment",
+                    childDefs:
+                        // Use wrapper.
+                        props.wrapper ? _Remote.sources.map((source, i) => props.wrapper ? newDefFrom(props.wrapper(source, i)) :
+                            props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content
+                        ).filter(def => def) as MixDOMDefTarget[] :
+                        // Use filterer.
+                        (props.filterer ? _Remote.sources.filter(props.filterer) : _Remote.sources)
+                            // Use copyKey.
+                            .map(source => props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content)
+                };
+            }
         }
-        
-        // Return a renderer to render a fragment for the content pass of each source.
-        public render(props: ContentPasserProps<CustomProps>): MixDOMRenderOutput {
-            // Use renderer.
-            if (props.renderer)
-                return props.renderer(_Remote.sources.slice());
-            // Render a fragment for the content pass of each source.
-            return {
-                tag: null,
-                MIX_DOM_DEF: "fragment",
-                childDefs:
-                    // Use wrapper.
-                    props.wrapper ? _Remote.sources.map((source, i) => props.wrapper ? newDefFrom(props.wrapper(source, i)) :
-                        props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content
-                    ).filter(def => def) as MixDOMDefTarget[] :
-                    // Use filterer.
-                    (props.filterer ? _Remote.sources.filter(props.filterer) : _Remote.sources)
-                        // Use copyKey.
-                        .map(source => props.copyKey != null ? source.copyContent(props.copyKey) : props.copy ? source.ContentCopy : source.Content)
-            };
-        }
-    };
+    }[name + ".Passer"];
+    // Note. Like below, we assign the static members manually afterwards, so that /bundling doesn't ruin the dynamic name for the class.
+    ContentPasser.passers = new Set();
+
+    const RemoteContent = newDef(ContentPasser)!;
+    const WithContent = {
+        [name + "." + wStr]: class extends Component<{ props: { hasContent?: boolean; }; }> {
+            // Define constructor.
+            ["constructor"]: ComponentTypeWith<{props: { hasContent?: boolean; }; static: { _WithContent: MixDOMDefTarget; withContents: Set<SourceBoundary>; }}>;
+            // Instance side.
+            constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary) {
+                super(props, boundary);
+                // Mark to interests.
+                this.constructor.withContents.add(this.boundary);
+                // Listen to unmount.
+                // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
+                this.listenTo("willUnmount", () => this.constructor.withContents.delete(this.boundary))
+            }
+            // For detection.
+            public static _WithContent: MixDOMDefTarget | null;
+            public static withContents: Set<SourceBoundary>;
+            // Render.
+            public render() {
+                return (this.props.hasContent != null ? this.props.hasContent : _Remote.hasContent()) ? MixDOMContent : null;
+            }
+        } as ComponentRemoteType<CustomProps>["WithContent"]
+        //
+        // <- For some reason, needs to be explicitly specified here.
+        // .. There's some tiny typing discrepancy in lates refines that pops up here for WithContent on the static side.
+        // .. The core reason seems to revolve around the RemoteComponentType's static WithContent.
+        // .... It's possible related to ComponentType's { api?: ComponentShadowAPI<Info> }, though could use <any> for that.
+        // .... In any case, that's not the core reason. It rather looks like the _Info is not passed somewhere along the flow.
+        //       - Even after clearing other problems, says _Info is `{} | undefined` in one, and `{ props: { hasContent?: boolean; }; } | undefined` in the other.
+        //       - So very likely, it's something in relation to the 
+
+    }[name + "." + wStr];
+    // Note. Like below, we assign the static members manually afterwards, so that /bundling doesn't ruin the dynamic name for the class.
+    WithContent._WithContent = RemoteContent;
+    WithContent.withContents = new Set();
     
     // Note. We assign the static members manually afterwards, so that /bundling doesn't ruin the dynamic name for the class.
     // .. This is because the process would move the static assignments to be applied after in any case, and then use a variable shortcut for the class (-> ruining the name).
@@ -340,7 +389,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
     _Remote.sources = [];
     _Remote.ContentPasser = ContentPasser as ComponentType<{ props: ContentPasserProps<CustomProps>; }> as ComponentType<{ props: ContentPasserProps<CustomProps>; static: { passers: Set<Component>; }; }>;
     // Note that in all below, we don't have `getRemote()` in the def. It's because we don't have an actual pass here.
-    _Remote.Content = newDef(ContentPasser);
+    _Remote.Content = RemoteContent;
     _Remote.ContentCopy = newDef(ContentPasser, { copy: true });
     _Remote.copyContent = (key?: any): MixDOMDefTarget | null => newDef(ContentPasser, { copy: true, copyKey: key });
     _Remote.hasContent = (filterer?: (remote: ComponentRemote<CustomProps>, i: number) => boolean): boolean =>
@@ -348,32 +397,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
     _Remote.filterContent = (filterer, copyKey?): MixDOMDefTarget | null => newDef(ContentPasser, { copyKey, filterer });
     _Remote.wrapContent = (wrapper, copyKey?): MixDOMDefTarget | null => newDef(ContentPasser, { copyKey, wrapper });
     _Remote.renderContents = (renderer) => newDef(ContentPasser, { renderer });
-    _Remote.WithContent = class WithContent extends Component<{ props: { hasContent?: boolean; }; }> {
-        // Instance side.
-        constructor(props: { hasContent?: boolean; }, boundary?: SourceBoundary) {
-            super(props, boundary);
-            // Mark to interests.
-            WithContent.withContents.add(this.boundary);
-            // Listen to unmount.
-            // .. As we're a special component that is directly used (vs. extendable basis), let's just use the listenTo flow.
-            this.listenTo("willUnmount", () => WithContent.withContents.delete(this.boundary))
-        }
-        // For detection.
-        public static _WithContent = _Remote.Content;
-        public static withContents: Set<SourceBoundary> = new Set();
-        // Render.
-        public render() {
-            return (this.props.hasContent != null ? this.props.hasContent : _Remote.hasContent()) ? MixDOMContent : null;
-        }
-    } as ComponentRemoteType<CustomProps>["WithContent"];
-    //
-    // <- For some reason, needs to be explicitly specified here.
-    // .. There's some tiny typing discrepancy in lates refines that pops up here for WithContent on the static side.
-    // .. The core reason seems to revolve around the RemoteComponentType's static WithContent.
-    // .... It's possible related to ComponentType's { api?: ComponentShadowAPI<Info> }, though could use <any> for that.
-    // .... In any case, that's not the core reason. It rather looks like the _Info is not passed somewhere along the flow.
-    //       - Even after clearing other problems, says _Info is `{} | undefined` in one, and `{ props: { hasContent?: boolean; }; } | undefined` in the other.
-    //       - So very likely, it's something in relation to the 
+    _Remote.WithContent = WithContent;
 
     return _Remote;
 }
