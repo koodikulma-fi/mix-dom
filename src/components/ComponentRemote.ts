@@ -347,7 +347,10 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
     // Note. Like below, we assign the static members manually afterwards, so that /bundling doesn't ruin the dynamic name for the class.
     ContentPasser.passers = new Set();
 
+    // Create unique Content - for the static side it's actually a def for the ContentPasser component.
     const RemoteContent = newDef(ContentPasser)!;
+
+    // Create WithContent component.
     const WithContent = {
         [name + "." + wStr]: class extends Component<{ props: { hasContent?: boolean; }; }> {
             // Define constructor.
@@ -399,5 +402,6 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
     _Remote.renderContents = (renderer) => newDef(ContentPasser, { renderer });
     _Remote.WithContent = WithContent;
 
+    // Return the newly created remote component.
     return _Remote;
 }
