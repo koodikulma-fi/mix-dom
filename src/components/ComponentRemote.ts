@@ -298,7 +298,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
 
     // Create content passer, that is used with the Remote.Content.
     // .. This is because the static side does not have a real content pass on .Content, but a component to render all active passes.
-    const ContentPasser = class extends Component<{ props: ContentPasserProps<CustomProps>; }> {
+    class ContentPasser extends Component<{ props: ContentPasserProps<CustomProps>; }> {
 
         /** The active ContentPasser instances: one for each insertion point. */
         static passers: Set<Component> = new Set();
