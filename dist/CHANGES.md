@@ -1,4 +1,4 @@
-## v4.2.0 (2024-10-20)
+## v4.2.0 (2024-10-31)
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
 
@@ -12,8 +12,9 @@
 
 ### Internal and dependency refines
 
-- Adjusted to `data-signals` v1.1.2 (and `mixin-types` v1.1.1).
-- Accordingly, optimized HostContextAPIs to use the new `inheritedContexts` flow (for sharing to ComponentContextAPIs).
+- Adjusted to `data-signals` v1.2.0 (and `mixin-types` v1.1.1).
+- Accordingly, optimized `HostContextAPI`s to use the new `inheritedContexts` flow (for sharing to `ComponentContextAPI`s).
+- And the `ContextSettings` `"dataSetMode"` has been renamed to `"dataMode"`, default changed to `"immutable"` and modes renamed: `"immutable"` (earlier `"root"`), `"mutable"` (`"leaf"`) and `"existing"` (`"only"`).
 
 ---
 
