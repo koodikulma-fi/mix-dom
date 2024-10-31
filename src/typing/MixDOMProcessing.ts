@@ -159,12 +159,12 @@ export type MixDOMCase = "native" | "camelCase" | "mixedCase";
  * - The DOM attributes contain the common attributes (class, className, style, data, ...) and any specific for the given DOM tag.
  * - To define the "native" vs. "camelCase" spelling for DOM attributes, define the 2nd argument. Defaults to "mixedCase", so allows both.
  */
-export type MixDOMPreProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMInternalDOMProps & MixDOMProps<Tag, DOMCase>;
+export type MixDOMPreProps<Tag extends string = any, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMInternalDOMProps & MixDOMProps<Tag, DOMCase>;
 
 /** Contains tag based DOM attributes _without_ the internal DOM props (_key, _ref, _disabled, _signals).
  * - This is the same as DOMAttributes from the "dom-types" library, but can define DOMCase as the 2nd type arg: "native" | "camelCase" | "mixedCase". Defaults to "mixedCase".
  */
-export type MixDOMProps<Tag extends string = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> =
+export type MixDOMProps<Tag extends string = any, DOMCase extends MixDOMCase = "mixedCase"> =
     DOMCase extends "camelCase" ? DOMTags extends Tag ? DOMAttributesAny_camelCase : DOMAttributes_camelCase<Tag> :
     DOMCase extends "native" ? DOMTags extends Tag ? DOMAttributesAny_native : DOMAttributes_native<Tag> :
     DOMTags extends Tag ? DOMAttributesAny_camelCase & DOMAttributesAny_native : DOMAttributes_camelCase<Tag> & DOMAttributes_native<Tag>;
