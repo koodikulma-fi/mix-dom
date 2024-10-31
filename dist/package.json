@@ -58,7 +58,7 @@
     }
   },
   "dependencies": {
-    "data-memo": "~1.0.1",
+    "data-memo": "~1.0.2",
     "data-signals": "~1.2.0",
     "dom-types": "~1.1.1",
     "mixin-types": "~1.1.1"
