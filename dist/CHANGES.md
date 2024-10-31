@@ -1,4 +1,4 @@
-## v4.2.0 (2024-10-31)
+## v4.2.0 (2024-11-01)
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`
 
