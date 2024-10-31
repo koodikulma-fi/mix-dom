@@ -670,23 +670,6 @@ export class Host<Contexts extends ContextsAllType = any> {
     }
 
 
-    // // - Debug - //
-    //
-    // public openDebug(atUrl: string = "https://www.mixdomjs.org/debug", target: string = "MixDOMDebug"): void {
-    //
-    //     atUrl = "http://localhost/www/projects/MixDOM/mix-dom-debug/dist/";
-    //
-    //     // ... Test... not sure if it's a good idea to have a link here...
-    //     // .. 
-    //
-    //     let w = window.open(atUrl, "MixDOMDebug");
-    //     if (w) {
-    //         let ready = () => w["MixDOMDebug"] && w["MixDOMDebug"].addHost(this);
-    //         w.addEventListener("load", ready, true);
-    //     }
-    // }
-
-
     // - Settings - //
     
     /** Modify previously given settings with partial settings.
