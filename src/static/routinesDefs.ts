@@ -22,7 +22,7 @@ import { Ref } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host } from "../host/Host";
 import { ReadComponentInfo } from "../components/typesInfo";
-import { Component, ComponentProps } from "../components/Component";
+import { Component, ComponentProps, ComponentTypeAny } from "../components/Component";
 import { IsSpreadFunc, SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
 import { PseudoPortalProps, PseudoElementProps, MixDOMPseudoTags } from "../components/ComponentPseudos";
 import { ComponentRemoteType } from "../components/ComponentRemote";
@@ -72,7 +72,7 @@ export function newDef<Tag>(...args:
     // Component like.
     // .. Props can be empty.
     {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ?
-        [componentTag: Tag, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
+        [componentTag: Tag | ComponentTypeAny, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
     // .. Must give props.
     [componentTag: Tag, props: GetPropsFor<Tag>, ...contents: MixDOMRenderOutput[]]
 ): MixDOMDefTarget | null;

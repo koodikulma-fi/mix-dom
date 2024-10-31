@@ -2530,7 +2530,7 @@ type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "m
  *      * Use `nativeDef` or `camelCaseDef` methods to explicitly use native or camelCase typing.
  */
 declare function newDef<Tag>(...args: Tag extends string ? [domTag: Tag & string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] : {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ? [
-    componentTag: Tag,
+    componentTag: Tag | MixDOMComponentTags,
     props?: GetPropsFor<Tag> | null,
     ...contents: MixDOMRenderOutput[]
 ] : [
