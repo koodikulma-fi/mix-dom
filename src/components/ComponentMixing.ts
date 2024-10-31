@@ -355,7 +355,7 @@ export function mixHOCs(baseComp: ComponentTypeAny, ...hocs: ComponentHOCBase[])
     for (const thisHOC of hocs)
         Base = thisHOC(Base);
     // Then create a def for the last component in the chain. We can just use a spread as our final component.
-    return (props) => newDef(Base as any, props, MixDOMContent);
+    return (props) => newDef(Base as any, props as any, MixDOMContent);
 }
 
 

@@ -1,5 +1,5 @@
 import { CompareDepthMode } from 'data-memo';
-import { ContextsAllType, ContextAPIType, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, SignalManType, SignalMan, NodeJSTimeout, SignalListener, SignalBoyType, Context, SignalsRecord } from 'data-signals';
+import { ContextsAllType, ContextAPIType, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, IsAny, SignalManType, SignalMan, NodeJSTimeout, SignalListener, SignalBoyType, Context, SignalsRecord } from 'data-signals';
 import { DOMTags, DOMAttributesBy_native, DOMAttributesBy_camelCase, DOMElement, DOMDiffProps, DOMAttributesAny_camelCase, DOMAttributes_camelCase, DOMAttributesAny_native, DOMAttributes_native, DOMCleanProps } from 'dom-types';
 import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
 
@@ -39,7 +39,8 @@ declare namespace JSX_camelCase {
     }
     /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
      * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable".
-     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there. */
+     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there.
+     */
     interface IntrinsicAttributes extends MixDOMInternalBaseProps {
     }
 }
@@ -474,6 +475,8 @@ interface ComponentInfoPartial<Props extends Record<string, any> = {}, State ext
     api?: ComponentShadowAPI<any>;
 } = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
+/** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
+type ComponentInfoAny = ComponentInfo<any, any, any, {}, {}, any, any>;
 /** Empty component info type. */
 type ComponentInfoEmpty = {
     props?: {};
@@ -1219,7 +1222,14 @@ declare class PseudoEmptyRemote<Props = {}> extends PseudoEmptyRemote_base {
     static wrapContent: (_wrapper: (remote: ComponentRemote, i: number) => MixDOMRenderOutput, _copyKey?: any) => MixDOMDefTarget | null;
     static renderContents: (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
     static hasContent: (_filterer?: ((remote: ComponentRemote, i: number) => boolean) | undefined) => boolean;
-    static WithContent: ComponentTypeEither<any>;
+    static WithContent: ComponentTypeEither<{
+        props: {
+            hasContent?: boolean | undefined;
+        };
+    }> & {
+        _WithContent: MixDOMDefTarget;
+        withContents: Set<SourceBoundary>;
+    };
     static isRemote(): boolean;
     static sources: ComponentRemote[];
 }
@@ -1566,7 +1576,7 @@ type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInternalComp
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
 type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
     _Info?: Info;
-} & Info["static"];
+} & (IsAny<Info["static"]> extends true ? Record<string, any> : Info["static"]);
 /** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentCtxFuncArgs<Info>` instead. */
 type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentWith<Info>];
 /** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
@@ -2195,7 +2205,7 @@ interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedD
      * - That's why it's name so strangely (to distinguish from objects), but still somewhat sensibly to be readible.
      * - In earlier quick tests, it seemed (almost 2x) faster to use { _isDef: true} as opposed to creating a new class instance (without _isDef member). */
     MIX_DOM_DEF: MixDOMDefType;
-    tag: MixDOMAnyTags;
+    tag: any;
     childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
     /** The def should be skipped - used internally.
      * - Currently only used for type "content" for settings.noRenderValuesMode and "fragment" for withContent() and spread usage. */
@@ -2315,7 +2325,7 @@ type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends 
 type MixDOMBoundary = SourceBoundary | ContentBoundary;
 type MixDOMSourceBoundaryId = string;
 /** Any known MixDOM component related tags, from spread funcs to component ctx funcs to component classes and pseudo elements. */
-type MixDOMComponentTags = ComponentType<any> | ComponentFuncAny<any> | MixDOMPseudoTags<Record<string, any>>;
+type MixDOMComponentTags = ComponentType<any> | ComponentFuncAny<ComponentInfoAny> | MixDOMPseudoTags<Record<string, any>>;
 type MixDOMTags = "" | "_" | DOMTags;
 type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
@@ -2519,17 +2529,13 @@ type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "m
  * - In terms of typing, this method reflects TSX typing for "mixedCase" in regards to DOM elements.
  *      * Use `nativeDef` or `camelCaseDef` methods to explicitly use native or camelCase typing.
  */
-declare function newDef<Tag>(...args: Tag extends string ? [domTag: Tag & string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] : Tag extends MixDOMComponentTags ? {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ? [
-    componentTag: Tag & MixDOMComponentTags,
+declare function newDef<Tag>(...args: Tag extends string ? [domTag: Tag & string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] : {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ? [
+    componentTag: Tag,
     props?: GetPropsFor<Tag> | null,
     ...contents: MixDOMRenderOutput[]
 ] : [
-    componentTag: Tag & MixDOMComponentTags,
+    componentTag: Tag,
     props: GetPropsFor<Tag>,
-    ...contents: MixDOMRenderOutput[]
-] : [
-    unknownTag: Tag,
-    props?: never,
     ...contents: MixDOMRenderOutput[]
 ]): MixDOMDefTarget | null;
 /** Create a new def from a html string. Returns a def for a single html element
@@ -2857,4 +2863,4 @@ declare const MixDOM: {
     readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, escapeHTML?: boolean, indent?: number, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
 };
 
-export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };
+export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };

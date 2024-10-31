@@ -45,7 +45,8 @@ export declare namespace JSX_camelCase {
     
     /** This is needed for components mostly. The IntrinsicElements gets ignored for them when defines precise typing: eg. (props: SomeProps).
      * - However, IntrinsicAttributes then brings those to all (dom and components), so we provide here the three basic: "_key", "_ref" and "_disable". 
-     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there. */
+     * - We leave "_signals" and "_contexts" to be found on the init props if looks in there.
+     */
     export interface IntrinsicAttributes extends MixDOMInternalBaseProps { }
 
 }

@@ -57,8 +57,8 @@ export interface ComponentInfoPartial<
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
 > extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
-// /** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
-// export type ComponentInfoAny = ComponentInfo<any, any, any, {}, {}, any, any>;
+/** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
+export type ComponentInfoAny = ComponentInfo<any, any, any, {}, {}, any, any>;
 
 /** Empty component info type. */
 export type ComponentInfoEmpty = {

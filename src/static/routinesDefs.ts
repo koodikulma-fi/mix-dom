@@ -69,15 +69,12 @@ export type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCas
 export function newDef<Tag>(...args:
     // DOM.
     Tag extends string ? [domTag: Tag & string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
-    // Components, spreads and pseudos.
-    Tag extends MixDOMComponentTags ?
-        // Can be empty.
-        {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ?
-            [componentTag: Tag & MixDOMComponentTags, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
-        // Must give props.
-        [componentTag: Tag & MixDOMComponentTags, props: GetPropsFor<Tag>, ...contents: MixDOMRenderOutput[]] :
-    // Unrecognized.
-    [unknownTag: Tag, props?: never, ...contents: MixDOMRenderOutput[]]
+    // Component like.
+    // .. Props can be empty.
+    {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ?
+        [componentTag: Tag, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] :
+    // .. Must give props.
+    [componentTag: Tag, props: GetPropsFor<Tag>, ...contents: MixDOMRenderOutput[]]
 ): MixDOMDefTarget | null;
 export function newDef(tagOrClass: MixDOMAnyTags, origProps: Record<string, any> | null = null, ...contents: MixDOMRenderOutput[]): MixDOMDefTarget | null {
     

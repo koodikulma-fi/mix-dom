@@ -3,7 +3,7 @@
 
 // Library.
 import { ClassType, AsClass, ReClass } from "mixin-types";
-import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType, OmitPartial } from "data-signals";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType, OmitPartial, IsAny } from "data-signals";
 import { CompareDepthMode } from "data-memo";
 // Typing.
 import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMInternalCompProps } from "../typing";
@@ -54,7 +54,7 @@ export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInter
 
 // Functional component helpers.
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
-export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & Info["static"];
+export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & (IsAny<Info["static"]> extends true ? Record<string, any> : Info["static"]);
 /** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentCtxFuncArgs<Info>` instead. */
 export type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentWith<Info>];
 /** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
@@ -610,7 +610,7 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: Co
         for (const p in staticProps)
             f[p] = staticProps[p];
     // Return resulting func.
-    return f;
+    return f as ComponentFunc<any>;
 }
 
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */

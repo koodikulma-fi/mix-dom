@@ -109,7 +109,7 @@ export class PseudoEmptyRemote<Props = {}> extends (PseudoEmpty<ComponentRemoteP
     public static wrapContent = (_wrapper: (remote: ComponentRemote, i: number) => MixDOMRenderOutput, _copyKey?: any): MixDOMDefTarget | null => null;
     public static renderContents = (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput): MixDOMDefTarget | null => null;
     public static hasContent = (_filterer?: (remote: ComponentRemote, i: number) => boolean): boolean => false;
-    public static WithContent: ComponentTypeEither<any> = (_initProps, _comp) => null; // For some reason WithContent on the remote is very sensitive, so used with <any>.
+    public static WithContent = ((_initProps, _comp) => null) as ComponentTypeEither as ComponentRemoteType["WithContent"];
     // Helpers.
     public static isRemote(): boolean { return false; }
     // Other members.

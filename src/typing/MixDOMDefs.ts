@@ -36,7 +36,7 @@ interface MixDOMDefBase<Props extends MixDOMProcessedDOMProps = MixDOMProcessedD
      * - That's why it's name so strangely (to distinguish from objects), but still somewhat sensibly to be readible.
      * - In earlier quick tests, it seemed (almost 2x) faster to use { _isDef: true} as opposed to creating a new class instance (without _isDef member). */
     MIX_DOM_DEF: MixDOMDefType;
-    tag: MixDOMAnyTags;
+    tag: any; // MixDOMAnyTags; // Just allow any, it's not really important here. Using `any` helps to avoid external build conflicts.
     childDefs: MixDOMDefApplied[] | MixDOMDefTarget[];
 
     // Internal.
