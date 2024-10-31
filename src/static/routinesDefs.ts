@@ -354,17 +354,17 @@ export function newContentCopyDef(key?: any): MixDOMDefTarget {
 
 // - Exported helpers - //
 
-const checkRecursively = (def: MixDOMDefApplied | MixDOMDefTarget): boolean => !!(def.contentPass?.envelope && hasContentInDefs(def.contentPass.envelope.applied.childDefs, checkRecursively));
+const checkRecursively = (def: MixDOMDefApplied | MixDOMDefTarget): boolean | "maybe" => (def.contentPass && def.contentPass.envelope && hasContentInDefs(def.contentPass.envelope.applied.childDefs, checkRecursively)) || false;
 
 /** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
  * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
  *      * If not given, defaults to a recursive pass checker - suitably for external usage, eg. reading situation from the grounded tree.
- * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
+ * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one inside.
  * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
  */
-export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean = checkRecursively): boolean | "maybe" {
+export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget> (childDefs: Array<Def>, handlePass: ((def: Def) => boolean | "maybe") | boolean | "maybe" = checkRecursively): boolean | "maybe" {
     // Loop each.
-    let maybe: false | "maybe" = false;
+    let maybe: boolean = false;
     for (const def of childDefs) {
         // Nope.
         if (def.disabled)
@@ -384,10 +384,10 @@ export function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget>
         if (answer === true)
             return true;
         // Potentially.
-        maybe = "maybe";
+        maybe = true;
     }
     // Return false or then "maybe" if had any content passes (and is on the static side).
-    return maybe;
+    return maybe && "maybe";
 }
 
 
@@ -456,7 +456,7 @@ function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: Spread
     let pDef: MixDOMDefTarget | undefined;
     let hasTruePass = false;
     let iMain = 0;
-    const hasKids = !!children[0];
+    const hasKids = !!children[0] as boolean;
     // Loop defs.
     // .. And copy the new structure as we go.
     while (pDef = toLoop[iMain]) {
@@ -489,7 +489,8 @@ function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: Spread
                     // Update the props with our new value.
                     // .. It's already been copied once (see below), so we can just mutate the props.
                     const hasContent = cDefs && hasContentInDefs(cDefs, hasKids);
-                    withDef.props.hasContent = !!hasContent;
+                    if (hasContent !== "maybe")
+                        withDef.props.hasContent = hasContent;
                     // Add to be checked again by a further parent, if we have one.
                     // .. So we continue to do this up the spreads, until we get a definitive answer for a question nested within.
                     // .. Note that in the end, we should always get a definitive answer, ultimately from the parentmost spread.
@@ -533,12 +534,12 @@ function unfoldSpread<Props extends Record<string, any> = {}>(spreadFunc: Spread
                 // Handle conditional - however ignore remote instances, as we don't know anything about their kids.
                 // .. To ignore on instance side we use .getRemote, for the static side .withContents on the tag.
                 if (thisDef.MIX_DOM_DEF === "boundary" && thisDef.tag["_WithContent"] && !thisDef.tag["_WithContent"].getRemote && !(thisDef.tag as ComponentRemoteType["WithContent"]).withContents) {
-                    // Skip if had been specifically set by the user.
+                    // Only process if had not been specifically set by the user.
                     // .. Note that in that case any parenting spreads won't recognize this either - see the skip-spreads optimization above.
                     if (newDef.props?.hasContent == null) {
                         // Override the props with our answer.
                         const hasContent = hasContentInDefs(children, hasKids);
-                        newDef.props = { hasContent: !!hasContent, ...newDef.props };
+                        newDef.props = { hasContent: hasContent === "maybe" ? undefined : hasContent, ...newDef.props };
                         // Add to our links if needs more processing.
                         if (hasContent === "maybe")
                             spreadLinks.withs.push([children, newDef as any]);

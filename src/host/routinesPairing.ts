@@ -163,6 +163,9 @@ export function pairDefs(byBoundary: SourceBoundary | ContentBoundary, preDef: M
  * - Note that this procedure assumes that there are no (nestedly) empty fragments in the flow. (This is already handled in the defs creation flow.)
  *      * This makes it easy for us to know that whenever there's a child, it should have a node. So we can safely create new ones for all in the list (if cannot reuse).
  *      * Of course, fragments are not actually worth tree nodes, but we use them as placeholders in the flow. (But because of above, we know there will be something to replace them.)
+ * - Note. There is an exception to the above.
+ *      * Currently there is a special case where a content pass (in spread rendering) might produce an empty fragment that is processed here.
+ *      * However, it just goes through without special handling in this method, and is instead currently handled specifically in assignTreeNodesForPass.
  */
 export function assignTreeNodesFor(aChilds: MixDOMDefApplied[], workingTreeNode: MixDOMTreeNode, nodeIsFragment?: boolean, sourceBoundary?: SourceBoundary | null, emptyMovers?: MixDOMTreeNode[] | null): (MixDOMTreeNode | null)[] {
 
@@ -299,6 +302,8 @@ export function assignTreeNodesFor(aChilds: MixDOMDefApplied[], workingTreeNode:
  * - It needs this procedure because its defs have already been paired.
  * - In here we assign treeNodes to them if they are grounded.
  * - For those that are not used, we mark .sourceBoundary = null and collect to cleanUp (that we return).
+ * - Note. There is currently a special case handling in here that should optimally be elsewhere (likely in unfoldSpread) or related to envelope handling.
+ *      * The case regards removing empty treeNodes from the groundedTree flow specifically.
  */
 export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApplyPair[], MixDOMTreeNode[], MixDOMTreeNode[]] {
     // Prepare.
@@ -318,13 +323,32 @@ export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApp
         // Next.
         i++;
         // Parse.
-        const [toDef, aDefNew, pTreeNode, toDefIsFragment ] = defPair;
+        const [toDef, aDefNew, wTreeNode, toDefIsFragment ] = defPair;
+
+        // Special handling to remove empty treeNodes. (They don't seem harmful, but they should never be in the groundedTree.)
+        // .. Note. Optimally this would already be solved in deffing - very likely in relation to unfoldSpread and nested content passing.
+        // .... However, could not find that part in unfoldSpread process (for v4.2.0), so instead handling the case here.
+        // .. So the case is that we have a pass that renders an empty fragment, and it has not yet been culled out in deffing.
+        // .... We detect this specifically, and then double-verify that the working treeNode needs handling.
+        // .... In that case, we directly splice it away from the parent - as opposed to using adding to toCleanUp.
+        // .... This further underlines that shouldn't really be handled here. (Using toCleanUp won't do anything.)
+        if (toDefIsFragment && !toDef.childDefs[0] && wTreeNode && !wTreeNode.type && wTreeNode.parent) {
+            // Find.
+            const kids = wTreeNode.parent.children;
+            const iEmpty = kids.indexOf(wTreeNode);
+            // If was in deed there, remove.
+            iEmpty !== -1 && kids.splice(iEmpty, 1);
+            // In any case, put sourceBoundary to null and stop from further processing.
+            wTreeNode.sourceBoundary = null;
+            continue;
+        }
+
         // Explore, if has children and is not a boundary def (in that case, our grounding branch ends to it).
         if (aDefNew.childDefs[0]) {
             // Get tree nodes for kids.
             // .. For <MixDOM.Element>'s, we only ground if there's an element defined.
-            const treeNodes = pTreeNode && toDef.MIX_DOM_DEF !== "boundary" && (toDef.MIX_DOM_DEF !== "element" || toDef.domElement) ?
-                assignTreeNodesFor(aDefNew.childDefs, pTreeNode, toDefIsFragment, sourceBoundary, emptyMovers) : [];
+            const treeNodes = wTreeNode && toDef.MIX_DOM_DEF !== "boundary" && (toDef.MIX_DOM_DEF !== "element" || toDef.domElement) ?
+                assignTreeNodesFor(aDefNew.childDefs, wTreeNode, toDefIsFragment, sourceBoundary, emptyMovers) : [];
             // After clean up.
             let iKid = 0;
             const newDefPairs: DefLoopPair[] = [];
@@ -347,8 +371,8 @@ export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApp
             i = 0;
         }
         // Add for phase II loop.
-        if (pTreeNode && !aDefNew.disabled)
-            toApplyPairs.push([toDef, aDefNew, pTreeNode]);
+        if (wTreeNode && !aDefNew.disabled)
+            toApplyPairs.push([toDef, aDefNew, wTreeNode]);
     }
     // Return pairs.
     return [ toApplyPairs, toCleanUp, emptyMovers ];

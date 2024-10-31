@@ -2033,11 +2033,12 @@ declare class BaseBoundary {
 type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "contexts" | "host" | "root";
 interface MixDOMTreeNodeBase {
     /** The main type of the treeNode that defines how it should behave and what it contains.
-     * The type "" is only used temporarily - it can only end up in treeNodes if there's an error. */
+     * - The type "" is only used temporarily - it shouldn't end up in the grounded treeNodes.
+     */
     type: MixDOMTreeNodeType | "";
     /** Normally, only the root has no parent, but all others do.
-     * However, if we are talking about a treeNode that is no longer in the tree (= a dead branch),
-     * .. then the parent is null, or one of the parents in the chain is null even though it's not a real root node. */
+     * - However, if we are talking about a treeNode that is no longer in the tree (= a dead branch), then the parent is null, or one of the parents in the chain is null even though it's not a real root node.
+     */
     parent: MixDOMTreeNode | null;
     /** The treeNodes inside - for navigation. */
     children: MixDOMTreeNode[];
@@ -2045,8 +2046,8 @@ interface MixDOMTreeNodeBase {
      * - So if this treeNode is of "dom" type, it's actually its own node.
      * - But boundaries and other abstractions do not have their own dom node.
      * - Instead, it's updated UPWARDS (until meets a dom tag parent) from an actual treeNode with dom element upon create / remove / move.
-     *   .. The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
-     *   .. We do minimal bookkeeping for a very quick way to find where any node should be.*/
+     *      * The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
+     *      * We do minimal bookkeeping for a very quick way to find where any node should be.*/
     domNode: DOMElement | Node | null;
     /** The boundary that produced this tree node - might be passed through content closures. */
     sourceBoundary: SourceBoundary | null;
@@ -2542,10 +2543,10 @@ declare function newContentCopyDef(key?: any): MixDOMDefTarget;
 /** Check recursively from applied or target defs, whether there's actually stuff that amounts to a content.
  * - To handle interpreting content passes, feed the handlePass boolean answer (when used in spreads), or callback (when used non-statically to use parent content closure).
  *      * If not given, defaults to a recursive pass checker - suitably for external usage, eg. reading situation from the grounded tree.
- * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one in the game.
+ * - Note that this returns `"maybe"` if handlePass was `true` (or callback and said "maybe") and it was the only one inside.
  * - However if there's anything solid anywhere, will return `true`. Otherwise then `false`, if it's all clear.
  */
-declare function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget>(childDefs: Array<Def>, handlePass?: ((def: Def) => boolean | "maybe") | boolean): boolean | "maybe";
+declare function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget>(childDefs: Array<Def>, handlePass?: ((def: Def) => boolean | "maybe") | boolean | "maybe"): boolean | "maybe";
 
 declare const MixDOMContent: MixDOMDefTarget;
 declare const MixDOMContentCopy: MixDOMDefTarget;

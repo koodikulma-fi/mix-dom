@@ -18,11 +18,12 @@ interface MixDOMTreeNodeBase {
     // - Mandatory - //
 
     /** The main type of the treeNode that defines how it should behave and what it contains.
-     * The type "" is only used temporarily - it can only end up in treeNodes if there's an error. */
+     * - The type "" is only used temporarily - it shouldn't end up in the grounded treeNodes.
+     */
     type: MixDOMTreeNodeType | "";
     /** Normally, only the root has no parent, but all others do.
-     * However, if we are talking about a treeNode that is no longer in the tree (= a dead branch),
-     * .. then the parent is null, or one of the parents in the chain is null even though it's not a real root node. */
+     * - However, if we are talking about a treeNode that is no longer in the tree (= a dead branch), then the parent is null, or one of the parents in the chain is null even though it's not a real root node.
+     */
     parent: MixDOMTreeNode | null;
     /** The treeNodes inside - for navigation. */
     children: MixDOMTreeNode[];
@@ -30,8 +31,8 @@ interface MixDOMTreeNodeBase {
      * - So if this treeNode is of "dom" type, it's actually its own node.
      * - But boundaries and other abstractions do not have their own dom node.
      * - Instead, it's updated UPWARDS (until meets a dom tag parent) from an actual treeNode with dom element upon create / remove / move.
-     *   .. The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
-     *   .. We do minimal bookkeeping for a very quick way to find where any node should be.*/
+     *      * The reason for this weirdness is bookkeeping performance logic (see HostRender.findInsertionNodes).
+     *      * We do minimal bookkeeping for a very quick way to find where any node should be.*/
     domNode: DOMElement | Node | null;
     /** The boundary that produced this tree node - might be passed through content closures. */
     sourceBoundary: SourceBoundary | null;
