@@ -8,7 +8,7 @@
 ### Enhanced typing
 
 - Enhanced `MixDOMProps` and `MixDOMPreProps` to suggest the known `DOMTags` while allowing any string input.
-- Refined `MixDOMComponentTags` type to be a bit looser.
+- Refined `MixDOMComponentTags` type and `newDef` method typing to be a bit looser.
 
 ### Internal and dependency refines
 
