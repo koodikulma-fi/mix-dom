@@ -13,8 +13,8 @@
 ### Internal and dependency refines
 
 - Adjusted to `data-signals` v1.2.0 (and `mixin-types` v1.1.1).
-- Accordingly, optimized `HostContextAPI`s to use the new `inheritedContexts` flow (for sharing to `ComponentContextAPI`s).
-- And the `ContextSettings` `"dataSetMode"` has been renamed to `"dataMode"`, default changed to `"immutable"` and modes renamed: `"immutable"` (earlier `"root"`), `"mutable"` (`"leaf"`) and `"existing"` (`"only"`).
+  - Accordingly, optimized `HostContextAPI`s to use the new `inheritedContexts` flow (for sharing to `ComponentContextAPI`s).
+  - The `"dataSetMode"` in `ContextSettings` has been renamed to `"dataMode"`, its default changed to `"immutable"` and modes renamed: `"immutable"` (earlier `"root"`), `"mutable"` (`"leaf"`) and `"existing"` (`"only"`).
 
 ---
 
