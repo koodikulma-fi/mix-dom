@@ -2430,7 +2430,9 @@ type MixDOMPreProps<Tag extends string = any, DOMCase extends MixDOMCase = "mixe
 /** Contains tag based DOM attributes _without_ the internal DOM props (_key, _ref, _disabled, _signals).
  * - This is the same as DOMAttributes from the "dom-types" library, but can define DOMCase as the 2nd type arg: "native" | "camelCase" | "mixedCase". Defaults to "mixedCase".
  */
-type MixDOMProps<Tag extends string = any, DOMCase extends MixDOMCase = "mixedCase"> = DOMCase extends "camelCase" ? DOMTags extends Tag ? DOMAttributesAny_camelCase : DOMAttributes_camelCase<Tag> : DOMCase extends "native" ? DOMTags extends Tag ? DOMAttributesAny_native : DOMAttributes_native<Tag> : DOMTags extends Tag ? DOMAttributesAny_camelCase & DOMAttributesAny_native : DOMAttributes_camelCase<Tag> & DOMAttributes_native<Tag>;
+type MixDOMProps<Tag extends string = any, DOMCase extends MixDOMCase = "mixedCase"> = DOMCase extends "camelCase" ? [DOMTags] extends [Tag] ? DOMAttributesAny_camelCase : DOMAttributes_camelCase<Tag> : DOMCase extends "native" ? [DOMTags] extends [Tag] ? DOMAttributesAny_native : DOMAttributes_native<Tag> : [
+    DOMTags
+] extends [Tag] ? DOMAttributesAny_camelCase & DOMAttributesAny_native : DOMAttributes_camelCase<Tag> & DOMAttributes_native<Tag>;
 /** Post props don't contain key, ref. In addition className and class have been merged, and style processed to a dictionary.
  * - For DOM related, the type is equal to DOMCleanTypes { className, style, data, listeners, attributes }, whereas for others, it's simply Record<string, any>.
  * - So, for DOM related, the rest of the props are found in { attributes }, while for non-DOM related the props are directly there.
