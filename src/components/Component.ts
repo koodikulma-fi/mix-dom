@@ -2,25 +2,26 @@
 // - Imports - //
 
 // Library.
-import { ClassType, AsClass, ReClass } from "mixin-types";
-import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType, OmitPartial, IsAny } from "data-signals";
+import type { ClassType, AsClass, ReClass } from "mixin-types";
+import { ContextsAllType, SignalMan, mixinSignalMan, SetLike, NodeJSTimeout, SignalManType, OmitPartial } from "data-signals";
 import { CompareDepthMode } from "data-memo";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMInternalCompProps } from "../typing";
+import type { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMInternalCompProps } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, treeNodesWithin } from "../static/index";
 // Boundaries.
-import { SourceBoundary } from "../boundaries/index";
+import type { SourceBoundary } from "../boundaries/index";
 // Host.
-import { Host } from "../host/index";
+import type { Host } from "../host/index";
 // Local typing.
-import { ComponentInfo, ComponentInfoEmpty, ComponentInfoPartial, ReadComponentInfo } from "./typesInfo";
-import { ComponentSignals } from "./typesSignals";
+import type { UnlessAny } from "./typesCommon";
+import type { ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoPartial, ReadComponentInfo } from "./typesInfo";
+import type { ComponentSignals } from "./typesSignals";
 // Local class.
 import { ComponentContextAPI, ComponentCtxFunc, ComponentCtx } from "./ComponentContextAPI";
 // Only typing (local).
-import { ComponentWiredFunc, ComponentWiredType } from "./ComponentWired";
-import { ComponentShadowAPI } from "./ComponentShadowAPI";
+import type { ComponentWiredFunc, ComponentWiredType } from "./ComponentWired";
+import type { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
 // - Extra internal typing - //
@@ -34,7 +35,11 @@ type ComponentCtxFuncShortcut<Info extends ComponentInfoPartial = {}> = (compone
 
 // Constructor arguments for component classes.
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-export type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
+export type ComponentInstance<CompType extends ComponentType | ComponentFunc> = ComponentWith<ReadComponentInfo<CompType>>;
+// /** Same as `Component<Info>` but enforces the "class" and "static" infos on the resulting type. */
+// export type ComponentWith<Info extends ComponentInfoPartial = {}> = Component<Info> & UnlessAny<Info["class"]> & { ["constructor"]: ComponentType<Info> & UnlessAny<Info["static"]>; };
+// /** Same as `ComponentWith<Info>` but makes sure contextAPI is assigned as non-optional member. (Enforces the "class" and "static" infos on the resulting type.) */
+// export type ComponentCtxWith<Info extends ComponentInfoPartial = {}> = ComponentCtx<Info> & UnlessAny<Info["class"]> & { ["constructor"]: ComponentType<Info> & UnlessAny<Info["static"]>; };
 /** Same as `Component<Info>` but enforces the "class" and "static" infos on the resulting type. */
 export type ComponentWith<Info extends ComponentInfoPartial = {}> = Component<Info> & Info["class"] & { ["constructor"]: ComponentType<Info> & Info["static"]; };
 /** Same as `ComponentWith<Info>` but makes sure contextAPI is assigned as non-optional member. (Enforces the "class" and "static" infos on the resulting type.) */
@@ -45,7 +50,7 @@ export type ComponentCtxWith<Info extends ComponentInfoPartial = {}> = Component
 export type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: ComponentProps<Info>, boundary?: SourceBoundary, ...args: any[]];
 /** Typing (from the given Info) for the first initProps argument of functional (non-spread) components.
  * - The typing includes all the internal special props: `{ _key, _disable, _ref, _signals, _contexts }`.
- *      * The typing for `_signals` and `_contexts` includes reading them from the Info accordingly, while typing for `_ref` is tied to `ComponentTypeEither<any>` or similar array.
+ *      * The typing for `_signals` and `_contexts` includes reading them from the Info accordingly, while typing for `_ref` is tied to `ComponentTypeEither<ComponentInfoAny>` or similar array.
  *      * Note however that these special props _never exist_ as part of the actual props for the component. They are only present for TSX typing reasons.
  * - Note. Use this type for the functional component's 1st arg: `(initProps, component)`, and likewise in component class constructor's 1st arg `(initProps, boundary?)`.
  *      * The actual (props) in the render method / returned function will never include any special properties. (And of course they are never present on the JS side - not in render method nor in constructor/initialization.)
@@ -54,7 +59,7 @@ export type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInter
 
 // Functional component helpers.
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
-export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & (IsAny<Info["static"]> extends true ? Record<string, any> : Info["static"]);
+export type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & { _Info?: Info; } & (UnlessAny<Info["static"]>);
 /** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentCtxFuncArgs<Info>` instead. */
 export type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentWith<Info>];
 /** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
@@ -161,7 +166,7 @@ export type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Any
  * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
  * 	    extends Component<Info & MyGenInfo>, MyBase {}
  * class MyGenComponent<Info = {}> extends
- *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+ *      (mixinComponent as any as ReMixin<MyGenComponentType<ComponentInfoAny>>)(MyBase) {
  * 		
  *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
  * 		myThing?: Info;
@@ -292,7 +297,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = {}, BaseClass
         }
 
         public findTreeNodes(types?: SetLike<MixDOMTreeNodeType>, maxCount: number = 0, withinBoundaries: boolean = false, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
-            const okTypes = types ? types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types)) : undefined;
+            const okTypes = types ? Array.isArray(types) ? new Set(types) : types.toString() === "[object Set]" ? types : new Set(Object.keys(types!)) : undefined;
             return treeNodesWithin(this.boundary.treeNode, okTypes as Set<MixDOMTreeNodeType> | undefined, maxCount, withinBoundaries, overHosts, validator);
         }
 
@@ -454,7 +459,7 @@ export interface ComponentType<Info extends ComponentInfoPartial = {}> extends A
     /** Class type. */
     MIX_DOM_CLASS: string; // "Component"
     /** May feature a ComponentShadowAPI. It's potential existence is pre-typed here to make typing easier. */
-    api?: ComponentShadowAPI<Info>; // Could consider `ComponentShadowAPI<any>` here.
+    api?: ComponentShadowAPI<Info>; // Could consider `ComponentShadowAPI<ComponentInfoAny>` here.
 
     // Typing info.
     /** This is only provided for typing related technical reasons. There's no actual _Info static member on the JS side. */
@@ -596,7 +601,7 @@ export interface Component<Info extends ComponentInfoPartial = {}> extends Signa
 
 /** Create a component by func. You get the component as the first parameter (component), while initProps are omitted. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */
 export function createComponent<Info extends ComponentInfoPartial = {}>(func: (component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentFunc<Info>;
-export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFunc<any> {
+export function createComponent<Info extends ComponentInfoPartial = {}>(func: ComponentFuncShortcut<Info> | ComponentCtxFuncShortcut<Info>, staticPropsOrName?: Record<string, any> | string | null, orName?: string): ComponentFunc<ComponentInfoAny> {
     // Parse.
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
     const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name || "[createComponent]";
@@ -610,7 +615,7 @@ export function createComponent<Info extends ComponentInfoPartial = {}>(func: Co
         for (const p in staticProps)
             f[p] = staticProps[p];
     // Return resulting func.
-    return f as ComponentFunc<any>;
+    return f as ComponentFunc<ComponentInfoAny>;
 }
 
 /** Create a component with ContextAPI by func and omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count and component typing includes component.contextAPI. You can also give a dictionary of static properties to assign (as the 2nd arg to this creator method). */

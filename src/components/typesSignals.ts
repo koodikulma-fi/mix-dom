@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Only typing (local).
-import { ComponentInfo } from "./typesInfo";
+import { ComponentInfo, ComponentInfoAny } from "./typesInfo";
 import { Component } from "./Component";
 
 
@@ -16,7 +16,8 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     /** This is a callback that will always be called when the component is checked for updates.
      * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
      * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     */
     beforeUpdate: () => void;
     /** Callback to determine whether should update or not.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
@@ -25,7 +26,8 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
      * - Note that this is not called every time necessarily (never on mount, and not if was forced).
      * - Note that this is called right before onPreUpdate and the actual update (if that happens).
      * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
     shouldUpdate: (
         prevProps: Info["props"] | undefined,
         prevState: Info["state"] | undefined,
@@ -34,14 +36,16 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
      * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
      * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     */
     preUpdate: (
         prevProps: Info["props"] | undefined,
         prevState: Info["state"] | undefined,
         willUpdate: boolean
     ) => void;
     /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it. */
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     */
     didUpdate: (
         prevProps: Info["props"] | undefined,
         prevState: Info["state"] | undefined,
@@ -54,7 +58,7 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
 
 export type ComponentExternalSignalsFrom<
     Info extends Partial<ComponentInfo> = Partial<ComponentInfo>,
-    Comp extends Component<any> = Component<Info>,
+    Comp extends Component<ComponentInfoAny> = Component<Info>,
     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]
 > =
     { [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & { ["constructor"]: Info["static"]; }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
@@ -67,7 +71,8 @@ export type ComponentExternalSignals<Comp extends Component = Component> = {
     /** This is a callback that will always be called when the component is checked for updates.
      * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
      * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     */
     beforeUpdate: (component: Comp) => void;
     /** Callback to determine whether should update or not.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
@@ -76,7 +81,8 @@ export type ComponentExternalSignals<Comp extends Component = Component> = {
      * - Note that this is not called every time necessarily (never on mount, and not if was forced).
      * - Note that this is called right before onPreUpdate and the actual update (if that happens).
      * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
     shouldUpdate: (component: Comp,
         prevProps: (Comp["constructor"]["_Info"] & {props?: {}})["props"],
         prevState: (Comp["constructor"]["_Info"] & {state?: {}})["state"]
@@ -85,7 +91,8 @@ export type ComponentExternalSignals<Comp extends Component = Component> = {
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
      * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
      * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     */
     preUpdate: (component: Comp,
         prevProps: (Comp["constructor"]["_Info"] & {props?: {}})["props"],
         prevState: (Comp["constructor"]["_Info"] & {state?: {}})["state"],

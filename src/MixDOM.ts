@@ -263,7 +263,7 @@ export const MixDOM = {
      * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
      * 	    extends Component<Info & MyGenInfo>, MyBase {}
      * class MyGenComponent<Info = {}> extends
-     *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+     *      (mixinComponent as any as ReMixin<MyGenComponentType<ComponentInfoAny>>)(MyBase) {
      * 		
      *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
      * 		myThing?: Info;
@@ -369,7 +369,7 @@ export const MixDOM = {
 
     /** Find tree nodes within a treeNode. */
     findTreeNodesIn: (treeNode: MixDOMTreeNode, types?: SetLike<MixDOMTreeNodeType>, maxCount?: number, inNested?: boolean, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] => {
-        const okTypes = types ? types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types)) : undefined;
+        const okTypes = types ? Array.isArray(types) ? new Set(types) : types.toString() === "[object Set]" ? types : new Set(Object.keys(types!)) : undefined;
         return treeNodesWithin(treeNode, okTypes as Set<MixDOMTreeNodeType> | undefined, maxCount, inNested, overHosts, validator);
     },
     /** Get all components within a treeNode. */

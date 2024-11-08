@@ -2,6 +2,7 @@
 // - Export all - //
 
 // Typing.
+export * from "./typesCommon";
 export * from "./typesInfo";
 export * from "./typesSignals";
 // All pseudo and helper classes.

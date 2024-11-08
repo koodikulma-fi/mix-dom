@@ -21,7 +21,7 @@ import {
 import { Ref } from "../common/Ref";
 import { ContentClosure } from "../boundaries/ContentClosure";
 import { Host } from "../host/Host";
-import { ReadComponentInfo } from "../components/typesInfo";
+import { ComponentInfoAny, ReadComponentInfo } from "../components/typesInfo";
 import { Component, ComponentProps, ComponentTypeAny } from "../components/Component";
 import { IsSpreadFunc, SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
 import { PseudoPortalProps, PseudoElementProps, MixDOMPseudoTags } from "../components/ComponentPseudos";
@@ -55,7 +55,7 @@ export type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCas
     // Pseudo.
     Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] :
     // Class.
-    Tag extends ClassType<Component<any>> ? ComponentProps<ReadComponentInfo<Tag>> :
+    Tag extends ClassType<Component<ComponentInfoAny>> ? ComponentProps<ReadComponentInfo<Tag>> :
     // Nope.
     Fallback;
 

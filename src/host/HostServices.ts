@@ -292,14 +292,15 @@ export class HostServices {
             
             // Read and clear state.
             const prevState = component.lastState;
-            delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
+            if (prevState)
+                delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
 
             // Run unless has already been updated.
             if (shouldUpdate || prevProps || prevState) {
                 // Check if should update.
                 if (!shouldUpdate) {
                     // Run shouldUpdate check.
-                    const preShould: boolean | null = component.signals.shouldUpdate ? askListeners(component.signals.shouldUpdate, [component, prevProps, prevState], ["first-true", "no-false"]) : null;
+                    const preShould: boolean | null = component.signals.shouldUpdate ? askListeners(component.signals.shouldUpdate, [prevProps, prevState], ["first-true", "no-false"]) : null;
                     // Run by background system.
                     if (preShould === true || preShould == null && HostServices.shouldUpdateBy(boundary, prevProps, prevState))
                         shouldUpdate = true;
@@ -335,6 +336,11 @@ export class HostServices {
             renderInfos = renderInfos.concat(rInfos);
             boundaryChanges = boundaryChanges.concat(bUpdates);
         }
+        
+        // Just in case has lastState (on mount run or re-appeared during calls above), clear it. It's no longer relevant.
+        if (component.lastState)
+            delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
+
         // Add wired updates.
         // .. So this is when this component's .addWired method was used to auto-bound to the component for updates.
         // .. Note that we do this after having updated, so we have a fresh state.
@@ -345,12 +351,17 @@ export class HostServices {
                     // Build new common props.
                     const propsWere = Wired.api.builtProps;
                     Wired.api.builtProps = Wired.api.onBuildProps(propsWere);
+
                     // If had callback and it gave back exactly the old props, then we take it to mean, don't go further.
-                    if (propsWere === Wired.api.builtProps)
+                    // .. But only if is not using a mixer - in that case, they might be individually modified.
+                    if (propsWere === Wired.api.builtProps && !Wired.api.onMixProps)
                         continue;
                     // 
-                    // <-- Maybe this is a bit confusing feature..? Because if doesn't have the callback will and should flow thru. Well..
-
+                    //
+                    // Note. This feature could also be just dropped.
+                    // .. Because if doesn't have the builder callback will and should flow thru.
+                    // .. Now (in v4.2.1) adjusted that only stops if does not have a mixer.
+                    
                 }
                 // Update state for each manually.
                 if (Wired.api.components.size) {

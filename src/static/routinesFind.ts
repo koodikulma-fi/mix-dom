@@ -10,7 +10,8 @@ import { MixDOMTreeNode, MixDOMTreeNodeDOM, MixDOMTreeNodeType, MixDOMDefApplied
 /** Finds treeNodes of given types within the given rootTreeNode (including it).
  * - If includeNested is true, searches recursively inside sub boundaries - not just within the render scope. (Normally stops after meets a source or content boundary.)
  * - If includeInHosts is true, extends the search to inside nested hosts as well. (Not recommended.)
- * - If includeInInactive is true, extends the search to include inactive boundaries and treeNodes inside them. */
+ * - If includeInInactive is true, extends the search to include inactive boundaries and treeNodes inside them.
+ */
 export function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Set<MixDOMTreeNodeType | "">, maxCount: number = 0, includeNested: boolean = false, includeInHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
     // Prepare.
     const list: MixDOMTreeNode[] = [];

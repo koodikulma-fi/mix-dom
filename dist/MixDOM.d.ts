@@ -318,7 +318,8 @@ type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     /** This is a callback that will always be called when the component is checked for updates.
      * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
      * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     */
     beforeUpdate: () => void;
     /** Callback to determine whether should update or not.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
@@ -327,23 +328,26 @@ type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
      * - Note that this is not called every time necessarily (never on mount, and not if was forced).
      * - Note that this is called right before onPreUpdate and the actual update (if that happens).
      * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
     shouldUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => boolean | null;
     /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
      * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
      * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     */
     preUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined, willUpdate: boolean) => void;
     /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it. */
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     */
     didUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => void;
     /** Called when the component has moved in the tree structure. */
     didMove: () => void;
     /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
     willUnmount: () => void;
 };
-type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<any> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
+type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component<ComponentInfoAny> = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
     [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
         ["constructor"]: Info["static"];
     }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
@@ -356,7 +360,8 @@ type ComponentExternalSignals<Comp extends Component = Component> = {
     /** This is a callback that will always be called when the component is checked for updates.
      * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
      * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
-     *   .. Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run). */
+     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     */
     beforeUpdate: (component: Comp) => void;
     /** Callback to determine whether should update or not.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
@@ -365,7 +370,8 @@ type ComponentExternalSignals<Comp extends Component = Component> = {
      * - Note that this is not called every time necessarily (never on mount, and not if was forced).
      * - Note that this is called right before onPreUpdate and the actual update (if that happens).
      * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not. */
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
     shouldUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
         props?: {};
     })["props"], prevState: (Comp["constructor"]["_Info"] & {
@@ -375,7 +381,8 @@ type ComponentExternalSignals<Comp extends Component = Component> = {
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
      * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
      * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before. */
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     */
     preUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
         props?: {};
     })["props"], prevState: (Comp["constructor"]["_Info"] & {
@@ -446,7 +453,7 @@ declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {
 
 /** Typing infos for Components. */
 interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI<any>;
+    api?: ComponentShadowAPI<ComponentInfoAny>;
 } = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> {
     /** Typing for the props for the component - will be passed by parent. */
     props: Props;
@@ -472,34 +479,42 @@ interface ComponentInfo<Props extends Record<string, any> = {}, State extends Re
 }
 /** Partial version of the ComponentInfo. */
 interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI<any>;
+    api?: ComponentShadowAPI<ComponentInfoAny>;
 } = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
 /** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
-type ComponentInfoAny = ComponentInfo<any, any, any, {}, {}, any, any>;
+interface ComponentInfoAny {
+    props?: any;
+    state?: any;
+    signals?: any;
+    class?: {};
+    static?: {};
+    timers?: any;
+    contexts?: any;
+}
 /** Empty component info type. */
 type ComponentInfoEmpty = {
     props?: {};
     state?: {};
-    class?: {};
     signals?: {};
+    class?: {};
+    static?: {};
     timers?: {};
     contexts?: {};
-    static?: {};
 };
 /** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI<any>;
+    api?: ComponentShadowAPI<ComponentInfoAny>;
 } = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
 /** This declares a Component class type but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI<any>;
+    api?: ComponentShadowAPI<ComponentInfoAny>;
 } = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
 }
 /** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
 type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI<any>;
+    api?: ComponentShadowAPI<ComponentInfoAny>;
 } = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
 /** Type for anything that from which component info can be derived. */
 type ComponentInfoInterpretable = Partial<ComponentInfo> | {
@@ -636,21 +651,25 @@ interface HostSettings {
      *   * For most cases, use updateTimeout: 0 and renderTimeout: 0 or null. Your main code line will run first, and rendering runs after (sync or async).
      *   * If you want synchronous updates on your components, use updateTimeout: null, renderTimeout: 0 - so updates are done before your main code line continues, but dom rendering is done after.
      *     .. In this case also consider putting useImmediateCalls to true.
-     *   * If you want everything to be synchronous (including the dom), put both to null. */
+     *   * If you want everything to be synchronous (including the dom), put both to null.
+     */
     updateTimeout: number | null;
-    /** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms.
+    /** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to null.
      * - This timeout delays the actual dom rendering part of the component update process.
-     * - It's useful to have a tiny delay to save from unnecessary rendering, when update gets called multiple times - even 0ms can help.
-     * - Only use null renderTimeout (= synchronous rendering after updateTimeout) if you really want rendering to happen immediately after update.
-     *     * Typically, you then also want the updateTimeout to be null (synchronous), so you get access to your dom elements synchronously.
-     * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details. */
+     * - It can be useful to have a tiny delay to save from unnecessary rendering, when update gets called multiple times - even 0ms can help.
+     * - By default uses `null` (= synchronous rendering after updateTimeout), as the render cycle anyway always happens _after_ the update cycle.
+     *     * If you also put updateTimeout to be `null` (synchronous), then is fully synchronous, and you can get access to your dom elements synchronously.
+     *      * However, putting both to `null` is not recommended, as it can make external usage a bit impractical, in addition to causing a lot of update cycles.
+     * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details.
+     */
     renderTimeout: number | null;
     /** The lifecycle calls (onMount, onUpdate, ...) are collected (together with render infos) and called after the recursive update process has finished.
      * - This option controls whether the calls are made immediately after the update process or only after the (potentially delayed) rendering.
      * - Keep this as false, if you want the components to have their dom elements available upon onMount - like in React. (Defaults to false.)
      * - Put this to true, only if you really want the calls to be executed before the rendering happens.
      *     * If you combine this with updateTimeout: null, then you get synchronously updated state, with only rendering delayed.
-     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks. */
+     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks.
+     */
     useImmediateCalls: boolean;
     /** Defines what components should look at when doing onShouldUpdate check for "props" and "state". */
     updateComponentModes: MixDOMUpdateCompareModesBy;
@@ -659,23 +678,27 @@ interface HostSettings {
      * - If false: Always adds render info for updating dom elements. They will be diffed anyhow.
      * - If "if-needed": Then marks to be updated if had other rendering needs (move or content), if didn't then does equalDOMProps check. (So that if no need, don't mark render updates at all.)
      * Note that there is always a diffing check before applying dom changes, and the process only applies changes from last set.
-     * .. In other words, this does not change at all what gets applied to the dom.
-     * .. The only thing this changes, is whether includes an extra equalDOMProps -> boolean run during the update process.
-     * .. In terms of assumed performance:
-     * .... Even though equalDOMProps is an extra process, it's a bit faster to run than collecting diffs and in addition it can stop short - never add render info.
-     * .... However, the only time it stops short is for not-equal, in which case it also means that we will anyway do the diff collection run later on.
-     * .... In other words, it's in practice a matter of taste: if you want clean renderinfos (for debugging) use true. The default is "if-needed". */
+     * - In other words, this does not change at all what gets applied to the dom.
+     * - The only thing this changes, is whether includes an extra equalDOMProps -> boolean run during the update process.
+     * - In terms of assumed performance:
+     *      * Even though equalDOMProps is an extra process, it's a bit faster to run than collecting diffs and in addition it can stop short - never add render info.
+     *      * However, the only time it stops short is for not-equal, in which case it also means that we will anyway do the diff collection run later on.
+     *      * In other words, it's in practice a matter of taste: if you want clean renderinfos (for debugging) use true. The default is "if-needed".
+     */
     preCompareDOMProps: boolean | "if-needed";
     /** The maximum number of times a boundary is allowed to be render during an update due to update calls during the render func.
-     * .. If negative, then there's no limit. If 0, then doesn't allow to re-render. The default is 1: allow to re-render once (so can render twice in a row).
-     * .. If reaches the limit, stops re-rendering and logs a warning if devLogToConsole has .Warnings on. */
+     * - If negative, then there's no limit. If 0, then doesn't allow to re-render. The default is 1: allow to re-render once (so can render twice in a row).
+     * - If reaches the limit, stops re-rendering and logs a warning if devLogToConsole has .Warnings on.
+     */
     maxReRenders: number;
     /** Which element (tag) to wrap texts (from props.children) into.
      * - By default, no wrapping is applied: treats texts as textNodes (instanceof Node).
-     * - You can also pass in a callback to do custom rendering - should return a Node, or then falls back to textNode. */
+     * - You can also pass in a callback to do custom rendering - should return a Node, or then falls back to textNode.
+     */
     renderTextTag: MixDOMRenderTextTag;
     /** Tag to use for as a fallback when using the MixDOM.defHTML feature (that uses .innerHTML on a dummy element). Defaults to "span".
-     * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use. */
+     * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use.
+     */
     renderHTMLDefTag: DOMTags;
     /** If you want to process the simple content text, assign a callback here. */
     renderTextHandler: MixDOMRenderTextContentCallback | null;
@@ -690,24 +713,28 @@ interface HostSettings {
      */
     noRenderValuesMode: boolean | any[];
     /** For svg content, the namespaceURI argument to be passed into createElementNS(namespaceURI, tag).
-     * If empty, hard coded default is: "http://www.w3.org/2000/svg"
+     * - If empty, hard coded default is: "http://www.w3.org/2000/svg"
      */
     renderSVGNamespaceURI: string;
     /** When using MixDOM.Element to insert nodes, and swaps them, whether should apply (true), and if so whether should read first ("read").
-     * Defaults to true, which means will apply based on scratch, but not read before it. */
+     * - Defaults to true, which means will apply based on scratch, but not read before it.
+     */
     renderDOMPropsOnSwap: boolean | "read";
     /** This is useful for server side functionality. (Defaults to false, as most of the times you're using MixDOM on client side.)
      * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readDOMString() or MixDOM.readDOMString(treeNode) to get the html string.
-     * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates. */
+     * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates.
+     */
     disableRendering: boolean;
     /** This is useful for nesting hosts.
      * - Put this to true to make nested but not currently grounded hosts be unmounted internally.
-     * - When they are grounded again, they will mount and rebuild their internal structure from the rootBoundary up. */
+     * - When they are grounded again, they will mount and rebuild their internal structure from the rootBoundary up.
+     */
     onlyRunInContainer: boolean;
     /** When pairing defs for reusing, any arrays are dealt as if their own key scope by default.
      * - By setting this to true, wide key pairing is allowed for arrays as well.
      * - Note that you can always use {...myArray} instead of {myArray} to avoid this behaviour (even wideKeysInArrays: false).
-     *   .. In other words, if you do not want the keys in the array contents to mix widely, keep it as an array - don't spread it. */
+     *      * In other words, if you do not want the keys in the array contents to mix widely, keep it as an array - don't spread it.
+     */
     wideKeysInArrays: boolean;
     /** Default behaviour for handling duplicated instances of dom nodes.
      * - The duplication can happen due to manually inserting many, or due to multiple content passes, copies.
@@ -719,7 +746,8 @@ interface HostSettings {
     /** Whether this host can be auto-duplicated when included dynamically multiple times. Defaults to false.
      * - Can also be a callback that returns a boolean (true to include, false to not), or a new host.
      * - Note that if uses a custom Host class, the new duplicate will be made from the normal Host class. Use the callback to provide manually.
-     * - The treeNode in the arguments defines where would be inserted. */
+     * - The treeNode in the arguments defines where would be inserted.
+     */
     duplicatableHost: boolean | ((host: Host, treeNode: MixDOMTreeNodeHost) => Host | boolean | null);
     /** For debugging information and logging (rare) warnings. */
     debugMode: boolean;
@@ -958,7 +986,7 @@ declare class Host<Contexts extends ContextsAllType = any> {
     /** Find all components by an optional validator. */
     findComponents<Comp extends ComponentTypeAny = ComponentTypeAny>(maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): Comp[];
     /** Find all treeNodes by given types and an optional validator. */
-    findTreeNodes(types: SetLike<MixDOMTreeNodeType>, maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
+    findTreeNodes(types?: SetLike<MixDOMTreeNodeType> | null, maxCount?: number, overHosts?: boolean, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[];
     /** Modify previously given settings with partial settings.
      * - Note that if any value in the dictionary is `undefined` uses the default setting.
      * - Supports handling the related special cases:
@@ -1131,6 +1159,9 @@ declare class HostRender {
     /** Internal helper for getTreeNodeMatch. Checks if the virtual item is acceptable for the treeNode. Returns true if it is, false if not. */
     private static isVirtualItemOk;
 }
+
+/** If T is `any`, returns F, which defaults to `{}`, otherwise returns T. */
+type UnlessAny<T, F = {}> = IsAny<T> extends true ? F : T;
 
 interface MixDOMPrePseudoProps extends MixDOMInternalBaseProps {
 }
@@ -1412,7 +1443,7 @@ type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo e
 type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & {
     _Required?: ComponentFunc<RequiresInfo>;
 };
-type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
+type ComponentFuncMixable<RequiredFunc extends ComponentFunc<ComponentInfoAny> = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
     _Required?: RequiredFunc;
 };
 /** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
@@ -1554,7 +1585,7 @@ declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeA
 declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny, J extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I, hoc10: (i: I) => J): SpreadFunc<ReadComponentInfo<J, ComponentInfoEmpty>["props"] & {}>;
 
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
-type ComponentInstance<CompType extends ComponentType | ComponentFunc> = Component<ReadComponentInfo<CompType>>;
+type ComponentInstance<CompType extends ComponentType | ComponentFunc> = ComponentWith<ReadComponentInfo<CompType>>;
 /** Same as `Component<Info>` but enforces the "class" and "static" infos on the resulting type. */
 type ComponentWith<Info extends ComponentInfoPartial = {}> = Component<Info> & Info["class"] & {
     ["constructor"]: ComponentType<Info> & Info["static"];
@@ -1567,7 +1598,7 @@ type ComponentCtxWith<Info extends ComponentInfoPartial = {}> = ComponentCtx<Inf
 type ComponentConstructorArgs<Info extends ComponentInfoPartial = {}> = [props: ComponentProps<Info>, boundary?: SourceBoundary, ...args: any[]];
 /** Typing (from the given Info) for the first initProps argument of functional (non-spread) components.
  * - The typing includes all the internal special props: `{ _key, _disable, _ref, _signals, _contexts }`.
- *      * The typing for `_signals` and `_contexts` includes reading them from the Info accordingly, while typing for `_ref` is tied to `ComponentTypeEither<any>` or similar array.
+ *      * The typing for `_signals` and `_contexts` includes reading them from the Info accordingly, while typing for `_ref` is tied to `ComponentTypeEither<ComponentInfoAny>` or similar array.
  *      * Note however that these special props _never exist_ as part of the actual props for the component. They are only present for TSX typing reasons.
  * - Note. Use this type for the functional component's 1st arg: `(initProps, component)`, and likewise in component class constructor's 1st arg `(initProps, boundary?)`.
  *      * The actual (props) in the render method / returned function will never include any special properties. (And of course they are never present on the JS side - not in render method nor in constructor/initialization.)
@@ -1576,7 +1607,7 @@ type ComponentProps<Info extends ComponentInfoPartial = {}> = MixDOMInternalComp
 /** Functional type for component fed with ComponentInfo. Defaults to providing contextAPI, but one will only be hooked if actually provides 3 arguments - at least 2 is mandatory (otherwise just a SpreadFunc). To apply { static } info, use the MixDOM.component shortcut. */
 type ComponentFunc<Info extends ComponentInfoPartial = {}> = ((initProps: ComponentProps<Info>, component: ComponentWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
     _Info?: Info;
-} & (IsAny<Info["static"]> extends true ? Record<string, any> : Info["static"]);
+} & (UnlessAny<Info["static"]>);
 /** The arguments for functional components without contextAPI - so just 2 args. To include contextAPI use `ComponentCtxFuncArgs<Info>` instead. */
 type ComponentFuncArgs<Info extends ComponentInfoPartial = {}> = [initProps: ComponentProps<Info>, component: ComponentWith<Info>];
 /** The arguments for functional components with contextAPI - so 3 args. Also enforces the presence of component.contextAPI in the 2nd arg. */
@@ -1677,7 +1708,7 @@ type GetComponentFuncFrom<Anything> = ComponentFunc<ReadComponentInfo<Anything, 
  * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
  * 	    extends Component<Info & MyGenInfo>, MyBase {}
  * class MyGenComponent<Info = {}> extends
- *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+ *      (mixinComponent as any as ReMixin<MyGenComponentType<ComponentInfoAny>>)(MyBase) {
  *
  *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
  * 		myThing?: Info;
@@ -2174,7 +2205,7 @@ declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentType
     /** This returns the last reffed component, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
      * - Except that if the last one is removed, falls back to earlier existing. */
-    getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> : Component | null;
+    getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null;
     /** This returns all the currently reffed components (in the order added). */
     getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[];
     /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
@@ -2325,7 +2356,7 @@ type MixDOMDoubleRenderer<Props extends Record<string, any> = {}, State extends 
 type MixDOMBoundary = SourceBoundary | ContentBoundary;
 type MixDOMSourceBoundaryId = string;
 /** Any known MixDOM component related tags, from spread funcs to component ctx funcs to component classes and pseudo elements. */
-type MixDOMComponentTags = ComponentType<any> | ComponentFuncAny<ComponentInfoAny> | MixDOMPseudoTags<Record<string, any>>;
+type MixDOMComponentTags = ComponentType<ComponentInfoAny> | ComponentFuncAny<ComponentInfoAny> | MixDOMPseudoTags<Record<string, any>>;
 type MixDOMTags = "" | "_" | DOMTags;
 type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
@@ -2406,7 +2437,7 @@ interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> extends Mi
     /** Attach one or many refs. (Not available for SpreadFuncs.)
      * - Note that "_ref" is a special prop only available _outside_ the component - it's not actually part of props.
      */
-    _ref?: Ref<ComponentTypeEither<any>> | Ref<ComponentTypeEither<any>>[];
+    _ref?: Ref<ComponentTypeEither<ComponentInfoAny>> | Ref<ComponentTypeEither<ComponentInfoAny>>[];
     /** Attach signals to a child component directly through props. (Not available for SpreadFuncs.)
      * - Note that "_signals" is a special prop only available _outside_ the component - it's not actually part of props.
      */
@@ -2524,13 +2555,13 @@ type MixDOMChangeInfos = [renderInfos: MixDOMRenderInfo[], boundaryChanges: MixD
  * @param Fallback Provide second argument Fallback in case does not match known types.
  * @param DOMCase Use the optional 3rd arg to define whether DOM attributes typing is in native case or camelCase: eg. "fill-opacity" (native) vs. "fillOpacity" (camelCase).
  */
-type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase"> = Tag extends string ? Tag extends "_" ? PseudoElementProps<Tag, DOMCase> : MixDOMPreProps<Tag, DOMCase> : Tag extends (...args: any[]) => any ? IsSpreadFunc<Tag> extends true ? SpreadFuncProps & Parameters<Tag>[0] : ComponentProps<ReadComponentInfo<Tag>> : Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] : Tag extends ClassType<Component<any>> ? ComponentProps<ReadComponentInfo<Tag>> : Fallback;
+type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCase" | "mixedCase" = "mixedCase"> = Tag extends string ? Tag extends "_" ? PseudoElementProps<Tag, DOMCase> : MixDOMPreProps<Tag, DOMCase> : Tag extends (...args: any[]) => any ? IsSpreadFunc<Tag> extends true ? SpreadFuncProps & Parameters<Tag>[0] : ComponentProps<ReadComponentInfo<Tag>> : Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] : Tag extends ClassType<Component<ComponentInfoAny>> ? ComponentProps<ReadComponentInfo<Tag>> : Fallback;
 /** Create a rendering definition. Supports receive direct JSX compiled output.
  * - In terms of typing, this method reflects TSX typing for "mixedCase" in regards to DOM elements.
  *      * Use `nativeDef` or `camelCaseDef` methods to explicitly use native or camelCase typing.
  */
 declare function newDef<Tag>(...args: Tag extends string ? [domTag: Tag & string, props?: GetPropsFor<Tag> | null, ...contents: MixDOMRenderOutput[]] : {} | undefined extends OmitPartial<GetPropsFor<Tag>> | undefined ? [
-    componentTag: Tag | MixDOMComponentTags,
+    componentTag: Tag | ComponentTypeAny,
     props?: GetPropsFor<Tag> | null,
     ...contents: MixDOMRenderOutput[]
 ] : [
@@ -2745,7 +2776,7 @@ declare const MixDOM: {
      * interface MyGenComponent<Info extends ComponentInfoPartial = {}>
      * 	    extends Component<Info & MyGenInfo>, MyBase {}
      * class MyGenComponent<Info = {}> extends
-     *      (mixinComponent as any as ReMixin<MyGenComponentType<any>>)(MyBase) {
+     *      (mixinComponent as any as ReMixin<MyGenComponentType<ComponentInfoAny>>)(MyBase) {
      *
      *      // Can add here things, they'll be auto-typed to MyGenComponent interface.
      * 		myThing?: Info;
@@ -2863,4 +2894,4 @@ declare const MixDOM: {
     readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, escapeHTML?: boolean, indent?: number, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
 };
 
-export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };
+export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, UnlessAny, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };

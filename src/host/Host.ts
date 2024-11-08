@@ -79,15 +79,18 @@ export interface HostSettings {
      *   * For most cases, use updateTimeout: 0 and renderTimeout: 0 or null. Your main code line will run first, and rendering runs after (sync or async).
      *   * If you want synchronous updates on your components, use updateTimeout: null, renderTimeout: 0 - so updates are done before your main code line continues, but dom rendering is done after.
      *     .. In this case also consider putting useImmediateCalls to true.
-     *   * If you want everything to be synchronous (including the dom), put both to null. */
+     *   * If you want everything to be synchronous (including the dom), put both to null.
+     */
     updateTimeout: number | null;
 
-    /** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms.
+    /** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to null.
      * - This timeout delays the actual dom rendering part of the component update process.
-     * - It's useful to have a tiny delay to save from unnecessary rendering, when update gets called multiple times - even 0ms can help.
-     * - Only use null renderTimeout (= synchronous rendering after updateTimeout) if you really want rendering to happen immediately after update.
-     *     * Typically, you then also want the updateTimeout to be null (synchronous), so you get access to your dom elements synchronously.
-     * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details. */
+     * - It can be useful to have a tiny delay to save from unnecessary rendering, when update gets called multiple times - even 0ms can help.
+     * - By default uses `null` (= synchronous rendering after updateTimeout), as the render cycle anyway always happens _after_ the update cycle.
+     *     * If you also put updateTimeout to be `null` (synchronous), then is fully synchronous, and you can get access to your dom elements synchronously.
+     *      * However, putting both to `null` is not recommended, as it can make external usage a bit impractical, in addition to causing a lot of update cycles.
+     * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details.
+     */
     renderTimeout: number | null;
 
     /** The lifecycle calls (onMount, onUpdate, ...) are collected (together with render infos) and called after the recursive update process has finished.
@@ -95,7 +98,8 @@ export interface HostSettings {
      * - Keep this as false, if you want the components to have their dom elements available upon onMount - like in React. (Defaults to false.)
      * - Put this to true, only if you really want the calls to be executed before the rendering happens.
      *     * If you combine this with updateTimeout: null, then you get synchronously updated state, with only rendering delayed.
-     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks. */
+     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks.
+     */
     useImmediateCalls: boolean;
 
     /** Defines what components should look at when doing onShouldUpdate check for "props" and "state". */
@@ -106,26 +110,30 @@ export interface HostSettings {
      * - If false: Always adds render info for updating dom elements. They will be diffed anyhow.
      * - If "if-needed": Then marks to be updated if had other rendering needs (move or content), if didn't then does equalDOMProps check. (So that if no need, don't mark render updates at all.)
      * Note that there is always a diffing check before applying dom changes, and the process only applies changes from last set.
-     * .. In other words, this does not change at all what gets applied to the dom.
-     * .. The only thing this changes, is whether includes an extra equalDOMProps -> boolean run during the update process.
-     * .. In terms of assumed performance:
-     * .... Even though equalDOMProps is an extra process, it's a bit faster to run than collecting diffs and in addition it can stop short - never add render info.
-     * .... However, the only time it stops short is for not-equal, in which case it also means that we will anyway do the diff collection run later on.
-     * .... In other words, it's in practice a matter of taste: if you want clean renderinfos (for debugging) use true. The default is "if-needed". */
+     * - In other words, this does not change at all what gets applied to the dom.
+     * - The only thing this changes, is whether includes an extra equalDOMProps -> boolean run during the update process.
+     * - In terms of assumed performance:
+     *      * Even though equalDOMProps is an extra process, it's a bit faster to run than collecting diffs and in addition it can stop short - never add render info.
+     *      * However, the only time it stops short is for not-equal, in which case it also means that we will anyway do the diff collection run later on.
+     *      * In other words, it's in practice a matter of taste: if you want clean renderinfos (for debugging) use true. The default is "if-needed".
+     */
     preCompareDOMProps: boolean | "if-needed";
 
     /** The maximum number of times a boundary is allowed to be render during an update due to update calls during the render func.
-     * .. If negative, then there's no limit. If 0, then doesn't allow to re-render. The default is 1: allow to re-render once (so can render twice in a row).
-     * .. If reaches the limit, stops re-rendering and logs a warning if devLogToConsole has .Warnings on. */
+     * - If negative, then there's no limit. If 0, then doesn't allow to re-render. The default is 1: allow to re-render once (so can render twice in a row).
+     * - If reaches the limit, stops re-rendering and logs a warning if devLogToConsole has .Warnings on.
+     */
     maxReRenders: number;
 
     /** Which element (tag) to wrap texts (from props.children) into.
      * - By default, no wrapping is applied: treats texts as textNodes (instanceof Node).
-     * - You can also pass in a callback to do custom rendering - should return a Node, or then falls back to textNode. */
+     * - You can also pass in a callback to do custom rendering - should return a Node, or then falls back to textNode.
+     */
     renderTextTag: MixDOMRenderTextTag;
 
     /** Tag to use for as a fallback when using the MixDOM.defHTML feature (that uses .innerHTML on a dummy element). Defaults to "span".
-     * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use. */
+     * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use.
+     */
     renderHTMLDefTag: DOMTags;
 
     /** If you want to process the simple content text, assign a callback here. */
@@ -143,28 +151,32 @@ export interface HostSettings {
     noRenderValuesMode: boolean | any[];
 
     /** For svg content, the namespaceURI argument to be passed into createElementNS(namespaceURI, tag).
-     * If empty, hard coded default is: "http://www.w3.org/2000/svg"
+     * - If empty, hard coded default is: "http://www.w3.org/2000/svg"
      */
     renderSVGNamespaceURI: string;
 
     /** When using MixDOM.Element to insert nodes, and swaps them, whether should apply (true), and if so whether should read first ("read").
-     * Defaults to true, which means will apply based on scratch, but not read before it. */
+     * - Defaults to true, which means will apply based on scratch, but not read before it.
+     */
     renderDOMPropsOnSwap: boolean | "read";
 
     /** This is useful for server side functionality. (Defaults to false, as most of the times you're using MixDOM on client side.)
      * - Put this to true, to disable the rendering aspects (will pause the dedicated HostRender instance). Instead use host.readDOMString() or MixDOM.readDOMString(treeNode) to get the html string.
-     * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates. */
+     * - Note that you might want to consider putting settings.renderTimeout to null, so that the dom string is immediately renderable after the updates.
+     */
     disableRendering: boolean;
 
     /** This is useful for nesting hosts.
      * - Put this to true to make nested but not currently grounded hosts be unmounted internally.
-     * - When they are grounded again, they will mount and rebuild their internal structure from the rootBoundary up. */
+     * - When they are grounded again, they will mount and rebuild their internal structure from the rootBoundary up.
+     */
     onlyRunInContainer: boolean;
 
     /** When pairing defs for reusing, any arrays are dealt as if their own key scope by default.
      * - By setting this to true, wide key pairing is allowed for arrays as well.
      * - Note that you can always use {...myArray} instead of {myArray} to avoid this behaviour (even wideKeysInArrays: false).
-     *   .. In other words, if you do not want the keys in the array contents to mix widely, keep it as an array - don't spread it. */
+     *      * In other words, if you do not want the keys in the array contents to mix widely, keep it as an array - don't spread it.
+     */
     wideKeysInArrays: boolean;
 
     /** Default behaviour for handling duplicated instances of dom nodes.
@@ -177,7 +189,8 @@ export interface HostSettings {
     /** Whether this host can be auto-duplicated when included dynamically multiple times. Defaults to false.
      * - Can also be a callback that returns a boolean (true to include, false to not), or a new host.
      * - Note that if uses a custom Host class, the new duplicate will be made from the normal Host class. Use the callback to provide manually.
-     * - The treeNode in the arguments defines where would be inserted. */
+     * - The treeNode in the arguments defines where would be inserted.
+     */
     duplicatableHost: boolean | ((host: Host, treeNode: MixDOMTreeNodeHost) => Host | boolean | null);
 
     /** For debugging information and logging (rare) warnings. */
@@ -664,9 +677,9 @@ export class Host<Contexts extends ContextsAllType = any> {
         return treeNodesWithin(this.groundedTree, new Set(["boundary"]), maxCount, true, overHosts, validator).map(t => (t.boundary && t.boundary.component) as unknown as Comp);
     }
     /** Find all treeNodes by given types and an optional validator. */
-    public findTreeNodes(types: SetLike<MixDOMTreeNodeType>, maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
-        const okTypes = types.constructor === Set ? types : types.constructor === Array ? new Set(types) : new Set(Object.keys(types));
-        return treeNodesWithin(this.groundedTree, okTypes as Set<MixDOMTreeNodeType | "">, maxCount, true, overHosts, validator);
+    public findTreeNodes(types?: SetLike<MixDOMTreeNodeType> | null, maxCount: number = 0, overHosts: boolean = false, validator?: (treeNode: MixDOMTreeNode) => any): MixDOMTreeNode[] {
+        const okTypes = types ? Array.isArray(types) ? new Set(types) : types.toString() === "[object Set]" ? types : new Set(Object.keys(types!)) : undefined;
+        return treeNodesWithin(this.groundedTree, okTypes as Set<MixDOMTreeNodeType | ""> | undefined, maxCount, true, overHosts, validator);
     }
 
 
@@ -720,7 +733,7 @@ export class Host<Contexts extends ContextsAllType = any> {
         const dSettings: HostSettings = {
             // Timing.
             updateTimeout: 0,
-            renderTimeout: 0,
+            renderTimeout: null, // As of v4.3.0
             // Calling.
             useImmediateCalls: false,
             // Updating.

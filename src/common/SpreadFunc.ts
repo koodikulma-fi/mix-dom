@@ -2,9 +2,7 @@
 // - Imports - //
 
 // Typing.
-import { IsAny } from "data-signals";
-import { MixDOMInternalBaseProps, MixDOMRenderOutput } from "../typing";
-import { Component, ComponentFunc } from "../components";
+import type { MixDOMInternalBaseProps, MixDOMRenderOutput } from "../typing";
 
 
 // - Helper types - //

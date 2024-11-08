@@ -1,3 +1,20 @@
+## v4.2.1 (2024-11-??)
+
+### Refined behaviour of wired buildProps same feed
+- ....
+
+### Refined ComponentInstance to use ComponentWith
+
+CHANGE DEFAULT RENDER TIMEOUT TO `null` ..!
+- And try to fix related case when it's 0 and quickly updates many.. like in virtual scrolling..
+  * Then .. some dom nodes say `domNode: null`..  
+  * 
+
+### Tiny fixes:
+- fixed shouldUpdate args..! had extra component as the first arg.
+- fixed that lastState is always cleared at the end of the update. (It was left over in some cases.)
+
+
 ## v4.2.0 (2024-11-01)
 
 ### Added optional 2nd arg to `component.setState(state, extend = true)`

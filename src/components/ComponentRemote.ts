@@ -376,7 +376,7 @@ export const createRemote = <CustomProps extends Record<string, any> = {}>(name:
         // <- For some reason, needs to be explicitly specified here.
         // .. There's some tiny typing discrepancy in lates refines that pops up here for WithContent on the static side.
         // .. The core reason seems to revolve around the RemoteComponentType's static WithContent.
-        // .... It's possible related to ComponentType's { api?: ComponentShadowAPI<Info> }, though could use <any> for that.
+        // .... It's possible related to ComponentType's { api?: ComponentShadowAPI<Info> }, though could use <ComponentInfoAny> for that.
         // .... In any case, that's not the core reason. It rather looks like the _Info is not passed somewhere along the flow.
         //       - Even after clearing other problems, says _Info is `{} | undefined` in one, and `{ props: { hasContent?: boolean; }; } | undefined` in the other.
         //       - So very likely, it's something in relation to the 
