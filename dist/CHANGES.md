@@ -1,20 +1,35 @@
 ## v4.2.1 (2024-11-??)
 
-### TODO:
+### TO-DO:
 - Fix handling of didMount signal in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
+- Fix the case of swapping between htmlDef and regular. Does not seem to work correctly - gets emptied.
+- Change REF typing to COMPONENT INSTANCE..!
+- Support feeding in NAME in mixing methods..!
+- Fix some PORTAL case where wasn't properly removed (related to MixDOM.WithContent).
+- Refine still WIRED notes/docs/comments about the RENDERER FUNC... <-- Check how does it exactly work.. eg. setUpdateModes...
+
+### TO-DOCS:
+- That added the `MixDOM.ref()`.
+- The wired functionality.
+
 
 ### Refined default settings
+
 - Changed default render timeout to `null`, as it provides a bit more expectable behaviour in certain special cases.
 
 ### Refined behaviour of wired buildProps
+
 - Dropped the special feature of not-updating wired component instances if the build props are identical to last run.
   - The feature was a bit surprising in practice, and partially redundant as can just define a component instead of a spread and control its updates, if needed.
 
-### Tiny fixes:
+### Tiny fixes
+
+- Fixed handling of didMount signal in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
 - Fixed that lastState is always cleared at the end of the update.
 - Fixed args in shouldUpdate signal.
 
 ### Refined typing
+
 - Changed the default typing (= without type args) in `Component`, `ComponentFunc` and such to `ComponentInfoAny`, which in turn has been converted to a partial interface.
 - Refined `ComponentInstance` type to use `ComponentWith` type.
 
