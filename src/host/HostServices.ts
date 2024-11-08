@@ -347,22 +347,8 @@ export class HostServices {
         if (component.wired) {
             for (const Wired of component.wired) {
                 // Build common props.
-                if (Wired.api.onBuildProps) {
-                    // Build new common props.
-                    const propsWere = Wired.api.builtProps;
-                    Wired.api.builtProps = Wired.api.onBuildProps(propsWere);
-
-                    // If had callback and it gave back exactly the old props, then we take it to mean, don't go further.
-                    // .. But only if is not using a mixer - in that case, they might be individually modified.
-                    if (propsWere === Wired.api.builtProps && !Wired.api.onMixProps)
-                        continue;
-                    // 
-                    //
-                    // Note. This feature could also be just dropped.
-                    // .. Because if doesn't have the builder callback will and should flow thru.
-                    // .. Now (in v4.2.1) adjusted that only stops if does not have a mixer.
-                    
-                }
+                if (Wired.api.onBuildProps)
+                    Wired.api.builtProps = Wired.api.onBuildProps(Wired.api.builtProps);
                 // Update state for each manually.
                 if (Wired.api.components.size) {
                     // Prepare.

@@ -55,7 +55,7 @@ export type GetPropsFor<Tag, Fallback = {}, DOMCase extends "native" | "camelCas
     // Pseudo.
     Tag extends MixDOMPseudoTags ? (InstanceType<Tag>["constructor"]["_Info"] & {})["props"] :
     // Class.
-    Tag extends ClassType<Component<ComponentInfoAny>> ? ComponentProps<ReadComponentInfo<Tag>> :
+    Tag extends ClassType<Component> ? ComponentProps<ReadComponentInfo<Tag>> :
     // Nope.
     Fallback;
 

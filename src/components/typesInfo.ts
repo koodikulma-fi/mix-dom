@@ -21,7 +21,7 @@ export interface ComponentInfo<
     State extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Class extends Record<string, any> = {},
-    Static extends Record<string, any> & { api?: ComponentShadowAPI<ComponentInfoAny>; } = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI; } = {},
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
 > {
@@ -53,7 +53,7 @@ export interface ComponentInfoPartial<
     State extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Class extends Record<string, any> = {},
-    Static extends Record<string, any> & { api?: ComponentShadowAPI<ComponentInfoAny>; } = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI; } = {},
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
 > extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
@@ -88,7 +88,7 @@ export interface ComponentOf<
     State extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Class extends Record<string, any> = {},
-    Static extends Record<string, any> & { api?: ComponentShadowAPI<ComponentInfoAny>; } = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI; } = {},
     Timers extends any = {},
     Contexts extends ContextsAllType = {}
 > extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
@@ -99,7 +99,7 @@ export interface ComponentTypeOf<
     State extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Class extends Record<string, any> = {},
-    Static extends Record<string, any> & { api?: ComponentShadowAPI<ComponentInfoAny>; } = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI; } = {},
     Timers extends any = {},
     Contexts extends ContextsAllType = {}
 > extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {}
@@ -110,7 +110,7 @@ export type ComponentFuncOf<
     State extends Record<string, any> = {},
     Signals extends Record<string, (...args: any[]) => any> = {},
     Class extends Record<string, any> = {},
-    Static extends Record<string, any> & { api?: ComponentShadowAPI<ComponentInfoAny>; } = {},
+    Static extends Record<string, any> & { api?: ComponentShadowAPI; } = {},
     Timers extends any = any,
     Contexts extends ContextsAllType = {}
 > = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;

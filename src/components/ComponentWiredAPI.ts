@@ -16,6 +16,7 @@ import { ComponentWired, ComponentWiredFunc } from "./ComponentWired";
 
 // - Class - //
 
+/** The API instance for the wired components - extends ComponentShadowAPI. It's attached as a static `api` property on the wired component function, and it's what connects the component instances together. */
 export class ComponentWiredAPI<
     ParentProps extends Record<string, any> = {},
     BuiltProps extends Record<string, any> = {},
@@ -143,7 +144,7 @@ export class ComponentWiredAPI<
  *  		(parentProps, _buildProps, _wired) =>
  *  			({ ...parentProps, enabled: comp.props.enableWired }),
  *  
- *  		// The last arg is the component renderer - let's just define an inline spread func.
+ *  		// The last arg is the component (to do rendering) - let's just define an inline spread func.
  *  		// .. Its props are the individually mixed props created with the mixer above.
  *  		(props) => <span class={props.enabled ? "enabled" : ""}>{props.name}</span>,
  *  
@@ -206,7 +207,6 @@ export function createWired(...args: any[]): ComponentWiredFunc {
     const renderer = args[nArgs - 1 + nameOffset] as ComponentTypeAny;
     const name = nameOffset ? args[nArgs-1] : renderer.name || "[createWired]";
     // Create a component with a custom renderer - it will always use the given renderer as a tag - can be a spread func, component func, component class. (Technically could be any tag, but for purpose and typing.)
-    // const Wired = { [name]: class extends Component { render() { return newDef(renderer, { ...this.state }, MixDOMContent); } } }[name] as unknown as ComponentWiredType;
     const Wired = { [name]: function (_initProps: Record<string, any>, wired: ComponentWired) { return newDef(renderer as any, { ...wired.state }, MixDOMContent); } }[name] as ComponentWiredFunc;
     // Set up.
     Wired.api = new ComponentWiredAPI();

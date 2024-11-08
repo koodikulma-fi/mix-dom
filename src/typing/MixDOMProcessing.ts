@@ -29,7 +29,7 @@ export type MixDOMSourceBoundaryId = string;
 // - Tags - //
 
 /** Any known MixDOM component related tags, from spread funcs to component ctx funcs to component classes and pseudo elements. */
-export type MixDOMComponentTags = ComponentType<ComponentInfoAny> | ComponentFuncAny<ComponentInfoAny> | MixDOMPseudoTags<Record<string, any>>;
+export type MixDOMComponentTags = ComponentType | ComponentFuncAny | MixDOMPseudoTags<Record<string, any>>;
 export type MixDOMTags = "" | "_" | DOMTags;
 export type MixDOMAnyTags = MixDOMComponentTags | MixDOMTags | null;
 /** This tag conversion is used for internal tag based def mapping. The MixDOMDefTarget is the MixDOM.ContentPass.
@@ -123,7 +123,7 @@ export interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> ext
     /** Attach one or many refs. (Not available for SpreadFuncs.)
      * - Note that "_ref" is a special prop only available _outside_ the component - it's not actually part of props.
      */
-    _ref?: Ref<ComponentTypeEither<ComponentInfoAny>> | Ref<ComponentTypeEither<ComponentInfoAny>>[]; // RefBase | RefBase[];
+    _ref?: Ref<ComponentTypeEither> | Ref<ComponentTypeEither>[]; // RefBase | RefBase[];
     /** Attach signals to a child component directly through props. (Not available for SpreadFuncs.)
      * - Note that "_signals" is a special prop only available _outside_ the component - it's not actually part of props.
      */

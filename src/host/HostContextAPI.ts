@@ -12,10 +12,6 @@ import { Host } from "./Host";
 
 /** Class type for HostContextAPI. */
 export interface HostContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, HostContextAPI<Contexts>, []> {
-    // /** Attached to provide adding all component based signals. Note that will skip any components that have the given context name overridden. If signalName omitted gets all for context. */
-    // getListenersFor(contextAPI: HostContextAPI<ComponentInfoAny>, ctxName: string, signalName?: string): SignalListener[] | undefined;
-    // /** Attached to provide adding all component based data listeners. Note that will skip any components that have all of those names overridden. */
-    // callDataListenersFor(contextAPI: HostContextAPI<ComponentInfoAny>, ctxDataKeys?: true | string[]): void;
     /** Attached to provide automated context inheritance from host to components. */
     modifyContexts(contextAPI: HostContextAPI, contextMods: Partial<ContextsAllType>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
 }

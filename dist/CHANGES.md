@@ -1,19 +1,24 @@
 ## v4.2.1 (2024-11-??)
 
-### Refined behaviour of wired buildProps same feed
-- ....
+### TODO:
+- Fix handling of didMount signal in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
 
-### Refined ComponentInstance to use ComponentWith
+### Refined default settings
+- Changed default render timeout to `null`, as it provides a bit more expectable behaviour in certain special cases.
 
-CHANGE DEFAULT RENDER TIMEOUT TO `null` ..!
-- And try to fix related case when it's 0 and quickly updates many.. like in virtual scrolling..
-  * Then .. some dom nodes say `domNode: null`..  
-  * 
+### Refined behaviour of wired buildProps
+- Dropped the special feature of not-updating wired component instances if the build props are identical to last run.
+  - The feature was a bit surprising in practice, and partially redundant as can just define a component instead of a spread and control its updates, if needed.
 
 ### Tiny fixes:
-- fixed shouldUpdate args..! had extra component as the first arg.
-- fixed that lastState is always cleared at the end of the update. (It was left over in some cases.)
+- Fixed that lastState is always cleared at the end of the update.
+- Fixed args in shouldUpdate signal.
 
+### Refined typing
+- Changed the default typing (= without type args) in `Component`, `ComponentFunc` and such to `ComponentInfoAny`, which in turn has been converted to a partial interface.
+- Refined `ComponentInstance` type to use `ComponentWith` type.
+
+---
 
 ## v4.2.0 (2024-11-01)
 

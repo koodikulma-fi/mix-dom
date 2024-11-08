@@ -44,6 +44,7 @@ import {
     mixClassFuncsWith,
     mixHOCs,
     mixMixinsWith,
+    ComponentTypeEither,
 } from "./components/index";
 import { domSelfClosingTags } from "dom-types";
 
@@ -137,6 +138,12 @@ export const MixDOM = {
      * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
      */
     EmptyRemote: PseudoEmptyRemote,
+
+
+    // - Helper shortcuts - //
+
+    /** Create a new Ref instance. */
+    ref: <Type extends Node | ComponentTypeEither = Node | ComponentTypeEither>(): Ref<Type> => new Ref<Type>(),
 
 
     // - Create components - //

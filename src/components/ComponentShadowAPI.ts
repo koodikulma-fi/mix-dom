@@ -6,7 +6,7 @@ import { SignalListener, SignalBoy, OmitPartial } from "data-signals";
 // Typing.
 import { MixDOMUpdateCompareModesBy } from "../typing";
 // Local.
-import { ComponentInfo } from "./typesInfo";
+import { ComponentInfo, ComponentInfoAny } from "./typesInfo";
 import { ComponentContextAPI } from "./ComponentContextAPI";
 import { Component, ComponentFunc, ComponentFuncReturn, ComponentType, ComponentTypeEither, createComponent, createComponentCtx } from "./Component";
 // Only typing (local).
@@ -15,8 +15,8 @@ import { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, Compo
 
 // - Class - //
 
-/** This allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
-export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = {}> extends SignalBoy<ComponentShadowSignals<Info>> {
+/** The API instance of the shadow connected components. It allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
+export class ComponentShadowAPI<Info extends Partial<ComponentInfo> = ComponentInfoAny> extends SignalBoy<ComponentShadowSignals<Info>> {
     
     /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
     public components: Set<Component<Info>> = new Set();

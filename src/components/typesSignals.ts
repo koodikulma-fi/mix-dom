@@ -58,7 +58,7 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
 
 export type ComponentExternalSignalsFrom<
     Info extends Partial<ComponentInfo> = Partial<ComponentInfo>,
-    Comp extends Component<ComponentInfoAny> = Component<Info>,
+    Comp extends Component = Component<Info>,
     CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]
 > =
     { [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & { ["constructor"]: Info["static"]; }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]> };
