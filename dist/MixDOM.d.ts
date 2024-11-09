@@ -1309,6 +1309,7 @@ declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, Bu
  *      1. The optional Builder function builds the common external props for all wired instances. These are added to the component's natural props.
  *      2. The optional Mixer function builds unique props for each wired instance. If used, the common props are fed to it and the output of the mixer instead represents the final props to add.
  *      3. The only mandatory argument is the component to be used in rendering, can be a spread func, too. It's the one that receives the mixed props: from the tree flow and from the wiring source by handled by Mixer and Builder functions.
+ *          - Technically, the wired component renders just one def, whose tag is the given renderer (can be a component class, component func or a spread).
  *      4. Finally you can also define the name of the component (useful for debugging).
  * - Technically this method creates a component function (but could as well be a class extending Component).
  *      - The important thing is that it's a unique component func/class and it has `api` member that is of `WiredAPI` type (extending `ComponentShadowAPI`).
@@ -2693,6 +2694,7 @@ declare const MixDOM: {
      *      1. The optional Builder function builds the common external props for all wired instances. These are added to the component's natural props.
      *      2. The optional Mixer function builds unique props for each wired instance. If used, the common props are fed to it and the output of the mixer instead represents the final props to add.
      *      3. The only mandatory argument is the component to be used in rendering, can be a spread func, too. It's the one that receives the mixed props: from the tree flow and from the wiring source by handled by Mixer and Builder functions.
+     *          - Technically, the wired component renders just one def, whose tag is the given renderer (can be a component class, component func or a spread).
      *      4. Finally you can also define the name of the component (useful for debugging).
      * - Technically this method creates a component function (but could as well be a class extending Component).
      *      - The important thing is that it's a unique component func/class and it has `api` member that is of `WiredAPI` type (extending `ShadowAPI`).

@@ -1,16 +1,22 @@
+# CHANGES
+
+---
+
 ## v4.2.1 (2024-11-??)
 
 ### TO-DO:
-- Fix handling of didMount signal in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
-- Fix the case of swapping between htmlDef and regular. Does not seem to work correctly - gets emptied.
-- Change REF typing to COMPONENT INSTANCE..!
-- Support feeding in NAME in mixing methods..!
-- Fix some PORTAL case where wasn't properly removed (related to MixDOM.WithContent).
-- Refine still WIRED notes/docs/comments about the RENDERER FUNC... <-- Check how does it exactly work.. eg. setUpdateModes...
+- fix in RENDER MULTI FLUSH PROCESSING:
+  * Fix handling of didMount signal in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
+- fix in RENDER DOM HANDLING:
+  * Fix the case of swapping between htmlDef and regular. Does not seem to work correctly - gets emptied.
+- fix in UNMOUNTING:
+  * Fix some PORTAL case where wasn't properly removed (related to MixDOM.WithContent).
+- Changes:
+  * Change REF typing to COMPONENT INSTANCE..!
+  * Support feeding in NAME in mixing methods..!
 
 ### TO-DOCS:
 - That added the `MixDOM.ref()`.
-- The wired functionality.
 
 
 ### Refined default settings

@@ -67,8 +67,8 @@
     },
     "dependencies": {
         "data-memo": "~1.0.3",
-        "data-signals": "~1.2.0",
-        "dom-types": "~1.1.1",
+        "data-signals": "~1.2.1",
+        "dom-types": "~1.1.2",
         "mixin-types": "~1.1.1"
     },
     "devDependencies": {
