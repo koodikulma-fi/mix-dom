@@ -992,7 +992,7 @@ export class HostRender {
         // Set innerHTML for the dummy.
         // .. Using a processor.
         if (renderInnerHTML && treeNode) {
-            const html = renderInnerHTML(innerHTML, treeNode as MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; });
+            const html = renderInnerHTML(innerHTML, treeNode as MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }, dummy);
             if (html === null)
                 return null;
             dummy.innerHTML = html;
@@ -1030,7 +1030,7 @@ export class HostRender {
 
         // Get element for special reads.
         let dom = "";
-        let readFromElement: Node | null = null;
+        let readFromElement: Node | null | undefined = undefined;
         // .. Tagless - text node.
         if (!tag) {
             const content = def.domContent;
@@ -1038,8 +1038,10 @@ export class HostRender {
                 content && (content as Node).nodeType ? readFromElement = content as Node : dom += content.toString();
         }
         // .. PseudoElement - get the tag.
-        else if (tag === "_")
+        else if (tag === "_") {
             tag = def.domElement && def.domElement.tagName.toLowerCase() || "";
+            readFromElement = def.domElement;
+        }
         // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
         if (!tag && !readFromElement)
             return dom;

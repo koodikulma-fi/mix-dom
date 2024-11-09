@@ -483,7 +483,7 @@ type MixDOMRenderTextContentCallback = (text: string | number) => string | numbe
 /** Handler for processing innerHTML for `MixDOM.defHTML` upon rendering. Should return the processed string, if returns `null` will not do anything. */
 type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & {
     def: MixDOMDefApplied & MixDOMDefContent;
-}) => string | null;
+}, dummyElement: HTMLElement) => string | null;
 type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
 interface HostType<Contexts extends ContextsAllType = {}> {
     /** Used for host based id's. To help with sorting fluently across hosts. */

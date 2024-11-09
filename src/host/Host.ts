@@ -41,7 +41,7 @@ export type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 export type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 export type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
 /** Handler for processing innerHTML for `MixDOM.defHTML` upon rendering. Should return the processed string, if returns `null` will not do anything. */
-export type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }) => string | null;
+export type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }, dummyElement: HTMLElement) => string | null;
 export type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
 
 
