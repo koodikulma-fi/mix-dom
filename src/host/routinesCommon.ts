@@ -68,6 +68,7 @@ export function sortBoundaries(boundaries: Set<SourceBoundary>): Array<SourceBou
     }
 
     // 2. Sort by keys.
+    // .. Note. We iterate of .keys(), but do not trigger anything during the iteration, only collect to sortedKeys.
     const sortedKeys: string[] = [];
     for (const thisKey of keysMap.keys()) {
         let iInsert = 0;
@@ -110,7 +111,7 @@ export function updatedInterestedInClosure(bInterested: Set<SourceBoundary>, sor
     // .. Sort, if needs and has at least two entries.
     for (const thruBoundary of (sortBefore && bInterested.size > 1 ? sortBoundaries(bInterested) : bInterested)) {
         // Was already updated.
-        if (!thruBoundary._forceUpdate && !thruBoundary.component.lastState && thruBoundary.component.props === thruBoundary._outerDef.props)
+        if (!thruBoundary._forceUpdate && !thruBoundary.component.renderedState && thruBoundary.component.props === thruBoundary._outerDef.props)
             continue;
         // Update and collect.
         const uInfos = thruBoundary.host.services.updateBoundary(thruBoundary);

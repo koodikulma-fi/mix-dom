@@ -254,7 +254,6 @@ declare class HostServices {
     static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
-    static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]): void;
 }
 
 /** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
@@ -650,7 +649,6 @@ interface HostSettings {
      * - Recommended usage for updateTimeout & renderTimeout:
      *   * For most cases, use updateTimeout: 0 and renderTimeout: 0 or null. Your main code line will run first, and rendering runs after (sync or async).
      *   * If you want synchronous updates on your components, use updateTimeout: null, renderTimeout: 0 - so updates are done before your main code line continues, but dom rendering is done after.
-     *     .. In this case also consider putting useImmediateCalls to true.
      *   * If you want everything to be synchronous (including the dom), put both to null.
      */
     updateTimeout: number | null;
@@ -663,14 +661,6 @@ interface HostSettings {
      * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details.
      */
     renderTimeout: number | null;
-    /** The lifecycle calls (onMount, onUpdate, ...) are collected (together with render infos) and called after the recursive update process has finished.
-     * - This option controls whether the calls are made immediately after the update process or only after the (potentially delayed) rendering.
-     * - Keep this as false, if you want the components to have their dom elements available upon onMount - like in React. (Defaults to false.)
-     * - Put this to true, only if you really want the calls to be executed before the rendering happens.
-     *     * If you combine this with updateTimeout: null, then you get synchronously updated state, with only rendering delayed.
-     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks.
-     */
-    useImmediateCalls: boolean;
     /** Defines what components should look at when doing onShouldUpdate check for "props" and "state". */
     updateComponentModes: MixDOMUpdateCompareModesBy;
     /** Whether does a equalDOMProps check on the updating process.
@@ -1774,7 +1764,7 @@ interface Component<Info extends ComponentInfoPartial = ComponentInfoAny> extend
     /** Fresh props from the parent. */
     readonly props: Info["props"] & {};
     /** If the state has changed since last render, this contains the shallow copy of the previous state. */
-    readonly lastState?: Info["state"] & {};
+    readonly renderedState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
@@ -1800,11 +1790,11 @@ interface Component<Info extends ComponentInfoPartial = ComponentInfoAny> extend
     isMounted(): boolean;
     /** This gets the state that was used during last render call (by shallow copy), and by default falls back to the current state - otherwise to null.
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
-     *      * Note the lastState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
-     * - You can also access the previous state by `this.lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+     *      * Note the renderedState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
+     * - You can also access the previous state by `this.renderedState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
-    getLastState(fallbackToCurrent?: true): Info["state"] & {};
-    getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
+    getRenderedState(fallbackToCurrent?: true): Info["state"] & {};
+    getRenderedState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
     getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts>;
     /** Get the first dom element within by a selectors within the host (like document.querySelector). Should rarely be used, but it's here if needed. */
@@ -2013,7 +2003,7 @@ declare class SourceBoundary extends BaseBoundary {
     /** Redefine that the outer def is about a boundary. */
     _outerDef: MixDOMDefApplied & MixDOMDefBoundary;
     /** Temporary rendering state indicator. */
-    _renderState?: "active" | "re-updated";
+    _renderPhase?: "active" | "re-updated";
     /** If has marked to be force updated. */
     _forceUpdate?: boolean | "all";
     /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
@@ -2044,8 +2034,8 @@ declare class BaseBoundary {
     _innerDef: MixDOMDefApplied | null;
     /** The reference for containing host for many technical things as well as general settings. */
     host: Host;
-    /** Whether the boundary is mounted. Starts as false, set to true right before didMount is called and null after willUnmount. */
-    isMounted: boolean | null;
+    /** Whether the boundary has mounted. Starts as `false`, set to `"pre"` after the pairing defs, and to `true` right before didMount is called and `null` after willUnmount. */
+    hasMounted: "pre" | boolean | null;
     /** The fixed treeNode of the boundary is a very important concept and reference for technical reasons.
      * - It allows to keep the separate portions of the GroundedTree structure together by tying parent and child boundary to each other.
      *   .. So, ultimately it allows us to keep a clear bookkeeping of the dom tree and makes it easy, flexible and performant to apply changes to it.
@@ -2194,19 +2184,22 @@ declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentType
     /** This returns the last reffed treeNode, or null if none.
      * - The MixDOMTreeNode is a descriptive object attached to a location in the grounded tree. Any tree node can be targeted by refs.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     getTreeNode(): MixDOMTreeNode | null;
     /** This returns all the currently reffed tree nodes (in the order added). */
     getTreeNodes(): MixDOMTreeNode[];
     /** This returns the last reffed domNode, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     getElement(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type | null : Node | null;
     /** This returns all the currently reffed dom nodes (in the order added). */
     getElements(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type[] : Node[];
     /** This returns the last reffed component, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null;
     /** This returns all the currently reffed components (in the order added). */
     getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[];

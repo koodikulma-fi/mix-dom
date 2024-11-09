@@ -66,6 +66,26 @@ export interface HostSettingsUpdate extends Partial<Omit<HostSettings, "updateCo
  */
 export interface HostSettings {
     
+    // /** If `null`, then updates synchronously. Otherwise uses the given timeout in ms. Defaults to `0` ms (recommended).
+    //  * - This timeout delays the beginning of the update cycle, after being triggered (eg. by a change in a component's state).
+    //  *      * After the timeout has elapsed, `render(props, state)` method is called on components and a new structure is received.
+    //  *      * The structure is then applied to the component, and for any nested components similarly render method is called and then the defs applied recursively.
+    //  *      * Finally, the process outputs a list of render callbacks to apply the related dom changes.
+    //  * - Note that the actual rendering always happens synchronously right after all the updates have been performed - including any recursively triggered sub update cycles.
+    //  *      * Accordingly, the lifecycle calls for didMount and didUpdate are called right after rendering. All of this happens synchronously once the update cycle begins.
+    //  * - Note that the purpose of using `0` vs. `null` is to help in performance but also makes usage more practical.
+    //  *      * In practice, using `0` timeout simply cuts the update cycle from being triggered instantly, and thus individually for each update call.
+    //  *      * Instead, the cycle is "virtually delayed" to run after the current synchronous sequence of JS code (and other internal native things).
+    //  *      * As a result, only one update cycle is run, for example for a 100 updates.
+    //  *      * Furthermore, this also helps to perform the rendering in sync, which not only helps in practical performance but is also desireable UX wise.
+    //  * - Note only use `updateTimeout: null` if you really know what you're doing.
+    //  *      * Using `null` provides synchronous updates, but might have implications that are not evident at first sight.
+    //  *          - For example, when you call `component.setState()`, then the DOM has already been updated on the very next line. This can easily result in unintended bugs in your app.
+    //  *      * However, there is one common use case for `null` updateTiemout. It's for the very first render of the app (eg. to provide better info for SEO robots).
+    //  *          - On the other hand, it's perhaps better to not touch updateTimeout and instead trigger a synchronous update once when your app starts.
+    //  *          - Note that in either case, you might want to do the equivalent synchronous initial run for any related Contexts as well.
+    //  */
+
 	/** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms.
      * - This timeout delays the beginning of the update process.
      *   * After the timeout has elapsed, .render() is called on components and a new structure is received.
@@ -78,7 +98,6 @@ export interface HostSettings {
      * - Recommended usage for updateTimeout & renderTimeout:
      *   * For most cases, use updateTimeout: 0 and renderTimeout: 0 or null. Your main code line will run first, and rendering runs after (sync or async).
      *   * If you want synchronous updates on your components, use updateTimeout: null, renderTimeout: 0 - so updates are done before your main code line continues, but dom rendering is done after.
-     *     .. In this case also consider putting useImmediateCalls to true.
      *   * If you want everything to be synchronous (including the dom), put both to null.
      */
     updateTimeout: number | null;
@@ -92,15 +111,6 @@ export interface HostSettings {
      * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details.
      */
     renderTimeout: number | null;
-
-    /** The lifecycle calls (onMount, onUpdate, ...) are collected (together with render infos) and called after the recursive update process has finished.
-     * - This option controls whether the calls are made immediately after the update process or only after the (potentially delayed) rendering.
-     * - Keep this as false, if you want the components to have their dom elements available upon onMount - like in React. (Defaults to false.)
-     * - Put this to true, only if you really want the calls to be executed before the rendering happens.
-     *     * If you combine this with updateTimeout: null, then you get synchronously updated state, with only rendering delayed.
-     *     * However, you won't have dom elements on mount. To know when that happens should use refs or signals and .domDidMount and .domWillUnmount callbacks.
-     */
-    useImmediateCalls: boolean;
 
     /** Defines what components should look at when doing onShouldUpdate check for "props" and "state". */
     updateComponentModes: MixDOMUpdateCompareModesBy;
@@ -734,8 +744,6 @@ export class Host<Contexts extends ContextsAllType = any> {
             // Timing.
             updateTimeout: 0,
             renderTimeout: null, // As of v4.3.0
-            // Calling.
-            useImmediateCalls: false,
             // Updating.
             updateComponentModes: {
                 props: "shallow",

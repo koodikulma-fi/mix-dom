@@ -179,7 +179,7 @@ export class HostServices {
      *   .. It's recommended to use a tiny update timeout (eg. 0ms) to group multiple updates together. */
     public absorbUpdates(boundary: SourceBoundary, updates: MixDOMComponentUpdates, refresh: boolean = true, forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void {
         // Dead.
-        if (boundary.isMounted === null)
+        if (boundary.hasMounted === null)
             return;
         // Mark forced update.
         if (updates.force)
@@ -191,15 +191,15 @@ export class HostServices {
         if (updates.state) {
             // Mark old state.
             const component = boundary.component;
-            if (!component.lastState)
+            if (!component.renderedState)
                 // Note. We set a readonly property here on purpose.
-                (component as { lastState: Record<string, any> }).lastState = { ...component.state };
+                (component as { renderedState: Record<string, any> }).renderedState = { ...component.state };
             // Set new state.
             component.state = updates.state;
         }
         // Is rendering, re-render immediately, and go no further. No need to update timeout either.
-        if (boundary._renderState) {
-            boundary._renderState = "re-updated";
+        if (boundary._renderPhase) {
+            boundary._renderPhase = "re-updated";
             return;
         }
         // Add to collection.
@@ -241,10 +241,10 @@ export class HostServices {
         const component = boundary.component;
 
         // Prepare mount run.
-        const mountRun = !boundary.isMounted;
+        const mountRun = !boundary.hasMounted;
         if (mountRun) {
             // Has been destroyed - shouldn't happen. Stop right here. (Perhaps should update interested, if given..?)
-            if (boundary.isMounted === null)
+            if (boundary.hasMounted === null)
                 return null;
             // On mount.
             boundaryChanges.push( [boundary, "mounted"] );
@@ -265,9 +265,9 @@ export class HostServices {
             // Set the state by mixed props.
             if (shadowAPI.getMixedProps) {
                 // Normal run - mark that state will change.
-                if (!mountRun && !component.lastState)
+                if (!mountRun && !component.renderedState)
                     // Note. We set a readonly property here.
-                    (component as { lastState: Record<string, any> }).lastState = { ...component.state };
+                    (component as { renderedState: Record<string, any> }).renderedState = { ...component.state };
                 // Update state.
                 component.state = shadowAPI.getMixedProps(component);
             }
@@ -291,9 +291,9 @@ export class HostServices {
         if (!mountRun) {
             
             // Read and clear state.
-            const prevState = component.lastState;
+            const prevState = component.renderedState;
             if (prevState)
-                delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
+                delete (component as any as { renderedState?: Record<string, any> }).renderedState; // Note. We unset a readonly property here.
 
             // Run unless has already been updated.
             if (shouldUpdate || prevProps || prevState) {
@@ -337,9 +337,9 @@ export class HostServices {
             boundaryChanges = boundaryChanges.concat(bUpdates);
         }
         
-        // Just in case has lastState (on mount run or re-appeared during calls above), clear it. It's no longer relevant.
-        if (component.lastState)
-            delete (component as any as { lastState?: Record<string, any> }).lastState; // Note. We unset a readonly property here.
+        // Just in case has renderedState (on mount run or re-appeared during calls above), clear it. It's no longer relevant.
+        if (component.renderedState)
+            delete (component as any as { renderedState?: Record<string, any> }).renderedState; // Note. We unset a readonly property here.
 
         // Add wired updates.
         // .. So this is when this component's .addWired method was used to auto-bound to the component for updates.
@@ -430,14 +430,8 @@ export class HostServices {
         if (renderInfos)
             this.renderCycle.pending.rInfos.push(renderInfos);
         // Add boundary calls.
-        if (boundaryChanges) {
-            // Immediately.
-            if (this.host.settings.useImmediateCalls)
-                HostServices.callBoundariesBy(boundaryChanges);
-            // After rendering.
-            else
-                this.renderCycle.pending.rCalls.push(boundaryChanges);
-        }
+        if (boundaryChanges)
+            this.renderCycle.pending.rCalls.push(boundaryChanges);
         // Refresh.
         // .. Don't trigger instantly. If set to be instant, just mark as infinite - we'll resolve it instantly _after_ the update cycle.
         this.renderCycle.trigger(this.host.settings.renderTimeout ?? undefined, forceRenderTimeout ?? undefined);
@@ -516,12 +510,8 @@ export class HostServices {
             // Add infos to render cycle.
             if (renderInfos[0])
                 services.renderCycle.pending.rInfos.push(renderInfos);
-            if (bChanges[0]) {
-                if (services.host.settings.useImmediateCalls)
-                    HostServices.callBoundariesBy(bChanges);
-                else
-                    services.renderCycle.pending.rCalls.push(bChanges);
-            }
+            if (bChanges[0])
+                services.renderCycle.pending.rCalls.push(bChanges);
 
             // Reassign pending (for another loop).
             pending = services.updateCycle.resetPending();
@@ -541,10 +531,26 @@ export class HostServices {
                 if (renderInfos[0])
                     services.renderer.applyToDOM(renderInfos);
         // Boundary changes.
-        if (pending.rCalls)
-            for (const boundaryChanges of pending.rCalls)
-                if (boundaryChanges[0])
-                    HostServices.callBoundariesBy(boundaryChanges);
+        if (pending.rCalls) {
+            // Update mounted state to all - before making the calls.
+            for (const boundaryChanges of pending.rCalls) {
+                for (const info of boundaryChanges)
+                    if (info[1] === "mounted")
+                        info[0].hasMounted = true;
+            }
+            // Call all.
+            for (const boundaryChanges of pending.rCalls) {
+                // Loop each.
+                for (const info of boundaryChanges) {
+                    // Parse.
+                    const component = info[0].component;
+                    const signalName: "didUpdate" | "didMount" | "didMove" = info[1] === "mounted" ? "didMount" : info[1] === "moved" ? "didMove" : "didUpdate";
+                    // Call the component. Pre-check here some common cases to not need to call.
+                    if (component.signals[signalName])
+                        callListeners(component.signals[signalName]!, info[1] === "updated" ? [info[2], info[3]] : undefined);
+                }
+            }
+        }
         // Call listeners - we just do it automatically by having resolvePromise be auto-called after.
         // resolvePromise();
     }
@@ -578,19 +584,6 @@ export class HostServices {
         }
         // No reason to update.
         return false;
-    }
-
-    public static callBoundariesBy(boundaryChanges: MixDOMSourceBoundaryChange[]) {
-        // Loop each.
-        for (const info of boundaryChanges) {
-            // Parse.
-            const [ boundary, change, prevProps, prevState ] = info;
-            const component = boundary.component;
-            const signalName: "didUpdate" | "didMount" | "didMove" = change === "mounted" ? "didMount" : change === "moved" ? "didMove" : "didUpdate";
-            // Call the component. Pre-check here some common cases to not need to call.
-            if (component.signals[signalName])
-                callListeners(component.signals[signalName]!, change === "updated" ? [prevProps, prevState] : undefined);
-        }
     }
     
 }

@@ -24,7 +24,7 @@ export function treeNodesWithin(rootTreeNode: MixDOMTreeNode, okTypes?: Set<MixD
         // Next.
         i++;
         // Skip inactive.
-        if (treeNode.boundary && treeNode.boundary.isMounted === null)
+        if (treeNode.boundary && treeNode.boundary.hasMounted === null)
             continue;
         // Accepted.
         if (!okTypes || okTypes.has(treeNode.type)) {
@@ -125,7 +125,7 @@ export function allDefsIn(rootDef: MixDOMDefApplied, ignoreByUpdateId: boolean =
 //         if (!boundary.bId)
 //             continue;
 //         // Skip inactive.
-//         if (boundary.isMounted === null)
+//         if (boundary.hasMounted === null)
 //             continue;
 //         // Accepted.
 //         list.push(boundary);

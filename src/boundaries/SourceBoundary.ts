@@ -41,7 +41,7 @@ export class SourceBoundary extends BaseBoundary {
     // - Private-like temporary states - //
 
     /** Temporary rendering state indicator. */
-    public _renderState?: "active" | "re-updated";
+    public _renderPhase?: "active" | "re-updated";
     /** If has marked to be force updated. */
     public _forceUpdate?: boolean | "all";
     /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
@@ -147,18 +147,18 @@ export class SourceBoundary extends BaseBoundary {
     // - Update & render - //
 
     public update(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null) {
-        this.host.services.absorbUpdates(this, { force: !this.isMounted ? "all" : forceUpdate || false }, true, forceUpdateTimeout, forceRenderTimeout);
+        this.host.services.absorbUpdates(this, { force: this.hasMounted === false ? "all" : forceUpdate || false }, true, forceUpdateTimeout, forceRenderTimeout);
     }
 
     public updateBy(updates: MixDOMComponentUpdates, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null) {
-        this.host.services.absorbUpdates(this, { ...updates, force: !this.isMounted ? "all" : forceUpdate || false }, true, forceUpdateTimeout, forceRenderTimeout);
+        this.host.services.absorbUpdates(this, { ...updates, force: this.hasMounted === false ? "all" : forceUpdate || false }, true, forceUpdateTimeout, forceRenderTimeout);
     }
 
     public render(iRecursion: number = 0): MixDOMRenderOutput {
         // Rendering state.
-        const firstTime = this.isMounted === false && !this._renderState;
+        const firstTime = this.hasMounted === false && !this._renderPhase;
         if (!iRecursion)
-            this._renderState = "active";
+            this._renderPhase = "active";
         // Render.
         const component = this.component;
         const content = component.render(component.props || {}, component.state);
@@ -175,12 +175,12 @@ export class SourceBoundary extends BaseBoundary {
         if (reassign)
             return this.render(iRecursion);
         // Wanted to update during render. Run again and return the new render defs instead.
-        if (this._renderState === "re-updated") {
+        if (this._renderPhase === "re-updated") {
             // Render with iRecursion counting.
             const settings = this.host.settings;
             if (settings.maxReRenders < 0 || iRecursion < settings.maxReRenders) {
                 iRecursion++;
-                this._renderState = "active";
+                this._renderPhase = "active";
                 return this.render(iRecursion);
             }
             // - DEV-LOG - //
@@ -194,7 +194,7 @@ export class SourceBoundary extends BaseBoundary {
             }
         }
         // Finish up.
-        delete this._renderState;
+        delete this._renderPhase;
         // Return content.
         return content;
     }

@@ -225,7 +225,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = ComponentInfo
 
         public readonly boundary: SourceBoundary;
         public readonly props: Record<string, any>;
-        public readonly lastState?: Record<string, any>;
+        public readonly renderedState?: Record<string, any>;
         public state: Record<string, any>;
         public updateModes: Partial<MixDOMUpdateCompareModesBy>;
         public constantProps?: Partial<Record<string, CompareDepthMode | number | true>>;
@@ -269,11 +269,10 @@ export function mixinComponent<Info extends ComponentInfoPartial = ComponentInfo
         // - Getters - //
 
         public isMounted(): boolean {
-            return this.boundary.isMounted === true;
+            return this.boundary.hasMounted === true;
         }
-
-        public getLastState(fallbackToCurrent: boolean = true): Record<string, any> | null {
-            return this.lastState || fallbackToCurrent && this.state || null;
+        public getRenderedState(fallbackToCurrent: boolean = true): Record<string, any> | null {
+            return this.renderedState || fallbackToCurrent && this.state || null;
         }
 
         public getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts> {
@@ -438,7 +437,7 @@ export function mixinComponent<Info extends ComponentInfoPartial = ComponentInfo
 
         // - Render - //
 
-        public render(_props: Record<string, any>, _lastState: Record<string, any>): ComponentFuncReturn<Info> { return null; }
+        public render(_props: Record<string, any>, _renderedState: Record<string, any>): ComponentFuncReturn<Info> { return null; }
 
     } as any; // We're detached from the return type.
 }
@@ -487,7 +486,7 @@ export interface Component<Info extends ComponentInfoPartial = ComponentInfoAny>
     /** Fresh props from the parent. */
     readonly props: Info["props"] & {};
     /** If the state has changed since last render, this contains the shallow copy of the previous state. */
-    readonly lastState?: Info["state"] & {};
+    readonly renderedState?: Info["state"] & {};
     /** Locally defined state. When state is updated (through setState or setInState), the component will be checked for updates and then re-render if needed. */
     state: Info["state"] & {};
     /** Map of the timers by id, the value is the reference for cancelling the timer. Only appears here if uses timers. */
@@ -529,11 +528,11 @@ export interface Component<Info extends ComponentInfoPartial = ComponentInfoAny>
     isMounted(): boolean;
     /** This gets the state that was used during last render call (by shallow copy), and by default falls back to the current state - otherwise to null.
      * - Most often you want to deal with the new state (= `this.state`), but this is useful in cases where you want to refer to what has been rendered.
-     *      * Note the lastState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
-     * - You can also access the previous state by `this.lastState`. If it's undefined, there hasn't been any changes in the state since last render.
+     *      * Note the renderedState is simply a shallow copy of the state (at the moment of last render). So if any deeper objects within have been mutated, their state is fresher than at the moment of the last render.
+     * - You can also access the previous state by `this.renderedState`. If it's undefined, there hasn't been any changes in the state since last render.
      */
-    getLastState(fallbackToCurrent?: true): Info["state"] & {};
-    getLastState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
+    getRenderedState(fallbackToCurrent?: true): Info["state"] & {};
+    getRenderedState(fallbackToCurrent?: boolean): Info["state"] & {} | null;
     /** Gets the rendering host that this component belongs to. By default uses the same Contexts typing as in the component's info, but can provide custom Contexts here too. */
     getHost<Contexts extends ContextsAllType = Info["contexts"] & {}>(): Host<Contexts>;
     /** Get the first dom element within by a selectors within the host (like document.querySelector). Should rarely be used, but it's here if needed. */

@@ -135,7 +135,8 @@ export function runPassUpdate(contentBoundary: ContentBoundary, forceUpdate: boo
         renderInfos = emptyMovers.map(treeNode => ({ treeNode, emptyMove: true } as MixDOMRenderInfo)).concat(renderInfos);
 
     // Mark as having been activated. (We use this for the mount vs. update checks.)
-    contentBoundary.isMounted = true;
+    if (!contentBoundary.hasMounted)
+        contentBoundary.hasMounted = "pre";
 
     // 3. Return collected render infos.
     return [ renderInfos, boundaryChanges ];
@@ -254,7 +255,7 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
         boundaryChanges = [];
         // Go to null.
         // .. Note. Previously empty move was added every time at null - but don't think it's necessary, so now behind this if clause.
-        if (appliedDef || !byBoundary.isMounted)
+        if (appliedDef || !byBoundary.hasMounted)
             // Let's add in an emptyMove. Let's add it in even if was not mounted yet.
             // .. Not sure if is needed, but certainly can't hurt - maybe is even required (if appeared as a first child).
             emptyMovers.push(byBoundary.treeNode);
@@ -284,8 +285,8 @@ export function runBoundaryUpdate(byBoundary: SourceBoundary | ContentBoundary, 
         renderInfos = emptyMovers.map(treeNode => ({ treeNode, emptyMove: true } as MixDOMRenderInfo)).concat(renderInfos);
 
     // Mark as having been activated.
-    if (!byBoundary.isMounted)
-        byBoundary.isMounted = true;
+    if (!byBoundary.hasMounted)
+        byBoundary.hasMounted = "pre";
 
     
     // - 6. Return collected render infos. - //
@@ -852,7 +853,7 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
     // .... However, it's not anymore that easy to change back - if does, should again switch to (pre v3) way of collecting all inside and looping them here.
 
     // Already destroyed.
-    if (boundary.isMounted === null)
+    if (boundary.hasMounted === null)
         return allChanges;
     // Source boundary.
     const sBoundary = boundary.bId ? boundary : null;
@@ -935,7 +936,7 @@ export function destroyBoundary(boundary: SourceBoundary | ContentBoundary, null
         sBoundary.host.services.cancelUpdates(sBoundary);
 
     // Mark as destroyed.
-    boundary.isMounted = null;
+    boundary.hasMounted = null;
     return allChanges;
 }
 

@@ -29,8 +29,8 @@ export class BaseBoundary {
 
     /** The reference for containing host for many technical things as well as general settings. */
     public host: Host;
-    /** Whether the boundary is mounted. Starts as false, set to true right before didMount is called and null after willUnmount. */
-    public isMounted: boolean | null;
+    /** Whether the boundary has mounted. Starts as `false`, set to `"pre"` after the pairing defs, and to `true` right before didMount is called and `null` after willUnmount. */
+    public hasMounted: "pre" | boolean | null;
     /** The fixed treeNode of the boundary is a very important concept and reference for technical reasons.
      * - It allows to keep the separate portions of the GroundedTree structure together by tying parent and child boundary to each other.
      *   .. So, ultimately it allows us to keep a clear bookkeeping of the dom tree and makes it easy, flexible and performant to apply changes to it.
@@ -68,7 +68,7 @@ export class BaseBoundary {
         this.treeNode = treeNode;
         this._outerDef = outerDef;
         this._innerDef = null;
-        this.isMounted = false;
+        this.hasMounted = false;
         this.sourceBoundary = null;
         this.parentBoundary = null;
         this.innerBoundaries = [];

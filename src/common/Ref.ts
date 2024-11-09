@@ -12,7 +12,7 @@ import { rootDOMTreeNodes } from "../static/index";
 import { ContentBoundary } from "../boundaries/ContentBoundary";
 import { ComponentExternalSignalsFrom } from "../components/typesSignals";
 import { Component, ComponentInstance, ComponentTypeEither } from "../components/Component";
-import { ComponentInfoAny, ReadComponentInfo } from "../components";
+import { ReadComponentInfo } from "../components";
 
 
 // - Types - //
@@ -94,7 +94,8 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     /** This returns the last reffed treeNode, or null if none.
      * - The MixDOMTreeNode is a descriptive object attached to a location in the grounded tree. Any tree node can be targeted by refs.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     public getTreeNode(): MixDOMTreeNode | null {
         return [...this.treeNodes][this.treeNodes.size - 1] || null;
     }
@@ -104,12 +105,13 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     }
     /** This returns the last reffed domNode, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     public getElement(onlyForDOMRefs: boolean = false): [Type] extends [Node] ? Type | null : Node | null {
         let i = this.treeNodes.size - 1;
         const treeNodes = [...this.treeNodes];
         while (i >= 0) {
-            const treeNode = treeNodes[i];
+            const treeNode = treeNodes[i--];
             if (treeNode.domNode && (!onlyForDOMRefs || treeNode.type === "dom"))
                 return treeNode.domNode as Type & Node;
         }
@@ -130,7 +132,8 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
     }
     /** This returns the last reffed component, or null if none.
      * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing. */
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
     public getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null {
         const lastRef = [...this.treeNodes][this.treeNodes.size - 1];
         return (lastRef && lastRef.type === "boundary" && lastRef.boundary?.component as Component || null) as any;
