@@ -2,13 +2,13 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMDefApplied } from "../typing";
+import type { MixDOMDefApplied } from "../typing";
 // Routines.
 import { hasContentInDefs } from "../static/index";
 // Common.
 import { MixDOMContent } from "../common/index";
 // Boundaries.
-import { ContentClosure } from "../boundaries/index";
+import type { ContentClosure } from "../boundaries";
 // Local.
 import { Component, ComponentType } from "./Component";
 

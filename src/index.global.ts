@@ -1,11 +1,11 @@
 
 // - Imports - //
 
-import { MixDOM as _MixDOM } from "./MixDOM";
 import * as _MixinTypes from "mixin-types";
 import * as _DataSignals from "data-signals";
 import * as _DataMemo from "data-memo";
 import * as _DOMTypes from "dom-types";
+import { MixDOM as _MixDOM } from "./MixDOM";
 
 
 // - Typing - //

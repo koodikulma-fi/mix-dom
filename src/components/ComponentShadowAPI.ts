@@ -4,13 +4,14 @@
 // Libraries.
 import { SignalListener, SignalBoy, OmitPartial } from "data-signals";
 // Typing.
-import { MixDOMUpdateCompareModesBy } from "../typing";
+import type { MixDOMUpdateCompareModesBy } from "../typing";
 // Local.
-import { ComponentInfo, ComponentInfoAny } from "./typesInfo";
-import { ComponentContextAPI } from "./ComponentContextAPI";
-import { Component, ComponentFunc, ComponentFuncReturn, ComponentType, ComponentTypeEither, createComponent, createComponentCtx } from "./Component";
+import { Component, createComponent, createComponentCtx } from "./Component";
 // Only typing (local).
-import { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
+import type { ComponentInfo, ComponentInfoAny } from "./typesInfo";
+import type { ComponentContextAPI } from "./ComponentContextAPI";
+import type { ComponentFunc, ComponentFuncReturn, ComponentType, ComponentTypeEither } from "./Component";
+import type { ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowSignals, ComponentShadowType } from "./ComponentShadow";
 
 
 // - Class - //

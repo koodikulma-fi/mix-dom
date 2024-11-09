@@ -3,20 +3,16 @@
 
 // Libraries.
 import { CompareDepthMode } from "data-memo";
-import { SignalsRecord, Context } from "data-signals";
-import { DOMCleanProps, DOMTags, DOMAttributesAny_native, DOMAttributes_native, DOMAttributesAny_camelCase, DOMAttributes_camelCase } from "dom-types";
+import type { SignalsRecord, Context } from "data-signals";
+import type { DOMCleanProps, DOMTags, DOMAttributesAny_native, DOMAttributes_native, DOMAttributesAny_camelCase, DOMAttributes_camelCase } from "dom-types";
 // Only typing (local).
-import { MixDOMDefTarget } from "./MixDOMDefs";
-import { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
+import type { MixDOMDefTarget } from "./MixDOMDefs";
+import type { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal } from "./MixDOMTreeNode";
 // Only typing (distant).
-import { Ref, RefDOMSignals } from "../common/Ref";
-import { ContentBoundary } from "../boundaries/ContentBoundary";
-import { SourceBoundary } from "../boundaries/SourceBoundary";
-import { ComponentSignals } from "../components/typesSignals";
-import { ComponentFuncAny, ComponentType, ComponentTypeEither } from "../components/Component";
-import { PseudoFragment, MixDOMPseudoTags } from "../components/ComponentPseudos";
-import { Host } from "../host/Host";
-import { ComponentInfoAny } from "../components";
+import type { Ref, RefDOMSignals } from "../common";
+import type { ContentBoundary } from "../boundaries";
+import type { SourceBoundary, ComponentSignals, ComponentFuncAny, ComponentType, ComponentTypeEither, PseudoFragment, MixDOMPseudoTags } from "../components";
+import type { Host } from "../host";
 
 
 // - Component & Boundary - //

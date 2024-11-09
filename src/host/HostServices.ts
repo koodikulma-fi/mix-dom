@@ -5,7 +5,7 @@
 import { areEqual, CompareDepthEnum, CompareDepthMode } from "data-memo";
 import { askListeners, callListeners, RefreshCycle } from "data-signals";
 // Typing.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMSourceBoundaryChange,
     MixDOMRenderInfo,
@@ -17,18 +17,15 @@ import {
 } from "../typing";
 // Routines.
 import { newDefFrom, rootDOMTreeNodes } from "../static/index";
-// Boundaries (only typing).
-import { SourceBoundary } from "../boundaries/index";
+// Components routines.
+import { runBoundaryUpdate } from "../components/index";
+// Components (only typing).
+import type { SourceBoundary, ComponentFunc, ComponentTypeAny, ComponentShadowAPI, ComponentWiredAPI } from "../components";
 // Local.
 import { HostRender } from "./HostRender";
-import { sortBoundaries, updatedInterestedInClosure } from "./routinesCommon";
-import { runBoundaryUpdate } from "./routinesApply";
+import { sortBoundaries, updatedInterestedInClosure } from "../static/routinesCommon";
 // Only typing (local).
-import { Host } from "./Host";
-// Only typing (distant).
-import { ComponentFunc, ComponentTypeAny } from "../components/Component";
-import { ComponentShadowAPI } from "../components/ComponentShadowAPI";
-import { ComponentWiredAPI } from "../components/ComponentWiredAPI";
+import type { Host } from "./Host";
 
 
 // - HostServices (the technical part) for Host  - //
@@ -61,7 +58,7 @@ export class HostServices {
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?: true;
     /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
-     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
+     * - The member only exists during updating (synchronously toggled on and off), and is renewed for each update cycle, and finally synchronously removed.
      * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
      *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
      *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
@@ -75,6 +72,11 @@ export class HostServices {
      *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
      */
     public _whileUpdating?: {};
+    /** This holds more a chain of updates for running the update cycle.
+     * - If further updates are triggered (recursively by the current generation of updates), they are added here and executed right after.
+     * - The array contains all the synchronously connected consequent update cycles until they have all been cleared, and then the member is deleted.
+     */
+    public _chainedUpdates?: HostUpdateCycleInfo[];
 
     constructor(host: Host) {
         this.host = host;
@@ -465,30 +467,46 @@ export class HostServices {
             // Trigger with default timing. (If was already active, won't do anything.)
             services.renderCycle.trigger(services.host.settings.renderTimeout);
         });
-        // .. Make sure "update" is always resolved right before "render".
-        services.renderCycle.listenTo("onResolve", () => services.updateCycle.resolve());
+
+        // // .. Make sure "update" is always resolved right before "render".
+        // // .. No, actually don't - their execution timing don't have to have be intersynced.
+        //
+        // services.renderCycle.listenTo("onResolve", () => services.updateCycle.resolve());
     }
     
     /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
-     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
+     * - To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
      */
     public static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void {
-        // Prevent multi-running during.
-        // .. We'll handle them during a single run instead - by running the while loop (below) again, not a moment before.
-        if (services._whileUpdating)
+        
+        // None to do - empty update.
+        if (!pending.updates.size)
             return;
 
-        // Update again immediately, if new ones collected. We'll reassign pending variable below.
-        while (pending.updates.size) {
-            
-            // Renew id and while-updating marker.
-            services._whileUpdating = {};
+        // Prevent multi-running during.
+        // .. We'll handle them during a single run instead - by running the while loop (below) again, not a moment before.
+        if (services._chainedUpdates) {
+            services._chainedUpdates!.push(pending);
+            return;
+        }
+        
+        // Add.
+        services._chainedUpdates = [pending];
 
+        // Loop, and update again immediately, if new ones collected.
+        let p: HostUpdateCycleInfo | undefined;
+        let iSub = 0;
+        while (p = services._chainedUpdates[iSub++]) {
+            
             // - DEV-LOG - //
             //
             // Useful part of info in the mid scale.
             //
             // console.log("--- Inner update: HOST-SERVICES 1. UPDATE - SUB CYCLE ---");
+
+            // Reset the refresh id and indication that updates are being processed.
+            services._whileUpdating = {};
+
 
             // Collect output.
             let renderInfos: MixDOMRenderInfo[] = [];
@@ -496,7 +514,7 @@ export class HostServices {
 
             // Run update for each.
             // .. Do smart sorting here if has at least 2 boundaries.
-            for (const boundary of (pending.updates.size > 1 ? sortBoundaries(pending.updates) : [...pending.updates])) {
+            for (const boundary of (p.updates.size > 1 ? sortBoundaries(p.updates) : p.updates)) {
                 // Mark update id.
                 boundary._updateId = services._whileUpdating;
                 // Update.
@@ -514,11 +532,14 @@ export class HostServices {
                 services.renderCycle.pending.rCalls.push(bChanges);
 
             // Reassign pending (for another loop).
-            pending = services.updateCycle.resetPending();
+            p = services.updateCycle.resetPending();
+            if (p.updates.size)
+                services._chainedUpdates.push(p);
         }
 
         // Finished.
         delete services._whileUpdating;
+        delete services._chainedUpdates;
 
         // Call listeners - we just do it automatically by having resolvePromise be auto-called after.
         // resolvePromise();

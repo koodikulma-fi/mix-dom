@@ -1,7 +1,7 @@
 import { CompareDepthMode } from 'data-memo';
-import { ContextsAllType, ContextAPIType, ContextAPI, RefreshCycle, SignalBoy, OmitPartial, SetLike, IsAny, SignalManType, SignalMan, NodeJSTimeout, SignalListener, SignalBoyType, Context, SignalsRecord } from 'data-signals';
-import { DOMTags, DOMAttributesBy_native, DOMAttributesBy_camelCase, DOMElement, DOMDiffProps, DOMAttributesAny_camelCase, DOMAttributes_camelCase, DOMAttributesAny_native, DOMAttributes_native, DOMCleanProps } from 'dom-types';
-import { AsClass, ClassType, InstanceTypeFrom, IterateBackwards, ReClass } from 'mixin-types';
+import { IsAny, SignalListener, SignalBoyType, SignalBoy, ContextsAllType, ContextAPIType, ContextAPI, RefreshCycle, SetLike, OmitPartial, SignalManType, SignalMan, NodeJSTimeout, Context, SignalsRecord } from 'data-signals';
+import { DOMTags, DOMAttributesBy_native, DOMAttributesBy_camelCase, DOMDiffProps, DOMElement, DOMAttributesAny_camelCase, DOMAttributes_camelCase, DOMAttributesAny_native, DOMAttributes_native, DOMCleanProps } from 'dom-types';
+import { AsClass, ClassType, ReClass, InstanceTypeFrom, IterateBackwards } from 'mixin-types';
 
 /** The intrinsic attributes for JSX in native (for listeners and aria props). Recommended when wanting to match traditional string like HTML code inputting (can often just copy-paste the string, and works as TSX directly). */
 type IntrinsicAttributesBy_native = {
@@ -105,28 +105,241 @@ declare namespace JSX_mixedCase {
     }
 }
 
-declare class ContentBoundary extends BaseBoundary {
-    /** The def whose children define our content - we are a fragment-like container. */
-    targetDef: MixDOMDefTarget;
-    /** Redefine that we always have it. It's based on the targetDef. */
-    _innerDef: MixDOMDefApplied;
-    /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
-     * - Note that the content might get passed through many boundaries, but now we have landed it.
-     */
-    sourceBoundary: SourceBoundary;
-    /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
-     * - Note that it gets assigned (externally) immediately after constructor is called.
-     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries.
-     */
-    parentBoundary: SourceBoundary | ContentBoundary;
-    /** Content boundaries will never feature component. So can be used for checks to know if is a source or content boundary. */
-    component?: never;
-    /** Content boundaries will never feature bId. So can be used for checks to know if is a source or content boundary. */
-    bId?: never;
-    constructor(outerDef: MixDOMDefApplied, targetDef: MixDOMDefTarget, treeNode: MixDOMTreeNode, sourceBoundary: SourceBoundary);
-    /** Apply a targetDef from the new envelope. Simply sets the defs accordingly. */
-    updateEnvelope(targetDef: MixDOMDefTarget, truePassDef?: MixDOMDefApplied | null): void;
+/** If T is `any`, returns F, which defaults to `{}`, otherwise returns T. */
+type UnlessAny<T, F = {}> = IsAny<T> extends true ? F : T;
+
+declare const MixDOMContent: MixDOMDefTarget;
+declare const MixDOMContentCopy: MixDOMDefTarget;
+
+type RefDOMSignals<Type extends Node = Node> = {
+    /** Called when a ref is about to be attached to a dom element. */
+    domDidAttach: (domNode: Type) => void;
+    /** Called when a ref is about to be detached from a dom element. */
+    domWillDetach: (domNode: Type) => void;
+    /** Called when a reffed dom element has been mounted: rendered into the dom for the first time. */
+    domDidMount: (domNode: Type) => void;
+    /** Called when a reffed dom element updates (not on the mount run). */
+    domDidUpdate: (domNode: Type, diffs: DOMDiffProps) => void;
+    /** Called when the html content of a dom element has changed. */
+    domDidContent: (domNode: Type, simpleContent: MixDOMContentSimple | null) => void;
+    /** Called when a reffed dom element has been moved in the tree. */
+    domDidMove: (domNode: Type, fromContainer: Node | null, fromNextSibling: Node | null) => void;
+    /** Return true to salvage the element: won't be removed from dom.
+     * This is only useful for fade out animations, when the parenting elements also stay in the dom (and respective children). */
+    domWillUnmount: (domNode: Type) => boolean | void;
+};
+type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither, Instance extends ComponentInstance<Type> = ComponentInstance<Type>> = {
+    /** Called when a ref is about to be attached to a component. */
+    didAttach: (component: Type) => void;
+    /** Called when a ref is about to be detached from a component. */
+    willDetach: (component: Type | ContentBoundary) => void;
+} & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
+type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
+interface RefBase {
+    signals: Partial<Record<string, SignalListener[]>>;
+    treeNodes: Set<MixDOMTreeNode>;
+    getTreeNode(): MixDOMTreeNode | null;
+    getTreeNodes(): MixDOMTreeNode[];
+    getElement(onlyForDOMRefs?: boolean): Node | null;
+    getElements(onlyForDOMRefs?: boolean): Node[];
+    getComponent(): Component | null;
+    getComponents(): Component[];
 }
+interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoyType<RefSignals<Type>> {
+    new (): Ref<Type>;
+    MIX_DOM_CLASS: string;
+    /** Internal call tracker. */
+    onListener(instance: RefBase & SignalBoy<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
+    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
+    didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
+    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
+    willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
+}
+/** Class to help keep track of components or DOM elements in the state based tree. */
+declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoy<RefSignals<Type>> {
+    static MIX_DOM_CLASS: string;
+    /** The collection (for clarity) of tree nodes where is attached to.
+     * It's not needed internally but might be useful for custom needs. */
+    treeNodes: Set<MixDOMTreeNode>;
+    constructor(...args: any[]);
+    /** This returns the last reffed treeNode, or null if none.
+     * - The MixDOMTreeNode is a descriptive object attached to a location in the grounded tree. Any tree node can be targeted by refs.
+     * - The method works as if the behaviour was to always override with the last one.
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
+    getTreeNode(): MixDOMTreeNode | null;
+    /** This returns all the currently reffed tree nodes (in the order added). */
+    getTreeNodes(): MixDOMTreeNode[];
+    /** This returns the last reffed domNode, or null if none.
+     * - The method works as if the behaviour was to always override with the last one.
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
+    getElement(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type | null : Node | null;
+    /** This returns all the currently reffed dom nodes (in the order added). */
+    getElements(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type[] : Node[];
+    /** This returns the last reffed component, or null if none.
+     * - The method works as if the behaviour was to always override with the last one.
+     * - Except that if the last one is removed, falls back to earlier existing.
+     */
+    getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null;
+    /** This returns all the currently reffed components (in the order added). */
+    getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[];
+    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
+    static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void;
+    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
+    static didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
+    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
+    static willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
+}
+
+/** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
+type SpreadFunc<Props extends Record<string, any> = {}> = (props: SpreadFuncProps & Props) => MixDOMRenderOutput;
+/** Typing for a SpreadFunc with extra arguments. Note that it's important to define the JS side as (props, ...args) so that the func.length === 1.
+ * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
+ */
+type SpreadFuncWith<Props extends Record<string, any> = {}, ExtraArgs extends any[] = any[]> = (props: SpreadFuncProps & Props, ...args: ExtraArgs) => MixDOMRenderOutput;
+/** Check whether the type is a SpreadFunc.
+ * ```
+ * type TestSpreads = [
+ *
+ *      // - Simple cases - //
+ *
+ *      // Not a spread.
+ *      IsSpreadFunc<Component>,                            // false
+ *      IsSpreadFunc<typeof Component>,                     // false
+ *      IsSpreadFunc<ComponentFunc>,                        // false
+ *      IsSpreadFunc<(props: false) => null>,               // false
+ *      // Is a spread.
+ *      IsSpreadFunc<SpreadFunc>,                           // true
+ *      IsSpreadFunc<() => null>,                           // true
+ *      IsSpreadFunc<(props: {}) => null>,                  // true
+ *
+ *
+ *      // - Complex cases - //
+ *
+ *      // Not a spread.
+ *      IsSpreadFunc<(props: {}, test: any) => null>,       // false
+ *      IsSpreadFunc<(props: {}, test?: any) => null>,      // false
+ *      IsSpreadFunc<(props?: {}, test?: any) => null>,     // false
+ *      IsSpreadFunc<(props: {}, test: any, ...more: any[]) => null>,   // false
+ *      IsSpreadFunc<(props?: {}, test?: any, ...more: any[]) => null>, // false
+ *      // Is a spread.
+ *      // .. Note that on the JS side the arguments length is 1.
+ *      IsSpreadFunc<(props: {}, ...test: any[]) => null>,  // true
+ * ];
+ * ```
+ */
+type IsSpreadFunc<Anything> = Anything extends (props?: Record<string, any>, ...args: any[]) => MixDOMRenderOutput ? Parameters<Anything>["length"] extends 0 | 1 ? true : number extends Parameters<Anything>["length"] ? Parameters<Anything> extends [any, ...infer Rest] ? any[] extends Rest ? true : false : false : false : false;
+/** The spread function props including the internal props `_disable` and `_key`. */
+interface SpreadFuncProps extends MixDOMInternalBaseProps {
+}
+/** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
+ * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
+ * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
+ *      * This intermediary function actually supports feeding in more arguments - this works since a func with (props, ...args) actually has length = 1.
+ *      * If you want to include the props and extra arguments typing into the resulting function use the createSpreadWith function instead (it also automatically reads the types).
+ */
+declare const createSpread: <Props extends Record<string, any> = {}>(func: (props: Props, ...args: any[]) => MixDOMRenderOutput) => SpreadFunc<Props>;
+/** Create a SpreadFunc by automatically reading the types for Props and ExtraArgs from the given function. See createSpread for details.
+ * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
+ */
+declare const createSpreadWith: <Props extends Record<string, any>, ExtraArgs extends any[]>(func: (props: Props, ...args: ExtraArgs) => MixDOMRenderOutput) => SpreadFuncWith<Props, ExtraArgs>;
+
+type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
+    /** Special call - called right after constructing. */
+    preMount: () => void;
+    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
+    didMount: () => void;
+    /** This is a callback that will always be called when the component is checked for updates.
+     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
+     * - This is the perfect place to use data memos and triggers, as you can modify the state immediately and the mods will be included in the current update run.
+     *      * Access the new values in component.props and component.state (new props are set right before, and state read right after).
+     *      * Note that you can also use data triggers inside the render function and even change state during.
+     *          - If state is changed during render call, will just call the render method again instantly - either way, the changes are included in the very same update run.
+     */
+    beforeUpdate: () => void;
+    /** Callback to determine whether should update or not.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - If returns true, component will update. If false, will not.
+     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
+     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
+     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
+    shouldUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => boolean | null;
+    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - Notes:
+     *      * This is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
+     *      * This will be called right after onShouldUpdate (if that is called) and right before the update happens.
+     *      * By this time all the data has been updated already. So use preUpdates to get what it was before.
+     *      * In case you update the state during the render call, this will not be called again (= it's just 1 update, even though re-renders again).
+     */
+    preUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined, willUpdate: boolean) => void;
+    /** Called after the component has updated and changes been rendered into the dom.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     */
+    didUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => void;
+    /** Called when the component has moved in the tree structure. */
+    didMove: () => void;
+    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
+    willUnmount: () => void;
+};
+type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
+    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
+        ["constructor"]: Info["static"];
+    }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
+};
+type ComponentExternalSignals<Comp extends Component = Component> = {
+    /** Special call - called right after constructing the component instance. */
+    preMount: (component: Comp) => void;
+    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
+    didMount: (component: Comp) => void;
+    /** This is a callback that will always be called when the component is checked for updates.
+     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
+     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
+     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     */
+    beforeUpdate: (component: Comp) => void;
+    /** Callback to determine whether should update or not.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - If returns true, component will update. If false, will not.
+     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
+     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
+     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
+     */
+    shouldUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"]) => boolean | null;
+    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
+     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
+     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     */
+    preUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"], willUpdate: boolean) => void;
+    /** Called after the component has updated and changes been rendered into the dom.
+     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
+     */
+    didUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
+        props?: {};
+    })["props"], prevState: (Comp["constructor"]["_Info"] & {
+        state?: {};
+    })["state"]) => void;
+    /** Called when the component has moved in the tree structure. */
+    didMove: (component: Comp) => void;
+    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
+    willUnmount: (component: Comp) => void;
+};
 
 /** This is simply a tiny class that is used to manage the host duplication features in a consistent way.
  * - Each Host has a `.shadowAPI`, but it's the very same class instance for all the hosts that are duplicated - the original and any duplicates have the same instance here.
@@ -204,7 +417,7 @@ declare class HostServices {
     /** Temporary value (only needed for .onlyRunInContainer setting). */
     private _rootDisabled?;
     /** Temporary flag to mark while update process is in progress that also serves as an host update cycle id.
-     * - The value only exists during updating, and is renewed for each update cycle, and finally synchronously removed.
+     * - The member only exists during updating (synchronously toggled on and off), and is renewed for each update cycle, and finally synchronously removed.
      * - Currently, it's used for special cases related to content passing and simultaneous destruction of intermediary source boundaries.
      *      * The case is where simultaneously destroys an intermediary boundary and envelope. Then shouldn't run the destruction for the defs that were moved out.
      *      * Can test by checking whether def.updateId exists and compare it against _whileUpdating. If matches, already paired -> don't destroy.
@@ -218,6 +431,11 @@ declare class HostServices {
      *          - This is then used to detect if the interested boundary has _not yet been updated_ during this cycle, and if so to _not_ update it instantly, but just mark _forceUpdate = true.
      */
     _whileUpdating?: {};
+    /** This holds more a chain of updates for running the update cycle.
+     * - If further updates are triggered (recursively by the current generation of updates), they are added here and executed right after.
+     * - The array contains all the synchronously connected consequent update cycles until they have all been cleared, and then the member is deleted.
+     */
+    _chainedUpdates?: HostUpdateCycleInfo[];
     constructor(host: Host);
     /** This creates a new boundary id in the form of "h-hostId:b-bId", where hostId and bId are strings from the id counters. For example: "h-1:b:5"  */
     createBoundaryId(): MixDOMSourceBoundaryId;
@@ -249,369 +467,11 @@ declare class HostServices {
     /** Initialize cycles. */
     static initializeCyclesFor(services: HostServices): void;
     /** This method should always be used when executing updates within a host - it's the main orchestrator of updates.
-     * To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
+     * - To add to post updates use the .absorbUpdates() method above. It triggers calling this with the assigned timeout, so many are handled together.
      */
     static runUpdates(services: HostServices, pending: HostUpdateCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static runRenders(services: HostServices, pending: HostRenderCycleInfo, resolvePromise: (keepResolving?: boolean) => void): void;
     static shouldUpdateBy(boundary: SourceBoundary, prevProps: Record<string, any> | undefined, prevState: Record<string, any> | undefined): boolean;
-}
-
-/** Typing for a SpreadFunc: It's like a Component, except it's spread out immediately on the parent render scope when defined. */
-type SpreadFunc<Props extends Record<string, any> = {}> = (props: SpreadFuncProps & Props) => MixDOMRenderOutput;
-/** Typing for a SpreadFunc with extra arguments. Note that it's important to define the JS side as (props, ...args) so that the func.length === 1.
- * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
- */
-type SpreadFuncWith<Props extends Record<string, any> = {}, ExtraArgs extends any[] = any[]> = (props: SpreadFuncProps & Props, ...args: ExtraArgs) => MixDOMRenderOutput;
-/** Check whether the type is a SpreadFunc.
- * ```
- * type TestSpreads = [
- *
- *      // - Simple cases - //
- *
- *      // Not a spread.
- *      IsSpreadFunc<Component>,                            // false
- *      IsSpreadFunc<typeof Component>,                     // false
- *      IsSpreadFunc<ComponentFunc>,                        // false
- *      IsSpreadFunc<(props: false) => null>,               // false
- *      // Is a spread.
- *      IsSpreadFunc<SpreadFunc>,                           // true
- *      IsSpreadFunc<() => null>,                           // true
- *      IsSpreadFunc<(props: {}) => null>,                  // true
- *
- *
- *      // - Complex cases - //
- *
- *      // Not a spread.
- *      IsSpreadFunc<(props: {}, test: any) => null>,       // false
- *      IsSpreadFunc<(props: {}, test?: any) => null>,      // false
- *      IsSpreadFunc<(props?: {}, test?: any) => null>,     // false
- *      IsSpreadFunc<(props: {}, test: any, ...more: any[]) => null>,   // false
- *      IsSpreadFunc<(props?: {}, test?: any, ...more: any[]) => null>, // false
- *      // Is a spread.
- *      // .. Note that on the JS side the arguments length is 1.
- *      IsSpreadFunc<(props: {}, ...test: any[]) => null>,  // true
- * ];
- * ```
- */
-type IsSpreadFunc<Anything> = Anything extends (props?: Record<string, any>, ...args: any[]) => MixDOMRenderOutput ? Parameters<Anything>["length"] extends 0 | 1 ? true : number extends Parameters<Anything>["length"] ? Parameters<Anything> extends [any, ...infer Rest] ? any[] extends Rest ? true : false : false : false : false;
-/** The spread function props including the internal props `_disable` and `_key`. */
-interface SpreadFuncProps extends MixDOMInternalBaseProps {
-}
-/** Create a SpreadFunc - it's actually just a function with 0 or 1 arguments: (props?).
- * - It's the most performant way to render things (no lifecycle, just spread out with its own pairing scope).
- * - Note that this simply gives back the original function, unless it has more than 1 arguments, in which case an intermediary function is created.
- *      * This intermediary function actually supports feeding in more arguments - this works since a func with (props, ...args) actually has length = 1.
- *      * If you want to include the props and extra arguments typing into the resulting function use the createSpreadWith function instead (it also automatically reads the types).
- */
-declare const createSpread: <Props extends Record<string, any> = {}>(func: (props: Props, ...args: any[]) => MixDOMRenderOutput) => SpreadFunc<Props>;
-/** Create a SpreadFunc by automatically reading the types for Props and ExtraArgs from the given function. See createSpread for details.
- * - The idea is to use the same spread function outside of normal render flow: as a static helper function to produce render defs (utilizing the extra args).
- */
-declare const createSpreadWith: <Props extends Record<string, any>, ExtraArgs extends any[]>(func: (props: Props, ...args: ExtraArgs) => MixDOMRenderOutput) => SpreadFuncWith<Props, ExtraArgs>;
-
-type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
-    /** Special call - called right after constructing. */
-    preMount: () => void;
-    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
-    didMount: () => void;
-    /** This is a callback that will always be called when the component is checked for updates.
-     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
-     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
-     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
-     */
-    beforeUpdate: () => void;
-    /** Callback to determine whether should update or not.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - If returns true, component will update. If false, will not.
-     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
-     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
-     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
-     */
-    shouldUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => boolean | null;
-    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
-     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     */
-    preUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined, willUpdate: boolean) => void;
-    /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     */
-    didUpdate: (prevProps: Info["props"] | undefined, prevState: Info["state"] | undefined) => void;
-    /** Called when the component has moved in the tree structure. */
-    didMove: () => void;
-    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
-    willUnmount: () => void;
-};
-type ComponentExternalSignalsFrom<Info extends Partial<ComponentInfo> = Partial<ComponentInfo>, Comp extends Component = Component<Info>, CompSignals extends Record<string, (...args: any[]) => any | void> = ComponentSignals<Info> & Info["signals"]> = {
-    [SignalName in keyof CompSignals]: (comp: Comp & Info["class"] & {
-        ["constructor"]: Info["static"];
-    }, ...params: Parameters<CompSignals[SignalName]>) => ReturnType<CompSignals[SignalName]>;
-};
-type ComponentExternalSignals<Comp extends Component = Component> = {
-    /** Special call - called right after constructing the component instance. */
-    preMount: (component: Comp) => void;
-    /** Callback that is fired after the initial rendering has been done and elements are in the dom. After any further updates onUpdate (and onPreUpdate and onShouldUpdate) are called. */
-    didMount: (component: Comp) => void;
-    /** This is a callback that will always be called when the component is checked for updates.
-     * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
-     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state.
-     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
-     */
-    beforeUpdate: (component: Comp) => void;
-    /** Callback to determine whether should update or not.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - If returns true, component will update. If false, will not.
-     * - If returns null (or no onShouldUpdate method assigned), will use the rendering settings to determine.
-     * - Note that this is not called every time necessarily (never on mount, and not if was forced).
-     * - Note that this is called right before onPreUpdate and the actual update (if that happens).
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     * - Note that due to handling return value, emitting this particular signal is handled a bit differently. If any says true, will update, otherwise will not.
-     */
-    shouldUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"]) => boolean | null;
-    /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
-     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
-     */
-    preUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"], willUpdate: boolean) => void;
-    /** Called after the component has updated and changes been rendered into the dom.
-     * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     */
-    didUpdate: (component: Comp, prevProps: (Comp["constructor"]["_Info"] & {
-        props?: {};
-    })["props"], prevState: (Comp["constructor"]["_Info"] & {
-        state?: {};
-    })["state"]) => void;
-    /** Called when the component has moved in the tree structure. */
-    didMove: (component: Comp) => void;
-    /** Called when the component is about to be ungrounded: removed from the tree and dom elements destroyed. */
-    willUnmount: (component: Comp) => void;
-};
-
-/** Type for the ComponentShadowAPI signals. */
-type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
-type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: ComponentProps<Info>, component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: ComponentProps<Info>, component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: ComponentProps<Info>, component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & {
-    Info?: Info;
-    api: ComponentShadowAPI<Info>;
-};
-/** The static class type for ComponentShadow. */
-interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
-    api: ComponentShadowAPI<Info>;
-}
-/** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
-interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
-    ["constructor"]: ComponentShadowType<Info>;
-}
-/** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
-interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
-    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
-}
-
-/** The API instance of the shadow connected components. It allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
-declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = ComponentInfoAny> extends SignalBoy<ComponentShadowSignals<Info>> {
-    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
-    components: Set<Component<Info>>;
-    /** Default update modes. Can be overridden by the component's updateModes. */
-    updateModes?: Partial<MixDOMUpdateCompareModesBy>;
-    /** Call this to trigger an update on the instanced components. */
-    update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
-    static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean): void;
-}
-/** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
- * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
- * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
- * - Note that when including static properties, the typing only requires them in functional form - if the 1st arg is a class, then typing for staticProps is partial.
-*/
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: [staticProps?: Partial<Info["static"]> | null, name?: string] | [name?: string]): ComponentShadowType<Info>;
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowFunc<Info>;
-declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
-/** Create a shadow component function with ComponentContextAPI omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
-declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]) => ComponentShadowFuncWith<Info>;
-
-/** Typing infos for Components. */
-interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI;
-} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> {
-    /** Typing for the props for the component - will be passed by parent. */
-    props: Props;
-    /** Typing for the local state of the component. */
-    state: State;
-    /** Only for functional components - can type extending the component with methods and members.
-     * - For example: `{ class: { doSomething(what: string): void; }; }`
-     * - And then `(initProps, component) => { component.doSomething = (what) => { ... } }`
-     */
-    class: Class;
-    /** Typed signals. For example `{ signals: { onSomething: (what: string) => void; }; }`.
-     * - Note that these are passed on to the props._signals typing. However props._signals will not actually be found inside the render method.
-     */
-    signals: Signals;
-    /** Typing for timers. Usually strings but can be anything. */
-    timers: Timers;
-    /** Typing for the related contexts: a dictionary where keys are context names and values are each context.
-     * - The actual contexts can be attached directly on the Component using its contextAPI or _contexts prop, but they are also secondarily inherited from the Host.
-     */
-    contexts: Contexts;
-    /** Anything on static side of class, including what is attached to the functions directly. In both cases: `SomeComponent.someStaticMember` - be their funcs or classes. */
-    static: Static;
-}
-/** Partial version of the ComponentInfo. */
-interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI;
-} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
-}
-/** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
-interface ComponentInfoAny {
-    props?: any;
-    state?: any;
-    signals?: any;
-    class?: {};
-    static?: {};
-    timers?: any;
-    contexts?: any;
-}
-/** Empty component info type. */
-type ComponentInfoEmpty = {
-    props?: {};
-    state?: {};
-    signals?: {};
-    class?: {};
-    static?: {};
-    timers?: {};
-    contexts?: {};
-};
-/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
-interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI;
-} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
-}
-/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
-interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI;
-} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
-}
-/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
-type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
-    api?: ComponentShadowAPI;
-} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
-/** Type for anything that from which component info can be derived. */
-type ComponentInfoInterpretable = Partial<ComponentInfo> | {
-    _Info?: Partial<ComponentInfo>;
-} | Component | ComponentType | ComponentFunc | SpreadFunc;
-/** Robust component info reader from any kind of type: info object, component class type or instance, component function or spread function. Define BaseInfo to enforce the known outcome, eg. using ComponentInfoEmpty. */
-type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {}> = BaseInfo & (Anything extends ClassType | undefined ? (InstanceTypeFrom<Anything> & {
-    ["constructor"]: {
-        _Info?: {};
-    };
-})["constructor"]["_Info"] : Anything extends {
-    _Info?: Partial<ComponentInfo>;
-} | undefined ? (Anything & {
-    _Info?: {};
-})["_Info"] : Anything extends {
-    constructor: {
-        _Info?: Partial<ComponentInfo>;
-    };
-} | undefined ? (Anything & {
-    constructor: {
-        _Info?: {};
-    };
-})["constructor"]["_Info"] : Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> : Anything extends Partial<ComponentInfo> | undefined ? {
-    [Key in string & keyof ComponentInfo & keyof Anything]: Anything[Key];
-} : {});
-/** Read merged info from multiple anythings inputted as an array. */
-type ReadComponentInfos<Anythings extends any[], BaseInfo extends Record<string, any> = {}, Index extends number = Anythings["length"], Collected extends Partial<ComponentInfo> = {}> = number extends Index ? Collected & BaseInfo : Index extends 0 ? Collected & BaseInfo : ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
-/** For mixing components together, this reads any kind of info that refers to mixable's "_Required" part (in any form from anything, supporting mixables and HOCs).
- * - The _Required info indicates what the mixable component requires before it in the mixing chain.
- * - The actual info in _Required can be info or a componentfunc with info or such, but in here we read only the component info part from it.
- */
-type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, any> = {}> = Anything extends {
-    _Required?: ComponentInfoInterpretable;
-} | undefined ? ReadComponentInfo<(Anything & {})["_Required"], BaseInfo> : Anything extends {
-    constructor: {
-        _Required?: ComponentInfoInterpretable;
-    };
-} | undefined ? ReadComponentInfo<(Anything & {
-    constructor: {
-        _Required?: {};
-    };
-})["constructor"]["_Required"], BaseInfo> : Anything extends ClassType<{
-    constructor: {
-        _Required?: ComponentInfoInterpretable;
-    };
-}> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & {
-    ["constructor"]: {
-        _Required?: {};
-    };
-})["constructor"]["_Required"], BaseInfo> : Anything extends ((...args: any[]) => any | void) | undefined ? Anything extends (Base: ComponentTypeAny) => ComponentTypeAny ? ReadComponentInfo<Parameters<Anything>[0], BaseInfo> : Parameters<(Anything & {})> extends [Record<string, any> | undefined, {
-    constructor: {
-        _Required?: ComponentInfoInterpretable;
-    };
-}] ? ReadComponentInfo<Parameters<(Anything & {})>[1]["constructor"]["_Required"], BaseInfo> : BaseInfo : BaseInfo;
-/** Reads component info based on function's arguments, or return (for mixables). Provides BaseInfo to enforce the type. */
-type ReadComponentInfoFromArgsReturn<Params extends any[], Return extends any = void> = Params extends [Record<string, any> | undefined, {
-    constructor: {
-        _Info?: Partial<ComponentInfo>;
-    };
-}, ...any[]] ? Params[1]["constructor"]["_Info"] : Params extends [ComponentTypeAny] ? Return extends ComponentTypeAny ? ReadComponentInfo<Return> : {} : Params extends [Record<string, any>] ? {
-    props: Params[0];
-} : {};
-
-/** Type for Component class instance with ContextAPI. Also includes the signals that ContextAPI brings. */
-interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
-    /** The ContextAPI instance hooked up to this component. */
-    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
-}
-/** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & {
-    ["constructor"]: Info["static"];
-};
-/** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
-type ComponentCtxFunc<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
-    _Info?: Info;
-} & Info["static"];
-/** Class type for ComponentContextAPI. */
-interface ComponentContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> {
-}
-interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    /** Constructor as a typed property. */
-    ["constructor"]: ComponentContextAPIType<Contexts>;
-    /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
-     * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).
-     * - It's assigned as a member to write ComponentContextAPI as a clean class.
-     */
-    host: Host<Contexts>;
-    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
-     * - If there's nothing pending, then will resolve immediately.
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
-     */
-    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
-}
-/** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
-declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
-    host: Host<Contexts>;
-    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
-    awaitDelay(): Promise<void>;
 }
 
 /** The basic dom node cloning modes - either deep or shallow: element.clone(mode === "deep").
@@ -620,6 +480,10 @@ declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends
 type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
+/** Handler for processing innerHTML for `MixDOM.defHTML` upon rendering. Should return the processed string, if returns `null` will not do anything. */
+type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & {
+    def: MixDOMDefApplied & MixDOMDefContent;
+}) => string | null;
 type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
 interface HostType<Contexts extends ContextsAllType = {}> {
     /** Used for host based id's. To help with sorting fluently across hosts. */
@@ -686,10 +550,15 @@ interface HostSettings {
      * - You can also pass in a callback to do custom rendering - should return a Node, or then falls back to textNode.
      */
     renderTextTag: MixDOMRenderTextTag;
-    /** Tag to use for as a fallback when using the MixDOM.defHTML feature (that uses .innerHTML on a dummy element). Defaults to "span".
+    /** Tag to use for as a fallback when using the `MixDOM.defHTML` feature (that uses .innerHTML on a dummy element). Defaults to "span".
      * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use.
      */
     renderHTMLDefTag: DOMTags;
+    /** Define a callback to process the innerHTML string produced by `MixDOM.defHTML`.
+     * - The callback is called when applies to DOM. If not given, applies the string directly.
+     * - The callback should return the processed string - if the callback returns `null` will not do anything (= not apply changes to DOM).
+     */
+    renderInnerHTML: MixDOMRenderInnerHTMLCallback | null;
     /** If you want to process the simple content text, assign a callback here. */
     renderTextHandler: MixDOMRenderTextContentCallback | null;
     /** This defines how MixDOM will treat "simple content". The options are:
@@ -987,10 +856,8 @@ declare class Host<Contexts extends ContextsAllType = any> {
     static getDefaultSettings(): HostSettings;
 }
 
-type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "debugMode">;
+type HostRenderSettings = Pick<HostSettings, "renderTextHandler" | "renderTextTag" | "renderInnerHTML" | "renderHTMLDefTag" | "renderSVGNamespaceURI" | "renderDOMPropsOnSwap" | "noRenderValuesMode" | "disableRendering" | "duplicateDOMNodeHandler" | "duplicateDOMNodeBehaviour" | "debugMode">;
 declare class HostRender {
-    /** These imply which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
-    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>>;
     /** Detect if is running in browser or not. */
     inBrowser: boolean;
     /** Root for pausing. */
@@ -1113,7 +980,7 @@ declare class HostRender {
     /** Returns a single html element.
      * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
      */
-    static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean): Node | null;
+    static domNodeFrom(innerHTML: string, fallbackTagOrEl?: DOMTags | HTMLElement, keepTag?: boolean, renderInnerHTML?: MixDOMRenderInnerHTMLCallback | null, treeNode?: MixDOMTreeNodeDOM): Node | null;
     /** Read the content inside a (root) tree node as a html string. Useful for server side or static rendering.
      * @param treeNode An abstract info object: MixDOMTreeNode. Contains all the necessary info and linking and implies tree structure.
      * @param escapeHTML Defaults to false. If set to true escapes the `&`, `<` and `>` characters in text content.
@@ -1150,114 +1017,122 @@ declare class HostRender {
     private static isVirtualItemOk;
 }
 
-/** If T is `any`, returns F, which defaults to `{}`, otherwise returns T. */
-type UnlessAny<T, F = {}> = IsAny<T> extends true ? F : T;
-
-interface MixDOMPrePseudoProps extends MixDOMInternalBaseProps {
+/** Type for Component class instance with ContextAPI. Also includes the signals that ContextAPI brings. */
+interface ComponentCtx<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    /** The ContextAPI instance hooked up to this component. */
+    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
-interface PseudoFragmentProps extends MixDOMPrePseudoProps {
-}
-/** Fragment represent a list of render output instead of stuff under one root. Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>` */
-declare class PseudoFragment<Props = {}> {
-    ["constructor"]: {
-        _Info?: {
-            props: PseudoFragmentProps & Props;
-        };
-    };
-    static MIX_DOM_CLASS: string;
-    readonly props: PseudoFragmentProps & Props;
-    constructor(_props: PseudoFragmentProps & Props);
-}
-interface PseudoPortalProps extends MixDOMPrePseudoProps {
-    container: Node | null;
-}
-/** Portal allows to insert the content into a foreign dom node.
- * Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>` */
-declare class PseudoPortal<Props = {}> {
-    ["constructor"]: {
-        _Info?: {
-            props: PseudoPortalProps & Props;
-        };
-    };
-    static MIX_DOM_CLASS: string;
-    readonly props: PseudoPortalProps & Props;
-    constructor(_props: PseudoPortalProps & Props);
-}
-type PseudoElementProps<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
-    /** HTML or SVG element to smuggle in. */
-    element: HTMLElement | SVGElement | null;
-    /** Determines what happens when meeting duplicates.
-     * - If == null, uses the Host based setting.
-     * - If boolean, then is either "deep" or nothing. */
-    cloneMode?: boolean | MixDOMCloneNodeBehaviour | null;
+/** Type for Component class type with ContextAPI. Also includes the signals that ContextAPI brings. */
+type ComponentTypeCtx<Info extends Partial<ComponentInfo> = {}> = Component<Info> & Info["class"] & {
+    ["constructor"]: Info["static"];
 };
-/** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
- * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
+/** Type for Component function with ContextAPI. Also includes the signals that ContextAPI brings. */
+type ComponentCtxFunc<Info extends Partial<ComponentInfo> = {}> = ((initProps: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
+    _Info?: Info;
+} & Info["static"];
+/** Class type for ComponentContextAPI. */
+interface ComponentContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<ContextAPIType<Contexts>, ComponentContextAPI<Contexts>, []> {
+}
+interface ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    /** Constructor as a typed property. */
+    ["constructor"]: ComponentContextAPIType<Contexts>;
+    /** The Host that this ContextAPI is related to (through the component). Should be set manually after construction.
+     * - It's used for two purposes: 1. Inheriting contexts, 2. syncing to the host refresh (with the afterRefresh method).
+     * - It's assigned as a member to write ComponentContextAPI as a clean class.
+     */
+    host: Host<Contexts>;
+    /** This triggers a refresh and returns a promise that is resolved when the Component's Host's update / render cycle is completed.
+     * - If there's nothing pending, then will resolve immediately.
+     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+     */
+    afterRefresh(fullDelay?: boolean, updateTimeout?: number | null, renderTimeout?: number | null): Promise<void>;
+}
+/** Component's ContextAPI allows to communicate with named contexts using their signals and data systems. */
+declare class ComponentContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI<Contexts> {
+    host: Host<Contexts>;
+    /** At ComponentContextAPI level, awaitDelay is hooked up to awaiting host's render cycle. */
+    awaitDelay(): Promise<void>;
+}
+
+/** This is what "contains" a Component instance.
+ * - It's a technical boundary between a Component and its Host's update flow orchestration.
+ * - Each component receives its boundary as the 2nd constructor argument: `(props, boundary)`.
  */
-declare class PseudoElement<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
-    ["constructor"]: {
-        _Info?: {
-            props: PseudoElementProps<Tag, DOMCase> & Props;
-        };
-    };
-    static MIX_DOM_CLASS: string;
-    readonly props: PseudoElementProps<Tag, DOMCase> & Props;
-    constructor(_props: PseudoElementProps<Tag, DOMCase> & Props);
+declare class SourceBoundary extends BaseBoundary {
+    /** Redefine that the outer def is about a boundary. */
+    _outerDef: MixDOMDefApplied & MixDOMDefBoundary;
+    /** Temporary rendering state indicator. */
+    _renderPhase?: "active" | "re-updated";
+    /** If has marked to be force updated. */
+    _forceUpdate?: boolean | "all";
+    /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
+    _updateId?: {};
+    /** Our host based quick id. It's mainly used for sorting, and sometimes to detect whether is content or source boundary, helps in debugging too. */
+    bId: MixDOMSourceBoundaryId;
+    /** Shortcut for the component. Only one can be set (and typically one is). */
+    component: Component;
+    /** The content closure tied to this boundary.
+     * - It it's the channel through which our parent passes content to us - regardless of the update flow.
+     * - When tied to a boundary, the content closure has a reference to it as .thruBoundary. (It can also be used without .thruBoundary, see ComponentRemote.) */
+    closure: ContentClosure;
+    constructor(host: Host, outerDef: MixDOMDefApplied & MixDOMDefBoundary, treeNode: MixDOMTreeNode, sourceBoundary?: SourceBoundary);
+    /** Should actually only be called once. Initializes a Component class and assigns renderer and so on. */
+    reattach(): void;
+    update(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    updateBy(updates: MixDOMComponentUpdates, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    render(iRecursion?: number): MixDOMRenderOutput;
+    /** Get a component class for a functional component. If has static properties, creates a new class extending Component and adds the stati properties to it, otherwise uses Component directly. */
+    static getComponentFuncClass(func: ComponentFunc): ComponentType;
 }
-/** Empty dummy component that accepts any props, but always renders null. */
-interface PseudoEmptyProps {
+
+/** The API instance of the shadow connected components. It allows to access the instanced components as well as to use signal listeners (with component extra param as the first one), and trigger updates. */
+declare class ComponentShadowAPI<Info extends Partial<ComponentInfo> = ComponentInfoAny> extends SignalBoy<ComponentShadowSignals<Info>> {
+    /** The currently instanced components that use our custom class as their constructor. A new instance is added upon SourceBoundary's reattach process, and removed upon unmount clean up. */
+    components: Set<Component<Info>>;
+    /** Default update modes. Can be overridden by the component's updateModes. */
+    updateModes?: Partial<MixDOMUpdateCompareModesBy>;
+    /** Call this to trigger an update on the instanced components. */
+    update(update?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
+    /** The onListener callback is required by ComponentShadowAPI's functionality for connecting signals to components fluently. */
+    static onListener(compContextAPI: ComponentShadowAPI, name: string, index: number, wasAdded: boolean): void;
 }
-declare class PseudoEmpty<Props = {}> {
-    ["constructor"]: {
-        _Info?: {
-            props: PseudoEmptyProps & Props;
-        };
-    };
-    static MIX_DOM_CLASS: string;
-    readonly props: PseudoEmptyProps & Props;
-    constructor(_props: PseudoEmptyProps & Props);
-    render(): MixDOMRenderOutput;
+/** Create a shadow component omitting the first initProps: (component). The contextAPI is if has 2 arguments (component, contextAPI).
+ * - Shadow components are normal components, but they have a ComponentShadowAPI attached as component.constructor.api.
+ * - This allows the components to be tracked and managed by the parenting scope who creates the unique component class (whose instances are tracked).
+ * - Note that when including static properties, the typing only requires them in functional form - if the 1st arg is a class, then typing for staticProps is partial.
+*/
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(CompClass: ComponentType<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: [staticProps?: Partial<Info["static"]> | null, name?: string] | [name?: string]): ComponentShadowType<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentFunc<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowFunc<Info>;
+declare function createShadow<Info extends Partial<ComponentInfo> = {}>(compFunc: ComponentTypeEither<Info>, signals?: Partial<ComponentShadowSignals<Info>> | null, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentShadowType<Info> | ComponentShadowFunc<Info>;
+/** Create a shadow component function with ComponentContextAPI omitting the first initProps: (component, contextAPI). The contextAPI is instanced regardless of argument count. */
+declare const createShadowCtx: <Info extends Partial<ComponentInfo<{}, {}, {}, {}, {}, any, {}>> = {}>(func: (component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, signals?: Partial<ComponentShadowSignals> | null, ...args: [name?: string] | [staticProps?: Record<string, any> | null, name?: string]) => ComponentShadowFuncWith<Info>;
+
+/** Type for the ComponentShadowAPI signals. */
+type ComponentShadowSignals<Info extends Partial<ComponentInfo> = {}> = ComponentExternalSignalsFrom<Info, ComponentShadow>;
+type ComponentShadowFunc<Info extends Partial<ComponentInfo> = {}> = (((props: ComponentProps<Info>, component: ComponentShadow<Info>) => ComponentFuncReturn<Info>)) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+type ComponentShadowFuncWith<Info extends Partial<ComponentInfo> = {}> = ((props: ComponentProps<Info>, component: ComponentShadowCtx<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+type ComponentShadowFuncWithout<Info extends Partial<ComponentInfo> = {}> = ((props: ComponentProps<Info>, component: ComponentShadow<Info>, contextAPI?: never) => ComponentFuncReturn<Info>) & {
+    Info?: Info;
+    api: ComponentShadowAPI<Info>;
+};
+/** The static class type for ComponentShadow. */
+interface ComponentShadowType<Info extends Partial<ComponentInfo> = {}> extends ComponentType<Info> {
+    api: ComponentShadowAPI<Info>;
 }
-interface PseudoEmptyRemoteProps extends ComponentRemoteProps {
+/** There is no actual pre-existing class for ComponentShadow. Instead a new class is created when createShadow is used. */
+interface ComponentShadow<Info extends Partial<ComponentInfo> = {}> extends Component<Info> {
+    ["constructor"]: ComponentShadowType<Info>;
 }
-declare const PseudoEmptyRemote_base: ReClass<ComponentRemoteType<{}>, {}, [props: ComponentRemoteProps, boundary?: SourceBoundary | undefined]>;
-/** This is an empty dummy remote class:
- * - Its purpose is to make writing render output easier (1. no empty checks, and 2. for typing):
- *     * For example: `const MyRemote = component.state.PopupRemote || MixDOM.EmptyRemote;`
- *     * You can then access the Content and ContentCopy members, and copyContent(key) and withContent(...contents) methods fluently.
- * - However, they will just return null, so won't have any effect on anything.
- *     * Note also that technically speaking this class extends PseudoEmpty.
- *     * And it only adds the 2 public members (Content and ContentCopy) and 2 public methods (copycontent and withContent).
- *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
- * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
- */
-declare class PseudoEmptyRemote<Props = {}> extends PseudoEmptyRemote_base {
-    constructor(props: ComponentProps<{
-        props: ComponentRemoteProps & Props;
-    }>, boundary?: SourceBoundary);
-    static MIX_DOM_CLASS: string;
-    static Content: MixDOMDefTarget | null;
-    static ContentCopy: MixDOMDefTarget | null;
-    static copyContent: (_key?: any) => MixDOMDefTarget | null;
-    static filterContent: (_filterer: (remote: ComponentRemote, i: number) => boolean, _copyKey?: any) => MixDOMDefTarget | null;
-    static wrapContent: (_wrapper: (remote: ComponentRemote, i: number) => MixDOMRenderOutput, _copyKey?: any) => MixDOMDefTarget | null;
-    static renderContents: (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
-    static hasContent: (_filterer?: ((remote: ComponentRemote, i: number) => boolean) | undefined) => boolean;
-    static WithContent: ComponentTypeEither<{
-        props: {
-            hasContent?: boolean | undefined;
-        };
-    }> & {
-        _WithContent: MixDOMDefTarget;
-        withContents: Set<SourceBoundary>;
-    };
-    static isRemote(): boolean;
-    static sources: ComponentRemote[];
+/** Type for Component with ComponentContextAPI. Also includes the signals that ComponentContextAPI brings. */
+interface ComponentShadowCtx<Info extends Partial<ComponentInfo> = {}> extends ComponentShadow<Info> {
+    contextAPI: ComponentContextAPI<Info["contexts"] & {}>;
 }
-interface PseudoEmptyRemote<Props = {}> extends ComponentRemote<Props & {}> {
-    ["constructor"]: ComponentRemoteType<Props & {}>;
-}
-type MixDOMPseudoTags<Props extends Record<string, any> = {}> = typeof PseudoFragment<Props> | typeof PseudoElement<DOMTags, "mixedCase", Props> | typeof PseudoPortal<Props> | typeof PseudoEmpty<Props> | typeof PseudoEmptyRemote<Props>;
 
 /** The API instance for the wired components - extends ComponentShadowAPI. It's attached as a static `api` property on the wired component function, and it's what connects the component instances together. */
 declare class ComponentWiredAPI<ParentProps extends Record<string, any> = {}, BuiltProps extends Record<string, any> = {}, MixedProps extends Record<string, any> = {}> extends ComponentShadowAPI<{
@@ -1416,165 +1291,6 @@ interface ComponentWired<ParentProps extends Record<string, any> = {}, BuiltProp
 }> {
     ["constructor"]: ComponentWiredType<ParentProps, BuiltProps, MixedProps>;
 }
-
-type WithContentInfo = {
-    props: {
-        /** If set to a boolean value (= not null nor undefined), skips checking whether actually has content and returns the value. */
-        hasContent?: boolean | null;
-    };
-    class: {
-        /** Internal method to check whether has content - checks recursively through the parental chain. */
-        hasContent(): boolean;
-    };
-};
-declare const MixDOMWithContent: ComponentType<WithContentInfo>;
-
-type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
-type ComponentHOCBase = (InnerComp: ComponentTypeAny) => ComponentTypeAny;
-type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo extends Partial<ComponentInfo> = {}> = (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
-type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & {
-    _Required?: ComponentFunc<RequiresInfo>;
-};
-type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
-    _Required?: RequiredFunc;
-};
-/** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
- * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
- * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
- */
-type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfo<BaseAnything> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
-/** Helper to test if the component info from the ExtendingAnything extends the merged infos from the previous components (BaseAnythings) - typically in the mixing chain.
- * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
- * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
- */
-type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
-/** This creates a new ComponentShadowAPI or ComponentWiredAPI and merges updateModes and signals.
- * - If is a ComponentWiredAPI also attaches the last builtProps member, and onBuildProps and onMixProps methods.
- */
-declare function mergeShadowWiredAPIs(apis: Array<ComponentShadowAPI>): ComponentShadowAPI;
-declare function mergeShadowWiredAPIs(apis: Array<ComponentWiredAPI>): ComponentWiredAPI;
-/** This mixes many component functions together. Each should look like: `(initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer`.
- * - Note that this only "purely" mixes the components together (on the initial render call).
- *      * By default does not put a renderer function in the end but just passes last output (preferring funcs, tho). If you want make sure a renderer is in the end, put last param to true: `(...funcs, true)`
- *      * Compare this with `mixFuncsWith(..., composer)`, that always returns a renderer. (And its last argument is auto-typed based on all previous.)
- * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
- *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixClassFuncs instead).
- *      * You should type each function most often with `ComponentFunc<Info>` type or `MixDOM.component<Info>()` method. If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
- * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ComponentShadowAPI | ComponentWiredAPI.
- * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
- *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
- *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
- * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
- */
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, useRenderer?: boolean): ComponentFunc<ReadComponentInfo<A>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>>(a: A, b: B, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>>(a: A, b: B, c: C, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>>(a: A, b: B, c: C, d: D, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D, E]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
-declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, useRenderer?: boolean): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
-/** This mixes many component functions together. Each should look like: (initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer.
- * - Unlike mixFuncs, the last argument is a mixable func that should compose all together, and its typing comes from all previous combined.
- *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
- *      * Alternatively you can add them to the 2nd last function with: `SomeMixFunc as ComponentFunc<ReadComponentInfo<typeof SomeMixFunc, ExtraInfo>>`.
- * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
- *      * Note that you should only use ComponentFunc or ComponentFuncMixable. Not supported for spread functions (makes no sense) nor component classes (not supported).
- *      * You should type each function most often with ComponentFunc<Info> or MixDOM.component<Info>(). If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
- * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
- *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
- *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
- */
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfo<A, ExtraInfo>>>(a: A, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfo<A, ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B], ExtraInfo>>>(a: A, b: B, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C], ExtraInfo>>>(a: A, b: B, c: C, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D], ExtraInfo>>>(a: A, b: B, c: C, d: D, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C, D], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>;
-declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: Mixed, extraInfo?: ExtraInfo): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>;
-/** This returns the original function (to create a mixin class) back but simply helps with typing.
- * - The idea of a mixin is this: `(Base) => class extends Base { ... }`. So it creates a new class that extends the provided base class.
- *     * In the context of Components the idea is that the Base is Component and then different features are added to it.
- *     * Optionally, when used with mixMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
- * - To use this method: `const MyMixin = createMixin<RequiresInfo, MyMixinInfo>(Base => class _MyMixin extends Base { ... }`
- *     * Without the method: `const MyMixin = (Base: GetComponentTypeFrom<RequireInfo>) => class _MyMixin extends (Base as GetComponentTypeFrom<RequireInfo & MyMixinInfo>) { ... }`
- *     * So the trick of this method is simply that the returned function still includes `(Base: Required)`, but _inside_ the func it looks like `(Base: Required & Added)`.
-*/
-declare function createMixin<Info extends Partial<ComponentInfo>, RequiresInfo extends Partial<ComponentInfo> = {}>(func: (Base: GetComponentTypeFrom<RequiresInfo & Info>) => GetComponentTypeFrom<RequiresInfo & Info>): (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
-/** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ...)`.
- * - Note. The last mixin with a render method defined is used as the render method of the combined class.
- * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
- * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
-*/
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>>(a: A): ComponentType<ReadComponentInfo<A>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>>(a: A, b: B): ComponentType<ReadComponentInfos<[A, B]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>>(a: A, b: B, c: C): ComponentType<ReadComponentInfos<[A, B, C]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>>(a: A, b: B, c: C, d: D): ComponentType<ReadComponentInfos<[A, B, C, D]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E): ComponentType<ReadComponentInfos<[A, B, C, D, E]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F): ComponentType<ReadComponentInfos<[A, B, C, D, E, F]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
-declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
-/** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
- * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
- * - This is like mixFuncsWith but for mixins. On the javascript this function is teh same as MixDOM.mixMixins.
- */
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, Info extends ReadComponentInfo<A, ExtraInfo>>(a: A, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, Info extends ReadComponentInfos<[A, B], ExtraInfo>>(a: A, b: B, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C], ExtraInfo>>(a: A, b: B, c: C, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D], ExtraInfo>>(a: A, b: B, c: C, d: D, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: ComponentMixinType<Info, Info>, extraInfo?: ExtraInfo): ComponentType<Info>;
-/** Mix many mixins together with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
- * - Note. The last mixin with a render method defined is used as the render method of the combined class.
- * - Note. If you don't want to define a custom component class as the base, you can use the `mixMixins` function instead (which uses the Component class). These two funcs are split to get better typing experience.
- * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
-*/
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>>(base: Base, a: A): ReturnType<A>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>>(base: Base, a: A, b: B): ComponentType<ReadComponentInfos<[Base, A, B]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>>(base: Base, a: A, b: B, c: C): ComponentType<ReadComponentInfos<[Base, A, B, C]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D): ComponentType<ReadComponentInfos<[Base, A, B, C, D]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G]>>;
-declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [Base, A, B, C, D, E, F, G], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G, H]>>;
-/** This mixes together a Component class and one or many functions.
- * - By default, attaches the return of the last function as the renderer (if function type, otherwise an earlier one).
- * - Optionally as the 3rd arg, can provide a boolean to use the class renderer instead. */
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>>(Base: Class, a: A, useClassRender?: boolean): A;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>>(Base: Class, a: A, b: B, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>>(Base: Class, a: A, b: B, c: C, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
-declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [BaseFunc, A, B, C, D, E, F, G], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, useClassRender?: boolean): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
-/** This mixes together a Component class and one or many functions with a composer function as the last function.
- * - The last function is always used as the renderer and its typing is automatic.
- *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
- */
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, Mixed extends ComponentFunc<ReadComponentInfo<BaseFunc, ExtraInfo>>>(Base: Class, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A], ExtraInfo>>>(Base: Class, a: A, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B], ExtraInfo>>>(Base: Class, a: A, b: B, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F, G], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F, G, H], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: Mixed, extraInfo?: ExtraInfo): ComponentType<ReadComponentInfo<Mixed>>;
-/** Combine many HOCs together. */
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A): SpreadFunc<ReadComponentInfo<A, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B): SpreadFunc<ReadComponentInfo<B, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C): SpreadFunc<ReadComponentInfo<C, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D): SpreadFunc<ReadComponentInfo<D, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E): SpreadFunc<ReadComponentInfo<E, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F): SpreadFunc<ReadComponentInfo<F, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G): SpreadFunc<ReadComponentInfo<G, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H): SpreadFunc<ReadComponentInfo<H, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I): SpreadFunc<ReadComponentInfo<I, ComponentInfoEmpty>["props"] & {}>;
-declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny, J extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I, hoc10: (i: I) => J): SpreadFunc<ReadComponentInfo<J, ComponentInfoEmpty>["props"] & {}>;
 
 /** Get the component instance type from component class type or component function, with optional fallback (defaults to Component). */
 type ComponentInstance<CompType extends ComponentType | ComponentFunc> = ComponentWith<ReadComponentInfo<CompType>>;
@@ -1842,6 +1558,133 @@ declare function createComponentCtx<Info extends ComponentInfoPartial = Componen
     ["constructor"]: Info["static"];
 }, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => ComponentFuncReturn<Info>, ...args: {} | undefined extends OmitPartial<Info["static"]> | undefined ? [staticProps?: {} | null, name?: string] | [name?: string] : [staticProps: Info["static"], name?: string]): ComponentCtxFunc<Info>;
 
+/** Typing infos for Components. */
+interface ComponentInfo<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> {
+    /** Typing for the props for the component - will be passed by parent. */
+    props: Props;
+    /** Typing for the local state of the component. */
+    state: State;
+    /** Only for functional components - can type extending the component with methods and members.
+     * - For example: `{ class: { doSomething(what: string): void; }; }`
+     * - And then `(initProps, component) => { component.doSomething = (what) => { ... } }`
+     */
+    class: Class;
+    /** Typed signals. For example `{ signals: { onSomething: (what: string) => void; }; }`.
+     * - Note that these are passed on to the props._signals typing. However props._signals will not actually be found inside the render method.
+     */
+    signals: Signals;
+    /** Typing for timers. Usually strings but can be anything. */
+    timers: Timers;
+    /** Typing for the related contexts: a dictionary where keys are context names and values are each context.
+     * - The actual contexts can be attached directly on the Component using its contextAPI or _contexts prop, but they are also secondarily inherited from the Host.
+     */
+    contexts: Contexts;
+    /** Anything on static side of class, including what is attached to the functions directly. In both cases: `SomeComponent.someStaticMember` - be their funcs or classes. */
+    static: Static;
+}
+/** Partial version of the ComponentInfo. */
+interface ComponentInfoPartial<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> extends Partial<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
+}
+/** Component info that uses `any` for all info parts, except for "class" and "static" uses `{}`. */
+interface ComponentInfoAny {
+    props?: any;
+    state?: any;
+    signals?: any;
+    class?: {};
+    static?: {};
+    timers?: any;
+    contexts?: any;
+}
+/** Empty component info type. */
+type ComponentInfoEmpty = {
+    props?: {};
+    state?: {};
+    signals?: {};
+    class?: {};
+    static?: {};
+    timers?: {};
+    contexts?: {};
+};
+/** This declares a Component class instance but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+interface ComponentOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI;
+} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
+}
+/** This declares a Component class type but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+interface ComponentTypeOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI;
+} = {}, Timers extends any = {}, Contexts extends ContextsAllType = {}> extends ComponentType<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> {
+}
+/** This declares a ComponentFunc but allows to input the Infos one by one: <Props, State, Signals, Class, Static, Timers, Contexts> */
+type ComponentFuncOf<Props extends Record<string, any> = {}, State extends Record<string, any> = {}, Signals extends Record<string, (...args: any[]) => any> = {}, Class extends Record<string, any> = {}, Static extends Record<string, any> & {
+    api?: ComponentShadowAPI;
+} = {}, Timers extends any = any, Contexts extends ContextsAllType = {}> = (initProps: ComponentProps<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>>, component: Component<ComponentInfo<Props, State, Signals, Class, Static, Timers, Contexts>> & Class, contextAPI: ComponentContextAPI<Contexts>) => MixDOMRenderOutput | MixDOMDoubleRenderer<Props, State>;
+/** Type for anything that from which component info can be derived. */
+type ComponentInfoInterpretable = Partial<ComponentInfo> | {
+    _Info?: Partial<ComponentInfo>;
+} | Component | ComponentType | ComponentFunc | SpreadFunc;
+/** Robust component info reader from any kind of type: info object, component class type or instance, component function or spread function. Define BaseInfo to enforce the known outcome, eg. using ComponentInfoEmpty. */
+type ReadComponentInfo<Anything, BaseInfo extends Record<string, any> = {}> = BaseInfo & (Anything extends ClassType | undefined ? (InstanceTypeFrom<Anything> & {
+    ["constructor"]: {
+        _Info?: {};
+    };
+})["constructor"]["_Info"] : Anything extends {
+    _Info?: Partial<ComponentInfo>;
+} | undefined ? (Anything & {
+    _Info?: {};
+})["_Info"] : Anything extends {
+    constructor: {
+        _Info?: Partial<ComponentInfo>;
+    };
+} | undefined ? (Anything & {
+    constructor: {
+        _Info?: {};
+    };
+})["constructor"]["_Info"] : Anything extends ((...args: any[]) => any | void) | undefined ? ReadComponentInfoFromArgsReturn<Parameters<(Anything & {})>, ReturnType<Anything & {}>> : Anything extends Partial<ComponentInfo> | undefined ? {
+    [Key in string & keyof ComponentInfo & keyof Anything]: Anything[Key];
+} : {});
+/** Read merged info from multiple anythings inputted as an array. */
+type ReadComponentInfos<Anythings extends any[], BaseInfo extends Record<string, any> = {}, Index extends number = Anythings["length"], Collected extends Partial<ComponentInfo> = {}> = number extends Index ? Collected & BaseInfo : Index extends 0 ? Collected & BaseInfo : ReadComponentInfos<Anythings, BaseInfo, IterateBackwards[Index], Collected & ReadComponentInfo<Anythings[IterateBackwards[Index]]>>;
+/** For mixing components together, this reads any kind of info that refers to mixable's "_Required" part (in any form from anything, supporting mixables and HOCs).
+ * - The _Required info indicates what the mixable component requires before it in the mixing chain.
+ * - The actual info in _Required can be info or a componentfunc with info or such, but in here we read only the component info part from it.
+ */
+type ReadComponentRequiredInfo<Anything, BaseInfo extends Record<string, any> = {}> = Anything extends {
+    _Required?: ComponentInfoInterpretable;
+} | undefined ? ReadComponentInfo<(Anything & {})["_Required"], BaseInfo> : Anything extends {
+    constructor: {
+        _Required?: ComponentInfoInterpretable;
+    };
+} | undefined ? ReadComponentInfo<(Anything & {
+    constructor: {
+        _Required?: {};
+    };
+})["constructor"]["_Required"], BaseInfo> : Anything extends ClassType<{
+    constructor: {
+        _Required?: ComponentInfoInterpretable;
+    };
+}> | undefined ? ReadComponentInfo<(InstanceTypeFrom<Anything> & {
+    ["constructor"]: {
+        _Required?: {};
+    };
+})["constructor"]["_Required"], BaseInfo> : Anything extends ((...args: any[]) => any | void) | undefined ? Anything extends (Base: ComponentTypeAny) => ComponentTypeAny ? ReadComponentInfo<Parameters<Anything>[0], BaseInfo> : Parameters<(Anything & {})> extends [Record<string, any> | undefined, {
+    constructor: {
+        _Required?: ComponentInfoInterpretable;
+    };
+}] ? ReadComponentInfo<Parameters<(Anything & {})>[1]["constructor"]["_Required"], BaseInfo> : BaseInfo : BaseInfo;
+/** Reads component info based on function's arguments, or return (for mixables). Provides BaseInfo to enforce the type. */
+type ReadComponentInfoFromArgsReturn<Params extends any[], Return extends any = void> = Params extends [Record<string, any> | undefined, {
+    constructor: {
+        _Info?: Partial<ComponentInfo>;
+    };
+}, ...any[]] ? Params[1]["constructor"]["_Info"] : Params extends [ComponentTypeAny] ? Return extends ComponentTypeAny ? ReadComponentInfo<Return> : {} : Params extends [Record<string, any>] ? {
+    props: Params[0];
+} : {};
+
 interface ContentPasserProps<CustomProps extends Record<string, any> = {}> {
     /** Use a copy instead of a true pass. */
     copy?: boolean;
@@ -1954,6 +1797,356 @@ interface ComponentRemoteType<CustomProps extends Record<string, any> = {}> exte
  */
 declare const createRemote: <CustomProps extends Record<string, any> = {}>(name?: string) => ComponentRemoteType<CustomProps>;
 
+interface MixDOMPrePseudoProps extends MixDOMInternalBaseProps {
+}
+interface PseudoFragmentProps extends MixDOMPrePseudoProps {
+}
+/** Fragment represent a list of render output instead of stuff under one root. Usage example: `<MixDOM.Fragment><div/><div/></MixDOM.Fragment>` */
+declare class PseudoFragment<Props = {}> {
+    ["constructor"]: {
+        _Info?: {
+            props: PseudoFragmentProps & Props;
+        };
+    };
+    static MIX_DOM_CLASS: string;
+    readonly props: PseudoFragmentProps & Props;
+    constructor(_props: PseudoFragmentProps & Props);
+}
+interface PseudoPortalProps extends MixDOMPrePseudoProps {
+    container: Node | null;
+}
+/** Portal allows to insert the content into a foreign dom node.
+ * Usage example: `<MixDOM.Portal container={myDOMElement}><div/></MixDOM.Portal>` */
+declare class PseudoPortal<Props = {}> {
+    ["constructor"]: {
+        _Info?: {
+            props: PseudoPortalProps & Props;
+        };
+    };
+    static MIX_DOM_CLASS: string;
+    readonly props: PseudoPortalProps & Props;
+    constructor(_props: PseudoPortalProps & Props);
+}
+type PseudoElementProps<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase"> = MixDOMPreProps<Tag, DOMCase> & {
+    /** HTML or SVG element to smuggle in. */
+    element: HTMLElement | SVGElement | null;
+    /** Determines what happens when meeting duplicates.
+     * - If == null, uses the Host based setting.
+     * - If boolean, then is either "deep" or nothing. */
+    cloneMode?: boolean | MixDOMCloneNodeBehaviour | null;
+};
+/** PseudoElement component class allows to use an existing dom element as if it was part of the system, so you can modify its props and insert content etc.
+ * - Usage example: `<MixDOM.Element element={el} style="background: #ccc"><span>Some content</span></MixDOM.Element>`.
+ */
+declare class PseudoElement<Tag extends DOMTags | string & {} = DOMTags, DOMCase extends MixDOMCase = "mixedCase", Props = {}> {
+    ["constructor"]: {
+        _Info?: {
+            props: PseudoElementProps<Tag, DOMCase> & Props;
+        };
+    };
+    static MIX_DOM_CLASS: string;
+    readonly props: PseudoElementProps<Tag, DOMCase> & Props;
+    constructor(_props: PseudoElementProps<Tag, DOMCase> & Props);
+}
+/** Empty dummy component that accepts any props, but always renders null. */
+interface PseudoEmptyProps {
+}
+declare class PseudoEmpty<Props = {}> {
+    ["constructor"]: {
+        _Info?: {
+            props: PseudoEmptyProps & Props;
+        };
+    };
+    static MIX_DOM_CLASS: string;
+    readonly props: PseudoEmptyProps & Props;
+    constructor(_props: PseudoEmptyProps & Props);
+    render(): MixDOMRenderOutput;
+}
+interface PseudoEmptyRemoteProps extends ComponentRemoteProps {
+}
+declare const PseudoEmptyRemote_base: ReClass<ComponentRemoteType<{}>, {}, [props: ComponentRemoteProps, boundary?: SourceBoundary | undefined]>;
+/** This is an empty dummy remote class:
+ * - Its purpose is to make writing render output easier (1. no empty checks, and 2. for typing):
+ *     * For example: `const MyRemote = component.state.PopupRemote || MixDOM.EmptyRemote;`
+ *     * You can then access the Content and ContentCopy members, and copyContent(key) and withContent(...contents) methods fluently.
+ * - However, they will just return null, so won't have any effect on anything.
+ *     * Note also that technically speaking this class extends PseudoEmpty.
+ *     * And it only adds the 2 public members (Content and ContentCopy) and 2 public methods (copycontent and withContent).
+ *     * Due to not actually being a remote, it will never be used as a remote. It's just a straw dog.
+ * - If you need to distinguish between real and fake, use `isRemote()` method. The empty returns false.
+ */
+declare class PseudoEmptyRemote<Props = {}> extends PseudoEmptyRemote_base {
+    constructor(props: ComponentProps<{
+        props: ComponentRemoteProps & Props;
+    }>, boundary?: SourceBoundary);
+    static MIX_DOM_CLASS: string;
+    static Content: MixDOMDefTarget | null;
+    static ContentCopy: MixDOMDefTarget | null;
+    static copyContent: (_key?: any) => MixDOMDefTarget | null;
+    static filterContent: (_filterer: (remote: ComponentRemote, i: number) => boolean, _copyKey?: any) => MixDOMDefTarget | null;
+    static wrapContent: (_wrapper: (remote: ComponentRemote, i: number) => MixDOMRenderOutput, _copyKey?: any) => MixDOMDefTarget | null;
+    static renderContents: (_handler: (remotes: Array<ComponentRemote>) => MixDOMRenderOutput) => MixDOMDefTarget | null;
+    static hasContent: (_filterer?: ((remote: ComponentRemote, i: number) => boolean) | undefined) => boolean;
+    static WithContent: ComponentTypeEither<{
+        props: {
+            hasContent?: boolean | undefined;
+        };
+    }> & {
+        _WithContent: MixDOMDefTarget;
+        withContents: Set<SourceBoundary>;
+    };
+    static isRemote(): boolean;
+    static sources: ComponentRemote[];
+}
+interface PseudoEmptyRemote<Props = {}> extends ComponentRemote<Props & {}> {
+    ["constructor"]: ComponentRemoteType<Props & {}>;
+}
+type MixDOMPseudoTags<Props extends Record<string, any> = {}> = typeof PseudoFragment<Props> | typeof PseudoElement<DOMTags, "mixedCase", Props> | typeof PseudoPortal<Props> | typeof PseudoEmpty<Props> | typeof PseudoEmptyRemote<Props>;
+
+type WithContentInfo = {
+    props: {
+        /** If set to a boolean value (= not null nor undefined), skips checking whether actually has content and returns the value. */
+        hasContent?: boolean | null;
+    };
+    class: {
+        /** Internal method to check whether has content - checks recursively through the parental chain. */
+        hasContent(): boolean;
+    };
+};
+declare const MixDOMWithContent: ComponentType<WithContentInfo>;
+
+type ComponentHOC<RequiredType extends ComponentTypeAny, FinalType extends ComponentTypeAny> = (InnerComp: RequiredType) => FinalType;
+type ComponentHOCBase = (InnerComp: ComponentTypeAny) => ComponentTypeAny;
+type ComponentMixinType<Info extends Partial<ComponentInfo> = {}, RequiresInfo extends Partial<ComponentInfo> = {}> = (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
+type ComponentFuncRequires<RequiresInfo extends Partial<ComponentInfo> = {}, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<RequiresInfo & OwnInfo> & {
+    _Required?: ComponentFunc<RequiresInfo>;
+};
+type ComponentFuncMixable<RequiredFunc extends ComponentFunc = ComponentFunc, OwnInfo extends Partial<ComponentInfo> = {}> = ComponentFunc<ReadComponentInfo<RequiredFunc> & OwnInfo> & {
+    _Required?: RequiredFunc;
+};
+/** Helper to test if the component info from the ExtendingAnything extends the infos from the previous component (BaseAnything) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+type ExtendsComponent<ExtendingAnything, BaseAnything, RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfo<BaseAnything> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
+/** Helper to test if the component info from the ExtendingAnything extends the merged infos from the previous components (BaseAnythings) - typically in the mixing chain.
+ * - In terms of infos, only compares the infos, does not test against what basic component class instances always have.
+ * - Feed in the 3rd arg for RequireForm to require about whether should be a function, or class instance, class type, or whatever. (RequireForm defaults to any.)
+ */
+type ExtendsComponents<ExtendingAnything, BaseAnythings extends any[], RequireForm = any> = [ExtendingAnything] extends [RequireForm] ? ReadComponentInfos<BaseAnythings> extends ReadComponentRequiredInfo<ExtendingAnything> ? any : never : never;
+/** This creates a new ComponentShadowAPI or ComponentWiredAPI and merges updateModes and signals.
+ * - If is a ComponentWiredAPI also attaches the last builtProps member, and onBuildProps and onMixProps methods.
+ */
+declare function mergeShadowWiredAPIs(apis: Array<ComponentShadowAPI>): ComponentShadowAPI;
+declare function mergeShadowWiredAPIs(apis: Array<ComponentWiredAPI>): ComponentWiredAPI;
+/** This mixes many component functions together. Each should look like: `(initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer`.
+ * - Note that this only "purely" mixes the components together (on the initial render call).
+ *      * By default does not put a renderer function in the end but just passes last output (preferring funcs, tho). If you want make sure a renderer is in the end, put last param to true: `(...funcs, true)`
+ *      * Compare this with `mixFuncsWith(..., composer)`, that always returns a renderer. (And its last argument is auto-typed based on all previous.)
+ * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
+ *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixClassFuncs instead).
+ *      * You should type each function most often with `ComponentFunc<Info>` type or `MixDOM.component<Info>()` method. If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
+ * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ComponentShadowAPI | ComponentWiredAPI.
+ * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
+ *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
+ *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
+ * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
+ * - The extra `useRenderer` argument is mostly meant for internal use. If set to `true`, then makes sure that a renderer function is returned - otherwise simply returns the output of the last in the mix.
+ *      * Note. In case of merging multiple mixed sequences together (that have no renderer yet), keep this as `false` (default) for the sub mixes and put it as `true` for the final mix (or specifically define a composer with `mixFuncsWith` method).
+ */
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>>(a: A, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfo<A>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>>(a: A, b: B, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>>(a: A, b: B, c: C, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>>(a: A, b: B, c: C, d: D, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C, D]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
+declare function mixFuncs<A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<A, B, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, ...extras: [name?: string, useRenderer?: boolean] | [useRenderer?: boolean]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
+/** This mixes many component functions together. Each should look like: (initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer.
+ * - Unlike mixFuncs, the last argument is a mixable func that should compose all together, and its typing comes from all previous combined.
+ *      * If you want to add extra props to the auto typed composer you can add them as the last argument (extraInfo), for example: `{} as { props: { someStuff: boolean; } }`. Non-funcs are ignored on the JS side - only for typing.
+ *      * Alternatively you can add them to the 2nd last function with: `SomeMixFunc as ComponentFunc<ReadComponentInfo<typeof SomeMixFunc, ExtraInfo>>`.
+ * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
+ *      * Note that you should only use ComponentFunc or ComponentFuncMixable. Not supported for spread functions (makes no sense) nor component classes (not supported).
+ *      * You should type each function most often with ComponentFunc<Info> or MixDOM.component<Info>(). If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
+ * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
+ *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
+ *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
+ */
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfo<A, ExtraInfo>>>(a: A, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfo<A, ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B], ExtraInfo>>>(a: A, b: B, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C], ExtraInfo>>>(a: A, b: B, c: C, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D], ExtraInfo>>>(a: A, b: B, c: C, d: D, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C, D], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>;
+declare function mixFuncsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentFunc<ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>;
+/** This returns the original function (to create a mixin class) back but simply helps with typing.
+ * - The idea of a mixin is this: `(Base) => class extends Base { ... }`. So it creates a new class that extends the provided base class.
+ *     * In the context of Components the idea is that the Base is Component and then different features are added to it.
+ *     * Optionally, when used with mixMixins the flow also supports adding requirements (in addition to that the Base is a Component class).
+ * - To use this method: `const MyMixin = createMixin<RequiresInfo, MyMixinInfo>(Base => class _MyMixin extends Base { ... }`
+ *     * Without the method: `const MyMixin = (Base: GetComponentTypeFrom<RequireInfo>) => class _MyMixin extends (Base as GetComponentTypeFrom<RequireInfo & MyMixinInfo>) { ... }`
+ *     * So the trick of this method is simply that the returned function still includes `(Base: Required)`, but _inside_ the func it looks like `(Base: Required & Added)`.
+*/
+declare function createMixin<Info extends Partial<ComponentInfo>, RequiresInfo extends Partial<ComponentInfo> = {}>(func: (Base: GetComponentTypeFrom<RequiresInfo & Info>) => GetComponentTypeFrom<RequiresInfo & Info>): (Base: GetComponentTypeFrom<RequiresInfo>) => GetComponentTypeFrom<RequiresInfo & Info>;
+/** Mix many mixins together using the common Component class as the basis to mix on: `(MyMixin1, MyMixin2, ...)`.
+ * - Note. The last mixin with a render method defined is used as the render method of the combined class.
+ * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
+ *      * Technically mixMixins supports the first argument being a component class (instead of a mixin func to create a class), but it's purposefully left out of typing (use mixClassMixins instead).
+ *      * Note that the optional name arg is only used if did not give a custom base clas, as then the class has already been created and already has a name.
+ * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
+ */
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>>(a: A, name?: string): ComponentType<ReadComponentInfo<A>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>>(a: A, b: B, name?: string): ComponentType<ReadComponentInfos<[A, B]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>>(a: A, b: B, c: C, name?: string): ComponentType<ReadComponentInfos<[A, B, C]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>>(a: A, b: B, c: C, d: D, name?: string): ComponentType<ReadComponentInfos<[A, B, C, D]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, name?: string): ComponentType<ReadComponentInfos<[A, B, C, D, E]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, name?: string): ComponentType<ReadComponentInfos<[A, B, C, D, E, F]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, name?: string): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
+declare function mixMixins<A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, name?: string): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
+/** Mix many mixins together into using the common Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
+ * - In other words, works like the `mixFuncsWith` method but meant for mixable class mixins, instead of mixable component funcs.
+ *      * Technically mixMixins supports the first argument being a component class (instead of a mixin func to create a class), but it's purposefully left out of typing (use mixClassMixinsWith instead).
+ * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
+ * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
+ */
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, Info extends ReadComponentInfo<A, ExtraInfo>>(a: A, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, Info extends ReadComponentInfos<[A, B], ExtraInfo>>(a: A, b: B, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C], ExtraInfo>>(a: A, b: B, c: C, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D], ExtraInfo>>(a: A, b: B, c: C, d: D, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+declare function mixMixinsWith<ExtraInfo extends Partial<ComponentInfo>, A extends ExtendsComponent<A, {}, ComponentMixinType>, B extends ExtendsComponent<B, A, ComponentMixinType>, C extends ExtendsComponents<C, [A, B], ComponentMixinType>, D extends ExtendsComponents<D, [A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: ComponentMixinType<Info, Info>, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<Info>;
+/** Mix many mixins together using a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
+ * - Note. The last mixin with a render method defined is used as the render method of the combined class.
+ * - Note. If you don't want to define a custom component class as the base, you can use the `mixMixins` function instead (which uses the Component class). These two funcs are split to get better typing experience.
+ *      * For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
+ * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+ */
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>>(base: Base, a: A): ReturnType<A>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>>(base: Base, a: A, b: B): ComponentType<ReadComponentInfos<[Base, A, B]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>>(base: Base, a: A, b: B, c: C): ComponentType<ReadComponentInfos<[Base, A, B, C]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D): ComponentType<ReadComponentInfos<[Base, A, B, C, D]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G]>>;
+declare function mixClassMixins<Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [Base, A, B, C, D, E, F, G], ComponentMixinType>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G, H]>>;
+/** Mix many mixins together with a composer at the end and using a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
+ * - See mixClassMixins for more. This just adds a composer mixin at the end. On the JS side the method uses `mixMixinsWith`.
+ * - Note also that often the base class might contain a renderer - however it cannot be type specific to the mixins that it will extend it (unlike the composer that's at the end of the sequence).
+ * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+ */
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, Info extends ReadComponentInfo<A, ExtraInfo>>(base: Base, a: A, composer: ComponentMixinType<Info, Info>): ReturnType<A>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, Info extends ReadComponentInfos<[A, B], ExtraInfo>>(base: Base, a: A, b: B, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C], ExtraInfo>>(base: Base, a: A, b: B, c: C, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D], ExtraInfo>>(base: Base, a: A, b: B, c: C, d: D, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C, D]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E], ExtraInfo>>(base: Base, a: A, b: B, c: C, d: D, e: E, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F], ExtraInfo>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G], ExtraInfo>>(a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G]>>;
+declare function mixClassMixinsWith<ExtraInfo extends Partial<ComponentInfo>, Base extends ComponentType, A extends ExtendsComponent<A, Base, ComponentMixinType>, B extends ExtendsComponents<B, [Base, A], ComponentMixinType>, C extends ExtendsComponents<C, [Base, A, B], ComponentMixinType>, D extends ExtendsComponents<D, [Base, A, B, C], ComponentMixinType>, E extends ExtendsComponents<E, [Base, A, B, C, D], ComponentMixinType>, F extends ExtendsComponents<F, [Base, A, B, C, D, E], ComponentMixinType>, G extends ExtendsComponents<G, [Base, A, B, C, D, E, F], ComponentMixinType>, H extends ExtendsComponents<H, [Base, A, B, C, D, E, F, G], ComponentMixinType>, Info extends ReadComponentInfos<[A, B, C, D, E, F, G, H], ExtraInfo>>(base: Base, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: ComponentMixinType<Info, Info>): ComponentType<ReadComponentInfos<[Base, A, B, C, D, E, F, G, H]>>;
+/** This mixes together a Component class and one or many functions.
+ * - By default, attaches the return of the last function as the renderer (if function type, otherwise an earlier one).
+ * - Optionally as the 2nd last or last arg, can provide the name of the final class that is created by extending the given base class with the mixable functions applied.
+ *      * If not provided uses `"[" + BaseClass.name + "_mix]"`.
+ * - Optionally as the last arg, can provide a boolean to use the class renderer instead.
+ */
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>>(Base: Class, a: A, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): A;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>>(Base: Class, a: A, b: B, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>>(Base: Class, a: A, b: B, c: C, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C, D]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C, D, E]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C, D, E, F]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G]>>;
+declare function mixClassFuncs<Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponents<B, [BaseFunc, A], ComponentFunc>, C extends ExtendsComponents<C, [BaseFunc, A, B], ComponentFunc>, D extends ExtendsComponents<D, [BaseFunc, A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [BaseFunc, A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [BaseFunc, A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [BaseFunc, A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [BaseFunc, A, B, C, D, E, F, G], ComponentFunc>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, ...extra: [name?: string, useClassRender?: boolean] | [useClassRender?: boolean]): ComponentType<ReadComponentInfos<[A, B, C, D, E, F, G, H]>>;
+/** This mixes together a Component class and one or many functions with a composer function as the last function.
+ * - The last function is always used as the renderer and its typing is automatic.
+ *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
+ * - Internally this method uses mixClassFuncs (but just cuts out the optional typing related object).
+ * - Optionally as the very last arg (after optional typing info), can provide the name of the final class that is created by extending the given base class with the mixable functions applied.
+ */
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, Mixed extends ComponentFunc<ReadComponentInfo<BaseFunc, ExtraInfo>>>(Base: Class, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A], ExtraInfo>>>(Base: Class, a: A, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B], ExtraInfo>>>(Base: Class, a: A, b: B, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F, G], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+declare function mixClassFuncsWith<ExtraInfo extends Partial<ComponentInfo>, Class extends ComponentType, BaseFunc extends ComponentFunc<Class["_Info"] & {}>, A extends ExtendsComponent<A, BaseFunc, ComponentFunc>, B extends ExtendsComponent<B, A, ComponentFunc>, C extends ExtendsComponents<C, [A, B], ComponentFunc>, D extends ExtendsComponents<D, [A, B, C], ComponentFunc>, E extends ExtendsComponents<E, [A, B, C, D], ComponentFunc>, F extends ExtendsComponents<F, [A, B, C, D, E], ComponentFunc>, G extends ExtendsComponents<G, [A, B, C, D, E, F], ComponentFunc>, H extends ExtendsComponents<H, [A, B, C, D, E, F, G], ComponentFunc>, Mixed extends ComponentFunc<ReadComponentInfos<[BaseFunc, A, B, C, D, E, F, G, H], ExtraInfo>>>(Base: Class, a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, composer: Mixed, ...extra: [extraInfo?: ExtraInfo, name?: string] | [extraInfo?: ExtraInfo] | [name?: string]): ComponentType<ReadComponentInfo<Mixed>>;
+/** Combine many HOCs together. */
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A): SpreadFunc<ReadComponentInfo<A, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B): SpreadFunc<ReadComponentInfo<B, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C): SpreadFunc<ReadComponentInfo<C, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D): SpreadFunc<ReadComponentInfo<D, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E): SpreadFunc<ReadComponentInfo<E, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F): SpreadFunc<ReadComponentInfo<F, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G): SpreadFunc<ReadComponentInfo<G, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H): SpreadFunc<ReadComponentInfo<H, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I): SpreadFunc<ReadComponentInfo<I, ComponentInfoEmpty>["props"] & {}>;
+declare function mixHOCs<Base extends ComponentTypeAny, A extends ComponentTypeAny, B extends ComponentTypeAny, C extends ComponentTypeAny, D extends ComponentTypeAny, E extends ComponentTypeAny, F extends ComponentTypeAny, G extends ComponentTypeAny, H extends ComponentTypeAny, I extends ComponentTypeAny, J extends ComponentTypeAny>(base: Base, hoc1: (base: Base) => A, hoc2: (a: A) => B, hoc3: (b: B) => C, hoc4: (c: C) => D, hoc5: (d: D) => E, hoc6: (e: E) => F, hoc7: (f: F) => G, hoc8: (g: G) => H, hoc9: (h: H) => I, hoc10: (i: I) => J): SpreadFunc<ReadComponentInfo<J, ComponentInfoEmpty>["props"] & {}>;
+
+declare class ContentBoundary extends BaseBoundary {
+    /** The def whose children define our content - we are a fragment-like container. */
+    targetDef: MixDOMDefTarget;
+    /** Redefine that we always have it. It's based on the targetDef. */
+    _innerDef: MixDOMDefApplied;
+    /** Redefine that we always have a host for content boundaries - for us, it's the original source of our rendering.
+     * - Note that the content might get passed through many boundaries, but now we have landed it.
+     */
+    sourceBoundary: SourceBoundary;
+    /** Redefine that we always have a boundary that grounded us to the tree - we are alive because of it.
+     * - Note that it gets assigned (externally) immediately after constructor is called.
+     * - The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries.
+     */
+    parentBoundary: SourceBoundary | ContentBoundary;
+    /** Content boundaries will never feature component. So can be used for checks to know if is a source or content boundary. */
+    component?: never;
+    /** Content boundaries will never feature bId. So can be used for checks to know if is a source or content boundary. */
+    bId?: never;
+    constructor(outerDef: MixDOMDefApplied, targetDef: MixDOMDefTarget, treeNode: MixDOMTreeNode, sourceBoundary: SourceBoundary);
+    /** Apply a targetDef from the new envelope. Simply sets the defs accordingly. */
+    updateEnvelope(targetDef: MixDOMDefTarget, truePassDef?: MixDOMDefApplied | null): void;
+}
+
+declare class BaseBoundary {
+    /** The def that defined this boundary to be included. This also means it contains our last applied props. */
+    _outerDef: MixDOMDefApplied;
+    /** The _innerDef is the root def for what the boundary renders inside - or passes inside for content boundaries.
+     * - Note that the _innerDef is only null when the boundary renders null. For content boundaries it's never (they'll be destroyed instead). */
+    _innerDef: MixDOMDefApplied | null;
+    /** The reference for containing host for many technical things as well as general settings. */
+    host: Host;
+    /** Whether the boundary has mounted. Starts as `false`, set to `"pre"` after the pairing defs, and to `true` right before didMount is called and `null` after willUnmount. */
+    hasMounted: "pre" | boolean | null;
+    /** The fixed treeNode of the boundary is a very important concept and reference for technical reasons.
+     * - It allows to keep the separate portions of the GroundedTree structure together by tying parent and child boundary to each other.
+     *   .. So, ultimately it allows us to keep a clear bookkeeping of the dom tree and makes it easy, flexible and performant to apply changes to it.
+     * - The node is given by the host boundary (or host for root) and the reference always stays the same (even when mangling stuff around).
+     *   1. The first host is the host instance: it creates the root treeNode and its first child, and passes the child for the first boundary.
+     *   2. The boundary then simply adds add kids to this treeNode.
+     *   3. If the boundary has a sub-boundary in it, it similarly gives it a treeNode to work with.
+     *   4. When the boundary re-renders, it will reuse the applied defs and if did for any sub-boundary,
+     *      will then reuse the same treeNode and just modify its parent accordingly. So the sub-boundary doesn't even need to know about it.
+     */
+    treeNode: MixDOMTreeNode;
+    /** The sourceBoundary refers to the original SourceBoundary who defined us.
+     * - Due to content passing, it's not necessarily our .parentBoundary, who is the one who grounded us to the tree.
+     * - For the rootBoundary of a host, there's no .sourceBoundary, but for all nested, there always is.
+     * - Note that for source boundarries, the sourceBoundary should never change from what was given in the constructor.
+     *   .. It's passed to the source boundary's content closure, and from there further on. Swapping it on the boundary is not supported (see ComponentRemote for swapping it on the closure).
+     */
+    sourceBoundary: SourceBoundary | null;
+    /** The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
+    parentBoundary: SourceBoundary | ContentBoundary | null;
+    /** Any source or content boundaries inside that we have directly grounded in tree order - updated during every update run (don't use during). */
+    innerBoundaries: (SourceBoundary | ContentBoundary)[];
+    /** The component instance tied to this boundary - necessarily extends Component. */
+    component?: Component;
+    constructor(host: Host, outerDef: MixDOMDefApplied, treeNode: MixDOMTreeNode);
+}
+
 interface MixDOMContentEnvelope {
     applied: MixDOMDefApplied;
     target: MixDOMDefTarget;
@@ -1995,75 +2188,7 @@ declare class ContentClosure {
     readContent(shallowCopy?: boolean): Readonly<MixDOMDefTarget[]> | null;
 }
 
-/** This is what "contains" a Component instance.
- * - It's a technical boundary between a Component and its Host's update flow orchestration.
- * - Each component receives its boundary as the 2nd constructor argument: `(props, boundary)`.
- */
-declare class SourceBoundary extends BaseBoundary {
-    /** Redefine that the outer def is about a boundary. */
-    _outerDef: MixDOMDefApplied & MixDOMDefBoundary;
-    /** Temporary rendering state indicator. */
-    _renderPhase?: "active" | "re-updated";
-    /** If has marked to be force updated. */
-    _forceUpdate?: boolean | "all";
-    /** Temporary id used during update cycle. Needed for special same-scope-multi-update case detections. (Not in def, since its purpose is slightly different there - it's for wide moves.) */
-    _updateId?: {};
-    /** Our host based quick id. It's mainly used for sorting, and sometimes to detect whether is content or source boundary, helps in debugging too. */
-    bId: MixDOMSourceBoundaryId;
-    /** Shortcut for the component. Only one can be set (and typically one is). */
-    component: Component;
-    /** The content closure tied to this boundary.
-     * - It it's the channel through which our parent passes content to us - regardless of the update flow.
-     * - When tied to a boundary, the content closure has a reference to it as .thruBoundary. (It can also be used without .thruBoundary, see ComponentRemote.) */
-    closure: ContentClosure;
-    constructor(host: Host, outerDef: MixDOMDefApplied & MixDOMDefBoundary, treeNode: MixDOMTreeNode, sourceBoundary?: SourceBoundary);
-    /** Should actually only be called once. Initializes a Component class and assigns renderer and so on. */
-    reattach(): void;
-    update(forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    updateBy(updates: MixDOMComponentUpdates, forceUpdate?: boolean | "all", forceUpdateTimeout?: number | null, forceRenderTimeout?: number | null): void;
-    render(iRecursion?: number): MixDOMRenderOutput;
-    /** Get a component class for a functional component. If has static properties, creates a new class extending Component and adds the stati properties to it, otherwise uses Component directly. */
-    static getComponentFuncClass(func: ComponentFunc): ComponentType;
-}
-
-declare class BaseBoundary {
-    /** The def that defined this boundary to be included. This also means it contains our last applied props. */
-    _outerDef: MixDOMDefApplied;
-    /** The _innerDef is the root def for what the boundary renders inside - or passes inside for content boundaries.
-     * - Note that the _innerDef is only null when the boundary renders null. For content boundaries it's never (they'll be destroyed instead). */
-    _innerDef: MixDOMDefApplied | null;
-    /** The reference for containing host for many technical things as well as general settings. */
-    host: Host;
-    /** Whether the boundary has mounted. Starts as `false`, set to `"pre"` after the pairing defs, and to `true` right before didMount is called and `null` after willUnmount. */
-    hasMounted: "pre" | boolean | null;
-    /** The fixed treeNode of the boundary is a very important concept and reference for technical reasons.
-     * - It allows to keep the separate portions of the GroundedTree structure together by tying parent and child boundary to each other.
-     *   .. So, ultimately it allows us to keep a clear bookkeeping of the dom tree and makes it easy, flexible and performant to apply changes to it.
-     * - The node is given by the host boundary (or host for root) and the reference always stays the same (even when mangling stuff around).
-     *   1. The first host is the host instance: it creates the root treeNode and its first child, and passes the child for the first boundary.
-     *   2. The boundary then simply adds add kids to this treeNode.
-     *   3. If the boundary has a sub-boundary in it, it similarly gives it a treeNode to work with.
-     *   4. When the boundary re-renders, it will reuse the applied defs and if did for any sub-boundary,
-     *      will then reuse the same treeNode and just modify its parent accordingly. So the sub-boundary doesn't even need to know about it.
-     */
-    treeNode: MixDOMTreeNode;
-    /** The sourceBoundary refers to the original SourceBoundary who defined us.
-     * - Due to content passing, it's not necessarily our .parentBoundary, who is the one who grounded us to the tree.
-     * - For the rootBoundary of a host, there's no .sourceBoundary, but for all nested, there always is.
-     * - Note that for source boundarries, the sourceBoundary should never change from what was given in the constructor.
-     *   .. It's passed to the source boundary's content closure, and from there further on. Swapping it on the boundary is not supported (see ComponentRemote for swapping it on the closure).
-     */
-    sourceBoundary: SourceBoundary | null;
-    /** The parentBoundary ref is very useful for going quickly up the boundary tree - the opposite of .innerBoundaries. */
-    parentBoundary: SourceBoundary | ContentBoundary | null;
-    /** Any source or content boundaries inside that we have directly grounded in tree order - updated during every update run (don't use during). */
-    innerBoundaries: (SourceBoundary | ContentBoundary)[];
-    /** The component instance tied to this boundary - necessarily extends Component. */
-    component?: Component;
-    constructor(host: Host, outerDef: MixDOMDefApplied, treeNode: MixDOMTreeNode);
-}
-
-type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "contexts" | "host" | "root";
+type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "host" | "root";
 interface MixDOMTreeNodeBase {
     /** The main type of the treeNode that defines how it should behave and what it contains.
      * - The type "" is only used temporarily - it shouldn't end up in the grounded treeNodes.
@@ -2130,90 +2255,9 @@ interface MixDOMTreeNodeHost extends MixDOMTreeNodeBaseWithDef {
 }
 type MixDOMTreeNode = MixDOMTreeNodeEmpty | MixDOMTreeNodeDOM | MixDOMTreeNodePortal | MixDOMTreeNodeBoundary | MixDOMTreeNodePass | MixDOMTreeNodeHost | MixDOMTreeNodeRoot;
 
-type RefDOMSignals<Type extends Node = Node> = {
-    /** Called when a ref is about to be attached to a dom element. */
-    domDidAttach: (domNode: Type) => void;
-    /** Called when a ref is about to be detached from a dom element. */
-    domWillDetach: (domNode: Type) => void;
-    /** Called when a reffed dom element has been mounted: rendered into the dom for the first time. */
-    domDidMount: (domNode: Type) => void;
-    /** Called when a reffed dom element updates (not on the mount run). */
-    domDidUpdate: (domNode: Type, diffs: DOMDiffProps) => void;
-    /** Called when the html content of a dom element has changed. */
-    domDidContent: (domNode: Type, simpleContent: MixDOMContentSimple | null) => void;
-    /** Called when a reffed dom element has been moved in the tree. */
-    domDidMove: (domNode: Type, fromContainer: Node | null, fromNextSibling: Node | null) => void;
-    /** Return true to salvage the element: won't be removed from dom.
-     * This is only useful for fade out animations, when the parenting elements also stay in the dom (and respective children). */
-    domWillUnmount: (domNode: Type) => boolean | void;
-};
-type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither, Instance extends ComponentInstance<Type> = ComponentInstance<Type>> = {
-    /** Called when a ref is about to be attached to a component. */
-    didAttach: (component: Type) => void;
-    /** Called when a ref is about to be detached from a component. */
-    willDetach: (component: Type | ContentBoundary) => void;
-} & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
-type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
-interface RefBase {
-    signals: Partial<Record<string, SignalListener[]>>;
-    treeNodes: Set<MixDOMTreeNode>;
-    getTreeNode(): MixDOMTreeNode | null;
-    getTreeNodes(): MixDOMTreeNode[];
-    getElement(onlyForDOMRefs?: boolean): Node | null;
-    getElements(onlyForDOMRefs?: boolean): Node[];
-    getComponent(): Component | null;
-    getComponents(): Component[];
-}
-interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoyType<RefSignals<Type>> {
-    new (): Ref<Type>;
-    MIX_DOM_CLASS: string;
-    /** Internal call tracker. */
-    onListener(instance: RefBase & SignalBoy<RefSignals<Type>>, name: string, index: number, wasAdded: boolean): void;
-    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
-    didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
-    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
-    willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
-}
-/** Class to help keep track of components or DOM elements in the state based tree. */
-declare class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoy<RefSignals<Type>> {
-    static MIX_DOM_CLASS: string;
-    /** The collection (for clarity) of tree nodes where is attached to.
-     * It's not needed internally but might be useful for custom needs. */
-    treeNodes: Set<MixDOMTreeNode>;
-    constructor(...args: any[]);
-    /** This returns the last reffed treeNode, or null if none.
-     * - The MixDOMTreeNode is a descriptive object attached to a location in the grounded tree. Any tree node can be targeted by refs.
-     * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing.
-     */
-    getTreeNode(): MixDOMTreeNode | null;
-    /** This returns all the currently reffed tree nodes (in the order added). */
-    getTreeNodes(): MixDOMTreeNode[];
-    /** This returns the last reffed domNode, or null if none.
-     * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing.
-     */
-    getElement(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type | null : Node | null;
-    /** This returns all the currently reffed dom nodes (in the order added). */
-    getElements(onlyForDOMRefs?: boolean): [Type] extends [Node] ? Type[] : Node[];
-    /** This returns the last reffed component, or null if none.
-     * - The method works as if the behaviour was to always override with the last one.
-     * - Except that if the last one is removed, falls back to earlier existing.
-     */
-    getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null;
-    /** This returns all the currently reffed components (in the order added). */
-    getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[];
-    /** The onListener callback is required by Ref's functionality for connecting signals to components fluently. */
-    static onListener(ref: RefBase & SignalBoy<RefSignals>, name: string & keyof RefSignals, index: number, wasAdded: boolean): void;
-    /** Internal flow helper to call after attaching the ref. Static to keep the class clean. */
-    static didAttachOn(ref: RefBase, treeNode: MixDOMTreeNode): void;
-    /** Internal flow helper to call right before detaching the ref. Static to keep the class clean. */
-    static willDetachFrom(ref: RefBase, treeNode: MixDOMTreeNode): void;
-}
-
 /** Describes what kind of def it is.
  * - Compared to treeNode.type, we have extra: "content" | "element" | "fragment". But don't have "root" (or ""). */
-type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "contexts" | "fragment" | "host";
+type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "fragment" | "host";
 type MixDOMSpreadLinks = {
     /** This contains any true and copy passes. It's the point where the inner spread stopped processing, and the parent spread can continue from it. */
     passes: MixDOMDefTarget[];
@@ -2580,9 +2624,6 @@ declare function newContentCopyDef(key?: any): MixDOMDefTarget;
  */
 declare function hasContentInDefs<Def extends MixDOMDefApplied | MixDOMDefTarget>(childDefs: Array<Def>, handlePass?: ((def: Def) => boolean | "maybe") | boolean | "maybe"): boolean | "maybe";
 
-declare const MixDOMContent: MixDOMDefTarget;
-declare const MixDOMContentCopy: MixDOMDefTarget;
-
 /** Shortcut dictionary to contain all the main features of MixDOM library. */
 declare const MixDOM: {
     /** Create a new render definition. Can feed JSX input. (It's like `React.createElement` but `MixDOM.def`). */
@@ -2816,24 +2857,26 @@ declare const MixDOM: {
     /** This mixes many component functions together. Each should look like: `(initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer`.
      * - Note that this only "purely" mixes the components together (on the initial render call).
      *      * By default does not put a renderer function in the end but just passes last output (preferring funcs, tho). If you want make sure a renderer is in the end, put last param to true: `(...funcs, true)`
-     *      * Compare this with `MixDOM.mixFuncsWith(..., composer)`, that always returns a renderer. (And its last argument is auto-typed based on all previous.)
+     *      * Compare this with `mixFuncsWith(..., composer)`, that always returns a renderer. (And its last argument is auto-typed based on all previous.)
      * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
-     *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixClassFunc instead).
+     *      * Note that you should only use `ComponentFunc` or `ComponentFuncMixable`. Not supported for spread functions (makes no sense) nor component classes (not supported for this flow, see mixClassFuncs instead).
      *      * You should type each function most often with `ComponentFunc<Info>` type or `MixDOM.component<Info>()` method. If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
-     * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ShadowAPI | WiredAPI.
+     * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ComponentShadowAPI | ComponentWiredAPI.
      * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
      *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
      *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
+     * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
+     * - The extra `useRenderer` argument is mostly meant for internal use. If set to `true`, then makes sure that a renderer function is returned - otherwise simply returns the output of the last in the mix.
+     *      * Note. In case of merging multiple mixed sequences together (that have no renderer yet), keep this as `false` (default) for the sub mixes and put it as `true` for the final mix (or specifically define a composer with `mixFuncsWith` method).
      */
     mixFuncs: typeof mixFuncs;
     /** This mixes many component functions together. Each should look like: (initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer.
-     * - Unlike MixDOM.mixFuncs, the last argument is a mixable func that should compose all together, and its typing comes from all previous combined.
-     *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
+     * - Unlike mixFuncs, the last argument is a mixable func that should compose all together, and its typing comes from all previous combined.
+     *      * If you want to add extra props to the auto typed composer you can add them as the last argument (extraInfo), for example: `{} as { props: { someStuff: boolean; } }`. Non-funcs are ignored on the JS side - only for typing.
      *      * Alternatively you can add them to the 2nd last function with: `SomeMixFunc as ComponentFunc<ReadComponentInfo<typeof SomeMixFunc, ExtraInfo>>`.
      * - Each mixable func can also have pre-requirements if typed with `ComponentFuncMixable<RequiredFunc, OwnInfo>` - the typing supports up to 8 funcs and requirements can be filled by any func before.
      *      * Note that you should only use ComponentFunc or ComponentFuncMixable. Not supported for spread functions (makes no sense) nor component classes (not supported).
      *      * You should type each function most often with ComponentFunc<Info> or MixDOM.component<Info>(). If you leave a function and its params totally untyped, it will break the typing flow. But next one can correct it (at least partially).
-     * - This also supports handling contextual needs (by a func having 3 args) as well as attaching / merging ShadowAPI | WiredAPI.
      * - Note that this does not wrap components one after another (like HOCs). Instead only their initializing closure is used, and the last active renderer.
      *      * Often the purpose is to extend props, state and/or class - especially class data becomes useful to hold info from different closures. Even partial renderers.
      *      * Note that each component func can still override state with: `component.state = { ...myStuff }`. The process detects changes and combines the states together if changed.
@@ -2841,28 +2884,38 @@ declare const MixDOM: {
     mixFuncsWith: typeof mixFuncsWith;
     /** This mixes together a Component class and one or many functions.
      * - By default, attaches the return of the last function as the renderer (if function type, otherwise an earlier one).
-     * - Optionally as the 3rd arg, can provide a boolean to use the class renderer instead. */
+     * - Optionally as the last arg, can provide a boolean to use the class renderer instead.
+     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+     */
     mixClassFuncs: typeof mixClassFuncs;
     /** This mixes together a Component class and one or many functions with a composer function as the last function.
      * - The last function is always used as the renderer and its typing is automatic.
      *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
+     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
      */
     mixClassFuncsWith: typeof mixClassFuncsWith;
     /** Mix many mixins together with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
      * - Note. The last mixin with a render method defined is used as the render method of the combined class.
-     * - Note. If you don't want to define a custom component class as the base, you can use the `MixDOM.mixMixins` function instead (which uses the Component class). These two funcs are split to get better typing experience.
-     * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
-    */
+     * - Note. If you don't want to define a custom component class as the base, you can use the `mixMixins` function instead (which uses the Component class). These two funcs are split to get better typing experience.
+     *      * For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
+     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+     */
     mixClassMixins: typeof mixClassMixins;
-    /** Mix many mixins together into using the basic Component class as the basis to mix on: `(MyMixin1, MyMixin2, ...)`.
-     * - Note. The last mixin with a render method defined is used as the render method of the combined class.
-     * - Note. If you want to define a custom base class (extending Component) you can use `MixDOM.mixClassMixins` method whose first argument is a base class.
-     * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
+    /** Mix many mixins together with a composer at the end and with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
+     * - See mixClassMixins for more. This just adds the composer at the end. On the JS side the method uses `mixMixinsWith`.
+     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+     */
+    mixClassMixinsWith: typeof mixClassMixinsWith;
+    /** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
+     * - In other words, works like the `mixFuncsWith` method but meant for mixable class mixins, instead of mixable component funcs.
+     *      * Technically mixMixins supports the first argument being a component class (instead of a mixin func to create a class), but it's purposefully left out of typing (use mixClassMixinsWith instead).
+     * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
+     * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
      */
     mixMixins: typeof mixMixins;
     /** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
      * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
-     * - This is like MixDOM.mixFuncsWith but for mixins. On the javascript this function is teh same as MixDOM.mixMixins.
+     * - This is like mixFuncsWith but for mixins. On the javascript this function is teh same as mixMixins.
      */
     mixMixinsWith: typeof mixMixinsWith;
     /** This creates a final component for a list of HOCs with a based component: `(Base, HOC1, HOC2, ... )`
@@ -2892,4 +2945,4 @@ declare const MixDOM: {
     readDOMString: (from: MixDOMTreeNode | Component | MixDOMBoundary, escapeHTML?: boolean, indent?: number, onlyClosedTagsFor?: readonly string[] | string[] | null | undefined) => string;
 };
 
-export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, UnlessAny, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };
+export { Component, ComponentConstructorArgs, ComponentContextAPI, ComponentContextAPIType, ComponentCtx, ComponentCtxFunc, ComponentCtxFuncArgs, ComponentCtxWith, ComponentExternalSignals, ComponentExternalSignalsFrom, ComponentFunc, ComponentFuncAny, ComponentFuncArgs, ComponentFuncMixable, ComponentFuncOf, ComponentFuncRequires, ComponentFuncReturn, ComponentHOC, ComponentHOCBase, ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoInterpretable, ComponentInfoPartial, ComponentInstance, ComponentMixinType, ComponentOf, ComponentProps, ComponentRemote, ComponentRemoteProps, ComponentRemoteType, ComponentShadow, ComponentShadowAPI, ComponentShadowCtx, ComponentShadowFunc, ComponentShadowFuncWith, ComponentShadowFuncWithout, ComponentShadowSignals, ComponentShadowType, ComponentSignals, ComponentType, ComponentTypeAny, ComponentTypeCtx, ComponentTypeEither, ComponentTypeOf, ComponentTypeWith, ComponentWired, ComponentWiredAPI, ComponentWiredFunc, ComponentWiredType, ComponentWith, ContentPasserProps, ExtendsComponent, ExtendsComponents, GetComponentFrom, GetComponentFuncFrom, GetComponentTypeFrom, GetPropsFor, Host, HostContextAPI, HostContextAPIType, HostSettings, HostSettingsUpdate, HostType, IsSpreadFunc, JSX_camelCase, JSX_mixedCase, JSX_native, MixDOM, MixDOMAnyTags, MixDOMAssimilateItem, MixDOMAssimilateSuggester, MixDOMAssimilateValidator, MixDOMBoundary, MixDOMCloneNodeBehaviour, MixDOMComponentTags, MixDOMComponentUpdates, MixDOMContent, MixDOMContentCopy, MixDOMDefApplied, MixDOMDefTarget, MixDOMDefType, MixDOMDoubleRenderer, MixDOMInternalBaseProps, MixDOMInternalCompProps, MixDOMInternalDOMProps, MixDOMPreProps, MixDOMPrePseudoProps, MixDOMProps, MixDOMPseudoTags, MixDOMRenderInnerHTMLCallback, MixDOMRenderOutput, MixDOMRenderTextContentCallback, MixDOMRenderTextTag, MixDOMRenderTextTagCallback, MixDOMTags, MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMTreeNodeEmpty, MixDOMTreeNodeHost, MixDOMTreeNodePass, MixDOMTreeNodePortal, MixDOMTreeNodeRoot, MixDOMTreeNodeType, MixDOMUpdateCompareModesBy, MixDOMWithContent, PseudoElement, PseudoElementProps, PseudoEmpty, PseudoEmptyProps, PseudoEmptyRemote, PseudoEmptyRemoteProps, PseudoFragment, PseudoFragmentProps, PseudoPortal, PseudoPortalProps, ReadComponentInfo, ReadComponentInfoFromArgsReturn, ReadComponentInfos, ReadComponentRequiredInfo, Ref, RefBase, RefComponentSignals, RefDOMSignals, RefSignals, RefType, SourceBoundary, SpreadFunc, SpreadFuncProps, SpreadFuncWith, UnlessAny, WithContentInfo, createComponent, createComponentCtx, createMixin, createRemote, createShadow, createShadowCtx, createSpread, createSpreadWith, createWired, hasContentInDefs, mergeShadowWiredAPIs, mixClassFuncs, mixClassFuncsWith, mixClassMixins, mixClassMixinsWith, mixFuncs, mixFuncsWith, mixHOCs, mixMixins, mixMixinsWith, mixinComponent, newDef, newDefHTML };

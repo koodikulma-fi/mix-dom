@@ -4,7 +4,7 @@
 // Libraries.
 import { areEqualBy } from "data-memo";
 // Typing.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMDefTarget,
     MixDOMDefApplied,
@@ -13,11 +13,11 @@ import {
     MixDOMDefKeyTag,
 } from "../typing";
 // Routines.
-import { allDefsIn, newAppliedDef } from "../static/index";
-// Boundaries.
-import { ContentBoundary, SourceBoundary } from "../boundaries/index";
-// Local.
-import { HostRender } from "./HostRender";
+import { allDefsIn, newAppliedDef, domPassingTypes } from "../static/index";
+// Boundaries (only typing).
+import type { ContentBoundary } from "../boundaries";
+// Local (only typing).
+import type { SourceBoundary } from "./SourceBoundary";
 
 
 // - Typing helpers - //
@@ -92,7 +92,7 @@ export function pairDefs(byBoundary: SourceBoundary | ContentBoundary, preDef: M
                 if (toChildDef.MIX_DOM_DEF === "content") {
                     const aDefChild = aDef.childDefs[ii];
                     // If the simple content should be skipped.
-                    if (noValuesMode && (noValuesMode === true ? !toChildDef.domContent : noValuesMode.indexOf(toChildDef.domContent) !== -1))
+                    if (noValuesMode && (noValuesMode === true ? !toChildDef.domContent : noValuesMode.includes(toChildDef.domContent)))
                         aDefChild.disabled = true
                     else
                         delete aDefChild.disabled;
@@ -266,7 +266,7 @@ export function assignTreeNodesFor(aChilds: MixDOMDefApplied[], workingTreeNode:
                 const iMe = myTreeNode.parent.children.indexOf(myTreeNode);
                 // Detect empty movers.
                 // .. We need this to update bookkeeping when something moves away from being a first child.
-                if (iMe === 0 && myTreeNode.parent !== pTreeNode && HostRender.PASSING_TYPES[myTreeNode.parent.type] === true && emptyMovers) {
+                if (iMe === 0 && myTreeNode.parent !== pTreeNode && domPassingTypes[myTreeNode.parent.type] === true && emptyMovers) {
                     if (emptyMovers.indexOf(myTreeNode.parent) === -1)
                         emptyMovers.push(myTreeNode.parent);
                 }
@@ -332,6 +332,7 @@ export function assignTreeNodesForPass(contentBoundary: ContentBoundary): [ToApp
         // .... We detect this specifically, and then double-verify that the working treeNode needs handling.
         // .... In that case, we directly splice it away from the parent - as opposed to using adding to toCleanUp.
         // .... This further underlines that shouldn't really be handled here. (Using toCleanUp won't do anything.)
+        // .. Note. In v4.3.0, this case happens even more rarely than in v4.2.0. But can still happen.
         if (toDefIsFragment && !toDef.childDefs[0] && wTreeNode && !wTreeNode.type && wTreeNode.parent) {
             // Find.
             const kids = wTreeNode.parent.children;
@@ -451,9 +452,12 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                 // Not matching by: 1. key vs. non-key, 2. wrong tag, 3. already used.
                 if ((hasKey ? def.key !== childDef.key : def.key != null) || sTag !== (def.getRemote || searchByTag[def.MIX_DOM_DEF] || def.tag) || !unusedDefs.has(def))
                     continue;
-                // Not matching by constant props.
-                if (defType === "boundary" && def.treeNode?.boundary?.component?.constantProps &&
-                    !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
+                // Special match preventions - by def type, constant props or domHTMLMode.
+                if (
+                    defType !== def.MIX_DOM_DEF || (
+                    defType === "content" ? !childDef.domHTMLMode !== !def.domHTMLMode :
+                    defType === "boundary" && def.treeNode?.boundary?.component?.constantProps && !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps)
+                ))
                     continue;
                 // Accepted.
                 aDef = def;
@@ -474,9 +478,12 @@ export function findAppliedDefsFor(parentAppliedDef: MixDOMDefApplied | MixDOMDe
                     // Not matching.
                     if (def.key !== childDef.key || !unusedDefs.has(def))
                         continue;
-                    // Not matching by constant props.
-                    if (defType === "boundary" && def.treeNode?.boundary?.component?.constantProps &&
-                        !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps))
+                    // Special match preventions - by def type, constant props or domHTMLMode.
+                    if (
+                        defType !== def.MIX_DOM_DEF || (
+                            defType === "content" ? !childDef.domHTMLMode !== !def.domHTMLMode :
+                            defType === "boundary" && def.treeNode?.boundary?.component?.constantProps && !areEqualBy(childDef.props, def.props, def.treeNode.boundary.component.constantProps)
+                    ))
                         continue;
                     // Accepted.
                     aDef = def;

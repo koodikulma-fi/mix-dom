@@ -1,21 +1,8 @@
 
 // - Export all - //
 
-// Typing.
-export * from "./typesCommon";
-export * from "./typesInfo";
-export * from "./typesSignals";
-// All pseudo and helper classes.
-export * from "./ComponentPseudos";
-export * from "./ComponentContextAPI";
-// All component classes.
-export * from "./Component";
-export * from "./ComponentShadow";
-export * from "./ComponentShadowAPI";
-export * from "./ComponentWired";
-export * from "./ComponentWiredAPI";
-export * from "./ComponentRemote";
-// Special components.
-export * from "./WithContent";
-// Mixing.
-export * from "./ComponentMixing";
+// All from public.
+export * from "./index_public";
+// Routines - after SourceBoundary and before special component background features.
+export * from "./routinesPairing";
+export * from "./routinesApply";

@@ -9,10 +9,6 @@ import { CompareDepthMode } from "data-memo";
 import type { MixDOMDoubleRenderer, MixDOMRenderOutput, MixDOMUpdateCompareModesBy, MixDOMTreeNodeType, MixDOMTreeNode, MixDOMInternalCompProps } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, treeNodesWithin } from "../static/index";
-// Boundaries.
-import type { SourceBoundary } from "../boundaries/index";
-// Host.
-import type { Host } from "../host/index";
 // Local typing.
 import type { UnlessAny } from "./typesCommon";
 import type { ComponentInfo, ComponentInfoAny, ComponentInfoEmpty, ComponentInfoPartial, ReadComponentInfo } from "./typesInfo";
@@ -20,8 +16,11 @@ import type { ComponentSignals } from "./typesSignals";
 // Local class.
 import { ComponentContextAPI, ComponentCtxFunc, ComponentCtx } from "./ComponentContextAPI";
 // Only typing (local).
+import type { SourceBoundary } from "./SourceBoundary";
 import type { ComponentWiredFunc } from "./ComponentWired";
 import type { ComponentShadowAPI } from "./ComponentShadowAPI";
+// Only typing (distant).
+import type { Host } from "../host";
 
 
 // - Extra internal typing - //

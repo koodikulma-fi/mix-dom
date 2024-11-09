@@ -2,10 +2,10 @@
 // - Imports - //
 
 // Libraries.
-import { callListeners, ContextAPI } from "data-signals";
+import { callListeners } from "data-signals";
 import { equalDOMProps, getDictionaryDiffs } from "dom-types";
 // Typing.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMTreeNodeDOM,
     MixDOMTreeNodeHost,
@@ -20,21 +20,30 @@ import {
     MixDOMTreeNodeBoundary,
 } from "../typing";
 // Routines.
-import { allDefsIn, newAppliedDef, newDefFrom, rootDOMTreeNodes } from "../static/index";
+import {
+    allDefsIn,
+    newAppliedDef,
+    newDefFrom,
+    rootDOMTreeNodes,
+    mergeChangesTo,
+    collectInterestedInClosure,
+    updatedInterestedInClosure
+} from "../static/index";
 // Common.
 import { Ref, MixDOMContent } from "../common/index";
 // Boundaries.
-import { ContentBoundary, SourceBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
+import { ContentBoundary, ContentClosure, MixDOMContentEnvelope } from "../boundaries/index";
+// Components.
+import { SourceBoundary } from "./SourceBoundary";
 // Local.
-import { mergeChangesTo, collectInterestedInClosure, updatedInterestedInClosure } from "./routinesCommon";
 import { pairDefs, buildDefMaps, assignTreeNodesForPass, ToApplyPair } from "./routinesPairing";
 // Only typing (local).
-import { Host } from "./Host";
+import type { ComponentCtx } from "./ComponentContextAPI";
+import type { ComponentType } from "./Component";
+import type { ComponentShadowType } from "./ComponentShadow";
+import type { ComponentRemote, ComponentRemoteType } from "./ComponentRemote";
 // Only typing (distant).
-import { ComponentType } from "../components/Component";
-import { ComponentContextAPI, ComponentCtx } from "../components/ComponentContextAPI";
-import { ComponentShadowType } from "../components/ComponentShadow";
-import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRemote";
+import type { Host } from "../host";
 
 
 // - About closure update process - //
@@ -439,13 +448,19 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
             case "content":
                 isDomType = true;
                 // Detect.
-                const htmlMode = toDef.domHTMLMode;
-                contentChanged = aDef.domContent !== toDef.domContent || htmlMode !== toDef.domHTMLMode;
+                contentChanged = aDef.domContent !== toDef.domContent;
                 // Update.
-                if (contentChanged) {
+                if (contentChanged)
                     aDef.domContent = toDef.domContent as MixDOMContentSimple;
-                    htmlMode !== undefined ? aDef.domHTMLMode = htmlMode : delete aDef.domHTMLMode;
-                }
+                // Set domHTMLMode.
+                // .. Note that as of v4.3.0, there is a pre-check already in the pairing to not allow domHTMLMode to change (nor def type).
+                // .. Because of this, we don't actually need to check for changes in domHTMLMode here anymore. We just apply it.
+                if (toDef.domHTMLMode)
+                    aDef.domHTMLMode = true;
+                break;
+
+            case "dom":
+                isDomType = true;
                 break;
 
             // Element: swapping, .element, .cloneMode and .props.
@@ -460,10 +475,6 @@ export function applyDefPairs(byBoundary: SourceBoundary | ContentBoundary, toAp
                 }
                 // Note. There's no real time mode change support - other than this.
                 aDef.domCloneMode = toDef.domCloneMode != null ? toDef.domCloneMode : null;
-                break;
-
-            case "dom":
-                isDomType = true;
                 break;
 
             // Portal: swapping and .domPortal.

@@ -2,13 +2,13 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMDefApplied, MixDOMDefTarget, MixDOMTreeNode } from "../typing";
+import type { MixDOMDefApplied, MixDOMDefTarget, MixDOMTreeNode } from "../typing";
 // Routines.
 import { newAppliedDef } from "../static/index";
 // Base class.
 import { BaseBoundary } from "./BaseBoundary";
-// Only typing (local).
-import { SourceBoundary } from "./SourceBoundary";
+// Only typing (distant).
+import type { SourceBoundary } from "../components";
 
 
 // - Class - //

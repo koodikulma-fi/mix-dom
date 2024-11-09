@@ -2,12 +2,12 @@
 // - Imports - //
 
 // Base.
-import { Component, ComponentFuncReturn, ComponentProps, ComponentType } from "./Component";
+import type { Component, ComponentFuncReturn, ComponentProps, ComponentType } from "./Component";
 // Only typing (local).
-import { ComponentInfo } from "./typesInfo";
-import { ComponentExternalSignalsFrom } from "./typesSignals";
-import { ComponentContextAPI } from "./ComponentContextAPI";
-import { ComponentShadowAPI } from "./ComponentShadowAPI";
+import type { ComponentInfo } from "./typesInfo";
+import type { ComponentExternalSignalsFrom } from "./typesSignals";
+import type { ComponentContextAPI } from "./ComponentContextAPI";
+import type { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
 // - Helper types - //

@@ -2,10 +2,10 @@
 // - Imports - //
 
 // Library.
-import { ContextsAllType, SetLike } from "data-signals";
-import { DOMTags } from "dom-types";
+import type { ContextsAllType, SetLike } from "data-signals";
+import type { DOMTags } from "dom-types";
 // Typing.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMRenderInfo,
     MixDOMRenderOutput,
@@ -19,18 +19,16 @@ import {
     MixDOMDefBoundary,
     MixDOMDefApplied,
     MixDOMDefTarget,
+    MixDOMDefContent,
 } from "../typing";
 // Routines.
 import { domElementByQuery, domElementsByQuery, newAppliedDef, rootDOMTreeNodes, treeNodesWithin } from "../static/index";
-// Boundaries.
-import { SourceBoundary } from "../boundaries/index";
+// Components.
+import { SourceBoundary, ComponentTypeAny, ComponentCtx } from "../components/index";
 // Local.
 import { HostShadowAPI } from "./HostShadowAPI";
 import { HostContextAPI } from "./HostContextAPI";
 import { HostServices } from "./HostServices";
-// Only typing (distant).
-import { ComponentTypeAny } from "../components/Component";
-import { ComponentCtx } from "../components/ComponentContextAPI";
 import { HostRender } from "./HostRender";
 
 
@@ -42,6 +40,8 @@ import { HostRender } from "./HostRender";
 export type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 export type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 export type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
+/** Handler for processing innerHTML for `MixDOM.defHTML` upon rendering. Should return the processed string, if returns `null` will not do anything. */
+export type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }) => string | null;
 export type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
 
 
@@ -141,10 +141,16 @@ export interface HostSettings {
      */
     renderTextTag: MixDOMRenderTextTag;
 
-    /** Tag to use for as a fallback when using the MixDOM.defHTML feature (that uses .innerHTML on a dummy element). Defaults to "span".
+    /** Tag to use for as a fallback when using the `MixDOM.defHTML` feature (that uses .innerHTML on a dummy element). Defaults to "span".
      * - It only has meaning, if the output contains multiple elements and didn't specifically define the container tag to use.
      */
     renderHTMLDefTag: DOMTags;
+
+    /** Define a callback to process the innerHTML string produced by `MixDOM.defHTML`.
+     * - The callback is called when applies to DOM. If not given, applies the string directly.
+     * - The callback should return the processed string - if the callback returns `null` will not do anything (= not apply changes to DOM).
+     */
+    renderInnerHTML: MixDOMRenderInnerHTMLCallback | null;
 
     /** If you want to process the simple content text, assign a callback here. */
     renderTextHandler: MixDOMRenderTextContentCallback | null;
@@ -762,6 +768,7 @@ export class Host<Contexts extends ContextsAllType = any> {
             maxReRenders: 1,
             renderTextTag: "",
             renderHTMLDefTag: "span",
+            renderInnerHTML: null,
             renderTextHandler: null,
             renderSVGNamespaceURI: "http://www.w3.org/2000/svg",
             renderDOMPropsOnSwap: true,

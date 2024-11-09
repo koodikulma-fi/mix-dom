@@ -3,26 +3,26 @@
 
 // Libraries.
 import { askListeners, callListeners } from "data-signals";
-import { applyDOMProps, createDOMElement, readDOMProps, DOMTags, readDOMString, HTMLTags, domSelfClosingTags } from "dom-types";
+import { applyDOMProps, createDOMElement, readDOMProps, DOMTags, readDOMString, domSelfClosingTags } from "dom-types";
 // Typing.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMTreeNodeDOM,
-    MixDOMTreeNodeType,
     MixDOMRenderInfo,
-    MixDOMDefType,
     MixDOMAssimilateItem,
     MixDOMAssimilateValidator,
     MixDOMAssimilateSuggester,
     MixDOMRemountInfo,
     MixDOMReassimilateInfo,
+    MixDOMDefApplied,
+    MixDOMDefContent,
 } from "../typing";
 // Routines.
-import { rootDOMTreeNodes } from "../static/index";
+import { domPassingTypes, rootDOMTreeNodes } from "../static/index";
 // Common.
 import { Ref } from "../common/index";
 // Only typing (local).
-import { HostSettings } from "./Host";
+import type { HostSettings, MixDOMRenderInnerHTMLCallback } from "./Host";
 
 
 // - Types - //
@@ -31,6 +31,7 @@ import { HostSettings } from "./Host";
 export type HostRenderSettings = Pick<HostSettings,
     | "renderTextHandler"
     | "renderTextTag"
+    | "renderInnerHTML"
     | "renderHTMLDefTag"
     | "renderSVGNamespaceURI"
     | "renderDOMPropsOnSwap"
@@ -46,12 +47,6 @@ export type HostRenderSettings = Pick<HostSettings,
 
 // This is exported as a class, so that can hold some members (like externalElements and settings).
 export class HostRender {
-
-
-    // - Static members - //
-
-    /** These imply which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
-    static PASSING_TYPES: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
 
 
     // - Instanced members - //
@@ -361,7 +356,7 @@ export class HostRender {
 
             // Create.
             if (renderInfo.create) {
-                // Already smuggled.
+                // Already smuggled (through remountSource).
                 if (treeNode.domNode)
                     didCreate = rSource && treeNode.domNode.nodeType === Node.TEXT_NODE && (rSource.readFromDOM === true || rSource.readFromDOM === "content") ? 3 : 2;
                 // Handle.
@@ -491,9 +486,11 @@ export class HostRender {
                     if (treeNode.def.MIX_DOM_DEF === "content") {
                         // Set innerHTML - if amounts to nothing, use an empty text node instead.
                         const htmlMode = treeNode.def.domHTMLMode;
-                        if (htmlMode && content != null && content !== "") {
+                        if (htmlMode) {
                             // Create a dom node.
-                            newNode = HostRender.domNodeFrom(content.toString(), (treeNode.def.tag as DOMTags) || settings.renderHTMLDefTag, true);
+                            newNode = content != null && content !== "" ?
+                                HostRender.domNodeFrom(content.toString(), (treeNode.def.tag as DOMTags) || settings.renderHTMLDefTag, true, settings.renderInnerHTML, treeNode) :
+                                null;
                             // Clear the previously applied props (if any), and mark for re-update.
                             if (newNode && treeNode.domProps) {
                                 doUpdate = true;
@@ -713,8 +710,12 @@ export class HostRender {
         if (typeof origTag !== "string")
             return null;
         // Pseudo.
-        if (origTag === "_")
-            return treeNode.def.domElement && this.getApprovedNode(treeNode.def.domElement, treeNode) || null;
+        if (origTag === "_") {
+
+            let el = treeNode.def.domElement && this.getApprovedNode(treeNode.def.domElement, treeNode) || null;
+            console.log(" HA eleme", treeNode, el);
+            return el;
+        }
         // Direct element pass.
         const simpleContent = treeNode.def.domContent;
         if (simpleContent instanceof Node) {
@@ -730,8 +731,12 @@ export class HostRender {
 
         // HTML string.
         const htmlMode = treeNode.def.domHTMLMode;
-        if (htmlMode && simpleContent != null && simpleContent !== "")
-            return HostRender.domNodeFrom(simpleContent.toString(), (origTag as DOMTags) || settings.renderHTMLDefTag, true);
+        if (htmlMode) {
+            return simpleContent != null && simpleContent !== "" ?
+                HostRender.domNodeFrom(simpleContent.toString(), (origTag as DOMTags) || settings.renderHTMLDefTag, true, settings.renderInnerHTML, treeNode) :
+                null
+                ;
+        }
         // HTML or SVG element.
         if (origTag)
             return !this.inBrowser ? null : createDOMElement(origTag, treeNode.parent?.domNode, settings.renderSVGNamespaceURI);
@@ -864,7 +869,7 @@ export class HostRender {
             // If is a fully passing type, allow to pass through.
             // .. If half passing referring to "root" type and it has a parent, allow to continue further up still - to support nested hosts.
             // .. Essentially we are then skipping the treeNode's .domNode (= the host's dom container's) existence, if there even was one.
-            if (HostRender.PASSING_TYPES[tParentNode.type] || tParentNode.type === "root" && tParentNode.parent) {
+            if (domPassingTypes[tParentNode.type] || tParentNode.type === "root" && tParentNode.parent) {
                 tParentNode = tParentNode.parent;
                 continue;
             }
@@ -926,7 +931,7 @@ export class HostRender {
         while (tParent) {
             // We've hit a non-passing tag (eg. a "dom" tag).
             // .. However, on fromSelf mode, let's continue if this was the first one, in which case tParent === tNode.
-            if (!HostRender.PASSING_TYPES[tParent.type] && tParent !== tNode)
+            if (!domPassingTypes[tParent.type] && tParent !== tNode)
                 break;
             // If we are not the first one anymore, we should (usually) stop too - and likewise exception with fromSelf mode.
             if (tParent.children[0] !== tNode && tParent !== tNode) {
@@ -979,12 +984,25 @@ export class HostRender {
     /** Returns a single html element.
      * - In case, the string refers to multiple, returns a fallback element containing them - even if has no content.
      */
-    public static domNodeFrom (innerHTML: string, fallbackTagOrEl: DOMTags | HTMLElement = "div", keepTag: boolean = false): Node | null {
+    public static domNodeFrom(innerHTML: string, fallbackTagOrEl: DOMTags | HTMLElement = "div", keepTag: boolean = false, renderInnerHTML?: MixDOMRenderInnerHTMLCallback | null, treeNode?: MixDOMTreeNodeDOM): Node | null {
+        // Create a dummy container element.
         const dummy = fallbackTagOrEl instanceof Element ? fallbackTagOrEl : typeof document === "object" ? document.createElement(fallbackTagOrEl) : null;
         if (!dummy)
             return null;
-        dummy.innerHTML = innerHTML;
-        return keepTag ? dummy : dummy.children[1] ? dummy : dummy.children[0];
+        // Set innerHTML for the dummy.
+        // .. Using a processor.
+        if (renderInnerHTML && treeNode) {
+            const html = renderInnerHTML(innerHTML, treeNode as MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; });
+            if (html === null)
+                return null;
+            dummy.innerHTML = html;
+        }
+        // .. Directly.
+        else
+            dummy.innerHTML = innerHTML;
+        // If is telling to keep the tag, or has only multiple children, return the dummy element.
+        // .. Otherwise, we just return the first and only child available (if any).
+        return keepTag ? dummy : dummy.children[1] ? dummy : dummy.children[0] || null;
     }
 
 
@@ -1006,30 +1024,24 @@ export class HostRender {
 
         // Read content.
         let tag = def.tag;
-        let dom = "";
         // Not dom type - just return the contents inside.
-        if (typeof tag !== "string") {
-            if (treeNode.children)
-                for (const tNode of treeNode.children)
-                    dom += HostRender.readDOMString(tNode, escapeHTML, indent, onlyClosedTagsFor);
-            return dom;
-        }
+        if (typeof tag !== "string")
+            return treeNode.children ? treeNode.children.reduce((str, tNode) => tNode.type === "portal" ? str : str + HostRender.readDOMString(tNode, escapeHTML, indent, onlyClosedTagsFor), "") : "";
 
         // Get element for special reads.
-        let element: Node | null = null;
+        let dom = "";
+        let readFromElement: Node | null = null;
         // .. Tagless - text node.
         if (!tag) {
             const content = def.domContent;
             if (content)
-                content instanceof Node ? element = content : dom += content.toString();
+                content && (content as Node).nodeType ? readFromElement = content as Node : dom += content.toString();
         }
         // .. PseudoElement - get the tag.
-        else if (tag === "_") {
-            tag = "";
-            element = def.domElement || null;
-        }
+        else if (tag === "_")
+            tag = def.domElement && def.domElement.tagName.toLowerCase() || "";
         // Not valid - or was simple. Not that in the case of simple, there should be no innerDom (it's the same with real dom elements).
-        if (!tag && !element)
+        if (!tag && !readFromElement)
             return dom;
 
         // Content.
@@ -1037,10 +1049,12 @@ export class HostRender {
         const indNext = indent >= 0 ? indent + 1 : indent;
         const content = (
             (def.domContent != null ?
-                def.domContent instanceof Node ? readDOMString("", null, null, def.domContent) : 
+                (def.domContent as Node).nodeType ? "" : 
                 (escapeHTML ? HostRender.escapeHTML(def.domContent.toString()) : def.domContent.toString()) :
-            "") +
-            (treeNode.children ? treeNode.children.reduce((str, kidNode) => str += HostRender.readDOMString(kidNode, escapeHTML, indNext, onlyClosedTagsFor), "") : "")
+            "") + (
+                treeNode.children ? treeNode.children.reduce((str, kidNode) => kidNode.type === "portal" ? str :
+                str + HostRender.readDOMString(kidNode, escapeHTML, indNext, onlyClosedTagsFor), ""
+            ) : "")
         );
 
         // Read as a string, and any kids recursively inside first (referring to HostRender.readDOMString).
@@ -1053,7 +1067,7 @@ export class HostRender {
             // Content inside: string or `true` (to force opened tags).
             (content + (preStr && treeNode.children.some(t => t.type !== "dom" || t.def.tag) ? preStr : "")) || onlyClosedTagsFor && !onlyClosedTagsFor.includes(tag),
             // Element for reading further info.
-            element || (def?.domContent instanceof Node ? def.domContent : null)
+            readFromElement
         );
 
         // Return the combined string.

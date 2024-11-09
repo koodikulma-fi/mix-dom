@@ -8,8 +8,8 @@
 // ./static/
 // ./common/
 // ./boundaries/
-// ./host/
 // ./components/
+// ./host/
 // ./MixDOM.ts
 
 
@@ -19,14 +19,12 @@
 export * from "./typing/MixDOMPublic";
 // Deffing.
 export { newDef, newDefHTML, GetPropsFor, hasContentInDefs } from "./static/routinesDefs";
-// SourceBoundary for constructor args.
-export { SourceBoundary } from "./boundaries/SourceBoundary";
-// All from common (Ref and MixDOMContent).
+// All from common (Ref, MixDOMContent and SpreadFunc).
 export * from "./common/index";
+// All public from components.
+export * from "./components/index_public";
 // Host and HostContextAPI from Host.
 export * from "./host/HostContextAPI";
 export * from "./host/Host";
-// All from components.
-export * from "./components/index";
 // All from MixDOM collection.
 export * from "./MixDOM";

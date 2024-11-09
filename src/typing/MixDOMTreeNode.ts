@@ -2,17 +2,18 @@
 // - Imports - //
 
 // Local.
-import { DOMElement } from "dom-types";
+import type { DOMElement } from "dom-types";
 // Only typing (local).
-import { MixDOMDefApplied } from "./MixDOMDefs";
-import { MixDOMBoundary, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
+import type { MixDOMDefApplied } from "./MixDOMDefs";
+import type { MixDOMBoundary, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
 // Only typing (distant).
-import { ContentBoundary, SourceBoundary } from "../boundaries/index";
+import type { ContentBoundary } from "../boundaries";
+import type { SourceBoundary } from "../components";
 
 
 // - Grounded tree - //
 
-export type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "contexts" | "host" | "root";
+export type MixDOMTreeNodeType = "dom" | "portal" | "boundary" | "pass" | "host" | "root";
 interface MixDOMTreeNodeBase {
 
     // - Mandatory - //

@@ -2,24 +2,23 @@
 // - Imports - //
 
 // Libraries.
-import { SignalListener, Context } from "data-signals";
-import { DOMTags } from "dom-types";
-// Local.
+import type { SignalListener, Context } from "data-signals";
+import type { DOMTags } from "dom-types";
 // Only typing (local).
-import { MixDOMComponentTags, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMAnyTags, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
-import { MixDOMTreeNode } from "./MixDOMTreeNode";
+import type { MixDOMComponentTags, MixDOMContentSimple, MixDOMDefKeyTag, MixDOMProcessedDOMProps } from "./MixDOMProcessing";
+import type { MixDOMTreeNode } from "./MixDOMTreeNode";
 // Only typing (distant).
-import { RefBase } from "../common/Ref";
-import { ContentClosure } from "../boundaries/ContentClosure";
-import { Host, MixDOMCloneNodeBehaviour } from "../host/Host";
-import { ComponentRemote } from "../components/ComponentRemote";
+import type { RefBase } from "../common";
+import type { ContentClosure } from "../boundaries";
+import type { ComponentRemote } from "../components";
+import type { Host, MixDOMCloneNodeBehaviour } from "../host";
 
 
 // - Defs - //
 
 /** Describes what kind of def it is.
  * - Compared to treeNode.type, we have extra: "content" | "element" | "fragment". But don't have "root" (or ""). */
-export type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "contexts" | "fragment" | "host";
+export type MixDOMDefType = "dom" | "content" | "element" | "portal" | "boundary" | "pass" | "fragment" | "host";
 type MixDOMSpreadLinks = {
     /** This contains any true and copy passes. It's the point where the inner spread stopped processing, and the parent spread can continue from it. */
     passes: MixDOMDefTarget[];

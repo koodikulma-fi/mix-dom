@@ -2,16 +2,16 @@
 // - Imports - //
 
 // Libraries.
-import { ReClass } from "mixin-types";
-import { DOMTags } from "dom-types";
+import type { ReClass } from "mixin-types";
+import type { DOMTags } from "dom-types";
 // Typing.
-import { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget, MixDOMInternalBaseProps, MixDOMCase } from "../typing";
-// Host.
-import { MixDOMCloneNodeBehaviour } from "../host/index";
+import type { MixDOMPreProps, MixDOMRenderOutput, MixDOMDefTarget, MixDOMInternalBaseProps, MixDOMCase } from "../typing";
 // Only typing (local).
-import { ComponentProps, ComponentTypeEither } from "./Component";
-import { ComponentRemote, ComponentRemoteProps, ComponentRemoteType } from "./ComponentRemote";
-import { SourceBoundary } from "../boundaries";
+import type { ComponentProps, ComponentTypeEither } from "./Component";
+import type { SourceBoundary } from "./SourceBoundary";
+import type { ComponentRemote, ComponentRemoteProps, ComponentRemoteType } from "./ComponentRemote";
+// Only typing (distant).
+import type { MixDOMCloneNodeBehaviour } from "../host";
 
 
 // - Export pseudo classes - //

@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMUpdateCompareModesBy } from "../typing";
+import type { MixDOMUpdateCompareModesBy } from "../typing";
 // Routines.
 import { newDef } from "../static/index";
 // Helpers.
@@ -11,7 +11,7 @@ import { MixDOMContent } from "../common/index";
 import { Component, ComponentTypeAny } from "./Component";
 import { ComponentShadowAPI } from "./ComponentShadowAPI";
 // Only typing (local).
-import { ComponentWired, ComponentWiredFunc } from "./ComponentWired";
+import type { ComponentWired, ComponentWiredFunc } from "./ComponentWired";
 
 
 // - Class - //

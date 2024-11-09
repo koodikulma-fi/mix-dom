@@ -2,13 +2,12 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMTreeNode, MixDOMDefApplied } from "../typing";
+import type { MixDOMTreeNode, MixDOMDefApplied } from "../typing";
 // Only typing (local).
-import { SourceBoundary } from "./SourceBoundary";
-import { ContentBoundary } from "./ContentBoundary";
+import type { ContentBoundary } from "./ContentBoundary";
 // Only typing (distant).
-import { Host } from "../host/Host";
-import { Component } from "../components/Component";
+import type { SourceBoundary, Component } from "../components";
+import type { Host } from "../host";
 
 
 // - Boundary - //

@@ -2,15 +2,16 @@
 // - Imports - //
 
 // Library.
-import { ClassType, InstanceTypeFrom, IterateBackwards } from "mixin-types";
-import { ContextsAllType } from "data-signals";
+import type { ClassType, InstanceTypeFrom, IterateBackwards } from "mixin-types";
+import type { ContextsAllType } from "data-signals";
 // Typing.
-import { MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
+import type { MixDOMDoubleRenderer, MixDOMRenderOutput } from "../typing";
+// Common.
+import type { SpreadFunc } from "../common";
 // Only typing (local).
-import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeAny } from "./Component";
-import { SpreadFunc } from "../common/SpreadFunc";
-import { ComponentContextAPI } from "./ComponentContextAPI";
-import { ComponentShadowAPI } from "./ComponentShadowAPI";
+import type { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeAny } from "./Component";
+import type { ComponentContextAPI } from "./ComponentContextAPI";
+import type { ComponentShadowAPI } from "./ComponentShadowAPI";
 
 
 // - Component info - //

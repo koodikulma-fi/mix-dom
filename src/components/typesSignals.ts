@@ -2,8 +2,8 @@
 // - Imports - //
 
 // Only typing (local).
-import { ComponentInfo, ComponentInfoAny } from "./typesInfo";
-import { Component } from "./Component";
+import type { ComponentInfo } from "./typesInfo";
+import type { Component } from "./Component";
 
 
 // - Component signals - //
@@ -15,8 +15,10 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     didMount: () => void;
     /** This is a callback that will always be called when the component is checked for updates.
      * - Note that this is not called on mount, but will be called everytime on update when it's time to check whether should update or not - regardless of whether will actually update.
-     * - This is the perfect place to use Memos to, as you can modify the state immediately and the mods will be included in the current update run. Access the new values in component.props and component.state (new props are set right before, and state read right after).
-     *      * Note that you can also use Memos on the render scope. The only difference is that the render method will be called again immediately after (but likewise included in the same update run).
+     * - This is the perfect place to use data memos and triggers, as you can modify the state immediately and the mods will be included in the current update run.
+     *      * Access the new values in component.props and component.state (new props are set right before, and state read right after).
+     *      * Note that you can also use data triggers inside the render function and even change state during.
+     *          - If state is changed during render call, will just call the render method again instantly - either way, the changes are included in the very same update run.
      */
     beforeUpdate: () => void;
     /** Callback to determine whether should update or not.
@@ -34,9 +36,11 @@ export type ComponentSignals<Info extends Partial<ComponentInfo> = {}> = {
     ) => boolean | null;
     /** This is a callback that will always be called when the component is checked for updates. Useful to get a snapshot of the situation.
      * - If there were no change in props, prevProps is undefined. Likewise prevState is undefined without changes in it.
-     * - Note that this is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
-     * - Note that this will be called right after onShouldUpdate (if that is called) and right before the update happens.
-     * - Note that by this time all the data has been updated already. So use preUpdates to get what it was before.
+     * - Notes:
+     *      * This is not called on mount, but will be called everytime on update, even if will not actually update (use the 3rd param).
+     *      * This will be called right after onShouldUpdate (if that is called) and right before the update happens.
+     *      * By this time all the data has been updated already. So use preUpdates to get what it was before.
+     *      * In case you update the state during the render call, this will not be called again (= it's just 1 update, even though re-renders again).
      */
     preUpdate: (
         prevProps: Info["props"] | undefined,

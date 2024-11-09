@@ -4,7 +4,7 @@
 // Libraries.
 import { SignalListener, SignalListenerFlags, callListeners } from "data-signals";
 // Routines.
-import {
+import type {
     MixDOMTreeNode,
     MixDOMDefApplied,
     MixDOMComponentUpdates,
@@ -14,13 +14,15 @@ import {
     MixDOMInternalCompProps,
 } from "../typing";
 // Boundaries.
-import { BaseBoundary } from "./BaseBoundary";
-import { ContentClosure } from "./ContentClosure";
+import { BaseBoundary, ContentClosure } from "../boundaries/index";
+// Local.
+import { Component } from "./Component";
+// Only typing (local).
+import type { ComponentFunc, ComponentType } from "./Component";
+import type { ComponentShadowAPI } from "./ComponentShadowAPI";
+import type { ComponentRemote, ComponentRemoteType } from "./ComponentRemote";
 // Only typing (distant).
-import { Host } from "../host/Host";
-import { Component, ComponentFunc, ComponentType } from "../components/Component";
-import { ComponentShadowAPI } from "../components/ComponentShadowAPI";
-import { ComponentRemote, ComponentRemoteType } from "../components/ComponentRemote";
+import type { Host } from "../host";
 
 
 // - Class -//
@@ -179,8 +181,10 @@ export class SourceBoundary extends BaseBoundary {
             // Render with iRecursion counting.
             const settings = this.host.settings;
             if (settings.maxReRenders < 0 || iRecursion < settings.maxReRenders) {
+                // Prepare.
                 iRecursion++;
                 this._renderPhase = "active";
+                // Render.
                 return this.render(iRecursion);
             }
             // - DEV-LOG - //

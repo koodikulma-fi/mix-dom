@@ -4,17 +4,20 @@
 // Library.
 import { orderedIndex } from "data-memo";
 // Typing.
-import { MixDOMChangeInfos, MixDOMDefTarget, MixDOMRenderOutput } from "../typing";
+import type { MixDOMChangeInfos, MixDOMDefTarget, MixDOMRenderOutput } from "../typing";
 // Routines.
-import { newContentPassDef, newDef, newDefFrom } from "../static/index";
+import { newContentPassDef, newDef, newDefFrom, collectInterestedInClosure } from "../static/index";
 // Common.
 import { MixDOMContent } from "../common/index";
 // Boundaries.
-import { SourceBoundary, ContentClosure } from "../boundaries/index";
-// Host.
-import { applyClosureEnvelope, collectInterestedInClosure } from "../host/index";
+import { ContentClosure } from "../boundaries/index";
 // Local.
-import { Component, ComponentFunc, ComponentProps, ComponentType, ComponentTypeEither, ComponentTypeWith } from "./Component";
+import { Component } from "./Component";
+import { applyClosureEnvelope } from "./routinesApply";
+// Only typical (local).
+import type { ComponentProps, ComponentType, ComponentTypeEither, ComponentTypeWith } from "./Component";
+import type { SourceBoundary } from "./SourceBoundary";
+
 
 
 // - MAIN IDEA (v4.0) - //

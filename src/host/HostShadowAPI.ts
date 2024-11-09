@@ -2,9 +2,9 @@
 // - Imports - //
 
 // Library.
-import { ContextsAllType } from "data-signals";
-// Only typing.
-import { Host } from "./Host";
+import type { ContextsAllType } from "data-signals";
+// Only typing (local).
+import type { Host } from "./Host";
 
 
 // - Class - //

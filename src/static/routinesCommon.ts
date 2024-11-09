@@ -2,11 +2,17 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMChangeInfos, MixDOMBoundary } from "../typing";
-// Boundaries.
-import { ContentClosure, SourceBoundary } from "../boundaries/index";
-// Only typing (distant).
-import { ComponentRemote } from "../components/index";
+import type { MixDOMChangeInfos, MixDOMBoundary, MixDOMTreeNodeType, MixDOMDefType } from "../typing";
+// Boundaries (only typing).
+import type { ContentClosure } from "../boundaries";
+// Components (only typing).
+import type { SourceBoundary, ComponentRemote } from "../components";
+
+
+// - Constants - //
+
+/** These imply which type of tree nodes allow to "pass" the DOM element reference through them - ie. they are not strictly DOM related tree nodes. */
+export const domPassingTypes: Partial<Record<MixDOMTreeNodeType | MixDOMDefType, true>> = { boundary: true, pass: true, host: true, fragment: true }; // Let's add fragment here for def side.
 
 
 // - Merge changes - //

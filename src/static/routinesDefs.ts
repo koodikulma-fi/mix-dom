@@ -2,10 +2,11 @@
 // - Imports - //
 
 // Library.
+import type { ClassType } from "mixin-types";
+import type { OmitPartial } from "data-signals";
 import { cleanDOMProps, DOMTags } from "dom-types";
-import { OmitPartial } from "data-signals";
 // Typing.
-import {
+import type {
     MixDOMProcessedDOMProps,
     MixDOMDefTarget,
     MixDOMDefType,
@@ -18,15 +19,19 @@ import {
     MixDOMPreProps,
 } from "../typing";
 // Only typing (distant).
-import { Ref } from "../common/Ref";
-import { ContentClosure } from "../boundaries/ContentClosure";
-import { Host } from "../host/Host";
-import { ComponentInfoAny, ReadComponentInfo } from "../components/typesInfo";
-import { Component, ComponentProps, ComponentTypeAny } from "../components/Component";
-import { IsSpreadFunc, SpreadFunc, SpreadFuncProps } from "../common/SpreadFunc";
-import { PseudoPortalProps, PseudoElementProps, MixDOMPseudoTags } from "../components/ComponentPseudos";
-import { ComponentRemoteType } from "../components/ComponentRemote";
-import { ClassType } from "mixin-types";
+import type { IsSpreadFunc, SpreadFunc, SpreadFuncProps, Ref } from "../common";
+import type { ContentClosure } from "../boundaries";
+import type {
+    ReadComponentInfo,
+    Component,
+    ComponentProps,
+    ComponentTypeAny,
+    PseudoPortalProps,
+    PseudoElementProps,
+    MixDOMPseudoTags,
+    ComponentRemoteType
+} from "../components";
+import type { Host } from "../host";
 
 
 // - Constant - //
@@ -152,7 +157,7 @@ export function newDef(tagOrClass: MixDOMAnyTags, origProps: Record<string, any>
         if (tag)
             // Note. For dom props we clean them now. For others (boundaries), just pass.
             // .. However, for "Element" pseudo components, we do the DOM parsing a few lines further below.
-            targetDef.props = typeof tag === "string" ? cleanDOMProps(passProps) : passProps as MixDOMProcessedDOMProps;
+            targetDef.props = typeof tag === "string" && tag !== "_" ? cleanDOMProps(passProps) : passProps as MixDOMProcessedDOMProps;
     }
     // Empty props - if has !!tag, uses props.
     else if (tag)

@@ -2,11 +2,11 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMRenderOutput, MixDOMDoubleRenderer } from "../typing";
+import type { MixDOMRenderOutput, MixDOMDoubleRenderer } from "../typing";
 // Only typing (local).
-import { ComponentShadow, ComponentShadowType } from "./ComponentShadow";
-import { ComponentShadowAPI } from "./ComponentShadowAPI";
-import { ComponentWiredAPI } from "./ComponentWiredAPI";
+import type { ComponentShadow, ComponentShadowType } from "./ComponentShadow";
+import type { ComponentShadowAPI } from "./ComponentShadowAPI";
+import type { ComponentWiredAPI } from "./ComponentWiredAPI";
 
 
 // - Types - //

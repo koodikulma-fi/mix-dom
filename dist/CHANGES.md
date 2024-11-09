@@ -5,47 +5,35 @@
 ## v4.3.0 (2024-11-10)
 
 ### TO-DO:
-- fix in RENDER MULTI FLUSH PROCESSING:
-  * Fix handling of didMount in cases with multiple timed out render flushes (when using non-null renderTimeout), that contain elements that should be unmounted but haven't yet been mounted.
-    - <-- Only happens when updateTimeout is longer than renderTimeout.
-- fix in RENDER DOM HANDLING:
-  * Fix the case of swapping between htmlDef and regular. Does not seem to work correctly - gets emptied.
-- fix in UNMOUNTING:
-  * Fix some PORTAL case where wasn't properly removed (related to MixDOM.WithContent).
-- Changes:
-  * Change REF typing to COMPONENT INSTANCE..!
-  * Support feeding in NAME in mixing methods..!
+- Change REF typing to COMPONENT INSTANCE..!
+- UPDATE COMMENTS for renderTimeout/updateTimeout.
 
-### TO-DOCS:
-- That added the `MixDOM.ref()`.
+### Changes in Host settings
+- The default setting for `renderTimeout` has been changed to `null` - ie. synchronously right after updates. (The updateTimeout importantly still defaults to `0`.)
+- Dropped the setting for `useImmediateCalls` since it was kind of useless - more confusing than useful.
+- Added a setting for `renderInnerHTML` which is used in conjunction with the `MixDOM.defHTML` method.
 
-### Dropped couple of host settings
-- The setting for `renderTimeout` has been dropped. Now it's fixed to `null` (= synchronously right after updates).
-  1. Firstly, there is already the more important `updateTimeout`. In this sense, `renderTimeout` is a bit confusing / redundant.
-  2. The renders are always flushed after all the updates (including any recursively triggered sub-updates) - so, using a timeout won't really benefit performance.
-  3. Having renderTimeout induces some complications to the flow (= requires more code, less robust) and pollutes args in common methods (eg. `(..., updateTimeout?, renderTimeout?)`).
-- Because of dropping `renderTimeout`, the `useImmediateCalls` setting was also dropped.
-  - It's now fixed to `false` (= earlier default), but actually behaves synchronously due to render cycle being run synchronously after all the updates.
-  - Another reason is that it was not a very useless setting to have. Simpler better.
-
-### Tiny changes
+### Tiny JS changes
 - Changed default render timeout to `null`, as it provides a bit more expectable behaviour in certain special cases. 
 - Renamed `lastState` to `renderedState` and `getLastState` to `getRenderedState` - to better describe the purpose and behaviour.
-
-### Refined behaviour of wired buildProps
-
-- Dropped the special feature of not-updating wired component instances if the build props are identical to last run.
+- Refined behaviour of the `buildProps` for wired components.
+  - Dropped the special feature of not-updating wired component instances if the build props are identical to last run.
   - The feature was a bit surprising in practice, and redundant as you can control the wired component's updates (through `MyWired.api`), or more easily just define a component instead of a spread and control its updates, if needed.
 
-### Tiny fixes
-
-- Fixed that lastState is always cleared at the end of the update. Renamed now to `renderedState`.
-- Tiny life cycle related fixes: args in shouldUpdate signal, isMounted state to reflect DOM mounted state.
-
-### Refined typing
-
+### Tiny TS changes
 - Changed the default typing (= without type args) in `Component`, `ComponentFunc` and such to `ComponentInfoAny`, which in turn has been converted to a partial interface.
 - Refined `ComponentInstance` type to use `ComponentWith` type.
+
+### Tiny fixes
+- Fixed special case handling:
+  * For cases where updateTimeout (in Host settings) is larger than renderTimeout (and renderTimeout was not `null`).
+  * Handling of cases where swaps between using `newDef` and `newDefHTML` - the two types of defs are never pairable.
+- Other tiny fixes:
+  * Made sure `lastState` (now `renderedState`) is always cleared at the end of the boundary update.
+  * Corrected arguments for `shouldUpdate` life cycle signal arguments (remove the extra component arg).
+  * Refined `component.isMounted()` to reflect the DOM mounted state.
+  * Fixed handling of `Ref.getElement()` when domNode not found.
+  * Refined `readDOMString` to read PseudoElements correctly and to not include contents of PseudoPortals.
 
 ---
 

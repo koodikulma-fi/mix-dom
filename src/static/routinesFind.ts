@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMTreeNode, MixDOMTreeNodeDOM, MixDOMTreeNodeType, MixDOMDefApplied } from "../typing";
+import type { MixDOMTreeNode, MixDOMTreeNodeDOM, MixDOMTreeNodeType, MixDOMDefApplied } from "../typing";
 
 
 // - Finders - //

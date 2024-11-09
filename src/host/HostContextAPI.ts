@@ -2,10 +2,10 @@
 // - Imports - //
 
 // Library.
-import { AsClass } from "mixin-types";
+import type { AsClass } from "mixin-types";
 import { ContextAPI, ContextsAllType, ContextAPIType } from "data-signals";
-// Only typing.
-import { Host } from "./Host";
+// Only typing (local).
+import type { Host } from "./Host";
 
 
 // - HostContextAPI class - //

@@ -2,15 +2,13 @@
 // - Imports - //
 
 // Typing.
-import { MixDOMTreeNode, MixDOMDefApplied, MixDOMDefTarget } from "../typing";
+import type { MixDOMTreeNode, MixDOMDefApplied, MixDOMDefTarget } from "../typing";
 // Static.
-import { hasContentInDefs } from "../static/index.js"; // For some reason, needs to specify index here.
+import { hasContentInDefs } from "../static/index";
 // Boundaries.
-import { ContentBoundary } from "./ContentBoundary";
-// Only typing (local).
-import { SourceBoundary } from "./SourceBoundary";
+import type { ContentBoundary } from "./ContentBoundary";
 // Only typing (distant).
-import { ComponentRemote } from "../components/ComponentRemote";
+import type { SourceBoundary, ComponentRemote } from "../components";
 
 
 // - Extra typing - //

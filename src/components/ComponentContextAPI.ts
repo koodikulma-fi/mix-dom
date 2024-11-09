@@ -2,13 +2,13 @@
 // - Import - //
 
 // Libraries.
-import { AsClass } from "mixin-types";
+import type { AsClass } from "mixin-types";
 import { ContextsAllType, ContextAPI, ContextAPIType } from "data-signals";
-// Host.
-import { Host } from "../host/index";
 // Only typing (local).
-import { ComponentInfo } from "./typesInfo";
-import { Component, ComponentCtxWith, ComponentFuncReturn, ComponentProps } from "./Component";
+import type { ComponentInfo } from "./typesInfo";
+import type { Component, ComponentCtxWith, ComponentFuncReturn, ComponentProps } from "./Component";
+// Only typing (distant).
+import type { Host } from "../host";
 
 
 // - Component with ContextAPI - //

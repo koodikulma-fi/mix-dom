@@ -1,9 +1,10 @@
 
 // - Imports - //
 
+// Libraries.
+import type { DOMAttributesBy_camelCase, DOMAttributesBy_native, DOMTags } from "dom-types";
 // Local typing.
-import { DOMAttributesBy_camelCase, DOMAttributesBy_native, DOMTags } from "dom-types";
-import { MixDOMInternalBaseProps, MixDOMInternalDOMProps } from "./MixDOMProcessing";
+import type { MixDOMInternalBaseProps, MixDOMInternalDOMProps } from "./MixDOMProcessing";
 
 
 // - JSX - Intrinsic attributes - //

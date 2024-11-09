@@ -3,16 +3,14 @@
 
 // Libraries.
 import { callListeners, SignalListener, SignalListenerFlags, SignalBoy, SignalBoyType } from "data-signals";
-import { DOMDiffProps } from "dom-types";
+import type { DOMDiffProps } from "dom-types";
 // Typing.
-import { MixDOMTreeNode, MixDOMContentSimple } from "../typing";
+import type { MixDOMTreeNode, MixDOMContentSimple } from "../typing";
 // Routines.
 import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
-import { ContentBoundary } from "../boundaries/ContentBoundary";
-import { ComponentExternalSignalsFrom } from "../components/typesSignals";
-import { Component, ComponentInstance, ComponentTypeEither } from "../components/Component";
-import { ReadComponentInfo } from "../components";
+import type { ContentBoundary } from "../boundaries";
+import type { ComponentExternalSignalsFrom, Component, ComponentInstance, ComponentTypeEither, ReadComponentInfo } from "../components";
 
 
 // - Types - //
