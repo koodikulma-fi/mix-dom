@@ -710,12 +710,8 @@ export class HostRender {
         if (typeof origTag !== "string")
             return null;
         // Pseudo.
-        if (origTag === "_") {
-
-            let el = treeNode.def.domElement && this.getApprovedNode(treeNode.def.domElement, treeNode) || null;
-            console.log(" HA eleme", treeNode, el);
-            return el;
-        }
+        if (origTag === "_")
+            return treeNode.def.domElement && this.getApprovedNode(treeNode.def.domElement, treeNode) || null;
         // Direct element pass.
         const simpleContent = treeNode.def.domContent;
         if (simpleContent instanceof Node) {
