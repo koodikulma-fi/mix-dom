@@ -79,7 +79,7 @@ export interface HostSettings {
      *      * Instead, the cycle is "virtually delayed" to run after the current synchronous sequence of JS code (and other internal native things).
      *      * As a result, only one update cycle is run, for example for a 100 updates.
      *      * Furthermore, this also helps to perform the rendering in sync, which not only helps in practical performance but is also desireable UX wise.
-     * - Note only use `updateTimeout: null` if you really know what you're doing.
+     * - Only use `updateTimeout: null` if you really know what you're doing.
      *      * Using `null` provides synchronous updates, but might have implications that are not evident at first sight.
      *          - For example, when you call `component.setState()`, then the DOM has already been updated on the very next line. This can easily result in unintended bugs in your app.
      *      * However, there is one common use case for `null` updateTimeut. It's for the very first render of the app (eg. to provide better info for SEO robots).

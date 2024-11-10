@@ -311,7 +311,9 @@ export function mixClassFuncs(BaseClass: ComponentType, ...args: ComponentFunc[]
     // Mix.
     const funcs = args.filter(f => typeof f === "function") as ComponentFunc[];
     const compFunc = funcs.length > 1 ? (mixFuncs as any)(...funcs) as ComponentFunc : funcs[0] as ComponentFunc;
-    const lastArgs = args.slice(funcs.length);
+    let lastArgs = args.slice(funcs.length);
+    if (typeof lastArgs[1] === "string")
+        lastArgs = [lastArgs[1], lastArgs[0]];
     const useClassRender = lastArgs[0] === true || lastArgs[1] === true;
     const name = typeof lastArgs[0] === "string" && lastArgs[0] || "[" + BaseClass.name + "_mix]";
     // Return a new class extending the base.
