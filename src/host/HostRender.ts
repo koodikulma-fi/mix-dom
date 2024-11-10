@@ -993,8 +993,8 @@ export class HostRender {
         // .. Using a processor.
         if (renderInnerHTML && treeNode) {
             const html = renderInnerHTML(innerHTML, treeNode as MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }, dummy);
-            if (html === null)
-                return null;
+            if (typeof html !== "string")
+                return html || null;
             dummy.innerHTML = html;
         }
         // .. Directly.

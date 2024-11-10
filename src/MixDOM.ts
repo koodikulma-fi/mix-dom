@@ -144,7 +144,7 @@ export const MixDOM = {
     // - Helper shortcuts - //
 
     /** Create a new Ref instance. */
-    ref: <Type extends Node | ComponentTypeEither = Node | ComponentTypeEither>(): Ref<Type> => new Ref<Type>(),
+    ref: <Type extends Node | Component = Node | Component>(): Ref<Type> => new Ref<Type>(),
 
 
     // - Create components - //
@@ -329,6 +329,7 @@ export const MixDOM = {
      * - Note that if the mixable funcs contain static properties, the "api" is a reserved property for ComponentShadowAPI and ComponentWiredAPI, otherwise can freely assign - each extends more.
      * - The extra `useRenderer` argument is mostly meant for internal use. If set to `true`, then makes sure that a renderer function is returned - otherwise simply returns the output of the last in the mix.
      *      * Note. In case of merging multiple mixed sequences together (that have no renderer yet), keep this as `false` (default) for the sub mixes and put it as `true` for the final mix (or specifically define a composer with `mixFuncsWith` method).
+     * - You can also name the resulting component by providing a string as the last or 2nd last arg. (The useRenderer and name optional args can be in either order.)
      */
     mixFuncs: mixFuncs,
     /** This mixes many component functions together. Each should look like: (initProps, component, cApi?) => MixDOMRenderOutput | MixDOMDoubleRenderer.
@@ -345,14 +346,16 @@ export const MixDOM = {
     mixFuncsWith: mixFuncsWith,
     /** This mixes together a Component class and one or many functions. 
      * - By default, attaches the return of the last function as the renderer (if function type, otherwise an earlier one). 
-     * - Optionally as the last arg, can provide a boolean to use the class renderer instead.
-     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+     * - About optional last and 2nd last args:
+     *      * Can provide a string for the name of the final class that is created by extending the given base class with the mixable functions applied. If not provided uses `"[" + BaseClass.name + "_mix]"`.
+     *      * Can provide a boolean to determine whether to use the class render method instead of the last mixable func.
      */
     mixClassFuncs: mixClassFuncs,
     /** This mixes together a Component class and one or many functions with a composer function as the last function.
      * - The last function is always used as the renderer and its typing is automatic.
      *      * If you want to add extra props to the auto typed composer you can add them as an extra last argument: `{} as { props: { someStuff: boolean; } }`.
-     * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
+     * - Internally this method uses mixClassFuncs (but just cuts out the optional typing related object).
+     * - Optionally as the very last arg (after optional typing info), can provide the name of the final class that is created by extending the given base class with the mixable functions applied.
      */
     mixClassFuncsWith: mixClassFuncsWith,
     /** Mix many mixins together with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
@@ -362,26 +365,37 @@ export const MixDOM = {
      * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
      */
     mixClassMixins: mixClassMixins,
-    /** Mix many mixins together with a composer at the end and with a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
-     * - See mixClassMixins for more. This just adds the composer at the end. On the JS side the method uses `mixMixinsWith`.
+    /** Mix many mixins together with a composer at the end and using a custom Component class as the basis to mix on: `(MyClass, MyMixin1, MyMixin2, ...)`.
+     * - See mixClassMixins for more. This just adds a composer mixin at the end. On the JS side the method uses `mixMixinsWith`.
+     * - Note also that often the base class might contain a renderer - however it cannot be type specific to the mixins that it will extend it (unlike the composer that's at the end of the sequence).
      * - Note that the name of the final mix comes automatically from the last mixin class in the sequence.
      */
     mixClassMixinsWith: mixClassMixinsWith,
-    /** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
+    /** Mix many mixins together using the common Component class as the basis to mix on: `(MyMixin1, MyMixin2, ...)`.
+     * - Note. The last mixin with a render method defined is used as the render method of the combined class.
+     * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
+     *      * Technically mixMixins supports the first argument being a component class (instead of a mixin func to create a class), but it's purposefully left out of typing (use mixClassMixins instead).
+     *      * Note that the optional name arg is only used if did not give a custom base clas, as then the class has already been created and already has a name.
+     * - For best typing experience, these two functions are split apart into two different functions. However, technically both use the exact same base.
+     */ 
+    mixMixins: mixMixins,
+    /** Mix many mixins together into using the common Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
      * - In other words, works like the `mixFuncsWith` method but meant for mixable class mixins, instead of mixable component funcs.
      *      * Technically mixMixins supports the first argument being a component class (instead of a mixin func to create a class), but it's purposefully left out of typing (use mixClassMixinsWith instead).
      * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
      * - Note. If you want to define a custom base class (extending Component) you can use `mixClassMixins` method whose first argument is a base class.
      */
-    mixMixins: mixMixins,
-    /** Mix many mixins together into using a Component class as the basis to mix on: `(MyMixin1, MyMixin2, ..., ComposerMixin)`
-     * - Note. The last mixin is assumed to be the one to do the rendering and its type is combined from all the previous + the optional extra info given as the very last argument.
-     * - This is like mixFuncsWith but for mixins. On the javascript this function is teh same as mixMixins.
-     */
     mixMixinsWith: mixMixinsWith,
-    /** This creates a final component for a list of HOCs with a based component: `(Base, HOC1, HOC2, ... )`
-     * - Note that conceptually HOCs are not very performant as they create extra intermediary components.
-     * - Consider using mixFuncs or mixMixins concepts instead. They are like HOCs merged into one component with a dynamic base.
+    /** Combine many HOCs together with a based component: `(Base, HOC1, HOC2, ... )`.
+     * - Effectively this method creates a new component that combines the HOCs together.
+     * - Note that conceptually HOCs are not as performant as mixed components as HOCs create extra intermediary components.
+     *      * When mounted, this results in a group of _nested components_, where each component wraps another component inside it.
+     *      * In order to make the nesting lighter, consider using SpreadFuncs in the individual HOCs where possible.
+     * - For better performance and more control as a whole (vs. separated segments), consider using mixFuncs or mixMixins concepts instead.
+     *      * They are like HOCs merged into one component with a dynamic base, and result in a single final component (vs. a chain of nested components).
+     * - Note. The final created component is a spread func.
+     *      * This implies its native function name makes no difference (for debugging), as it will be spread out anyway.
+     *      * You might consider creating a final component (with name) to finalize the usage and composing. The component then simply renders the HOC mix inside.
      */
     mixHOCs: mixHOCs,
     

@@ -10,7 +10,7 @@ import type { MixDOMTreeNode, MixDOMContentSimple } from "../typing";
 import { rootDOMTreeNodes } from "../static/index";
 // Only typing (distant).
 import type { ContentBoundary } from "../boundaries";
-import type { ComponentExternalSignalsFrom, Component, ComponentInstance, ComponentTypeEither, ReadComponentInfo } from "../components";
+import type { ComponentExternalSignalsFrom, Component, ReadComponentInfo } from "../components";
 
 
 // - Types - //
@@ -32,13 +32,13 @@ export type RefDOMSignals<Type extends Node = Node> = {
      * This is only useful for fade out animations, when the parenting elements also stay in the dom (and respective children). */
     domWillUnmount: (domNode: Type) => boolean | void;
 };
-export type RefComponentSignals<Type extends ComponentTypeEither = ComponentTypeEither, Instance extends ComponentInstance<Type> = ComponentInstance<Type>> = {
+export type RefComponentSignals<Type extends Component = Component> = {
     /** Called when a ref is about to be attached to a component. */
     didAttach: (component: Type) => void;
     /** Called when a ref is about to be detached from a component. */
     willDetach: (component: Type | ContentBoundary) => void;
-} & ([Instance] extends [Component] ? ComponentExternalSignalsFrom<ReadComponentInfo<Instance>> : {});
-export type RefSignals<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [ComponentTypeEither] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & ComponentTypeEither>;
+} & ComponentExternalSignalsFrom<ReadComponentInfo<Component>>;
+export type RefSignals<Type extends Node | Component = Node | Component> = [Type] extends [Node] ? RefDOMSignals<Type> : [Type] extends [Component] ? RefComponentSignals<Type> : RefDOMSignals<Type & Node> & RefComponentSignals<Type & Component<{}>>;
 
 export interface RefBase {
     signals: Partial<Record<string, SignalListener[]>>;
@@ -50,7 +50,7 @@ export interface RefBase {
     getComponent(): Component | null;
     getComponents(): Component[];
 }
-export interface RefType<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoyType<RefSignals<Type>> {
+export interface RefType<Type extends Node | Component = Node | Component> extends SignalBoyType<RefSignals<Type>> {
     new (): Ref<Type>;
     MIX_DOM_CLASS: string; // "Ref";
     /** Internal call tracker. */
@@ -65,7 +65,7 @@ export interface RefType<Type extends Node | ComponentTypeEither = Node | Compon
 // - Class - //
 
 /** Class to help keep track of components or DOM elements in the state based tree. */
-export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeEither> extends SignalBoy<RefSignals<Type>> {
+export class Ref<Type extends Node | Component = Node | Component> extends SignalBoy<RefSignals<Type>> {
 
 
     // - Static - //
@@ -132,12 +132,12 @@ export class Ref<Type extends Node | ComponentTypeEither = Node | ComponentTypeE
      * - The method works as if the behaviour was to always override with the last one.
      * - Except that if the last one is removed, falls back to earlier existing.
      */
-    public getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type> | null : Component | null {
+    public getComponent(): [Type] extends [Node] ? Component | null : [Type] extends [Component] ? Type | null : Component | null {
         const lastRef = [...this.treeNodes][this.treeNodes.size - 1];
         return (lastRef && lastRef.type === "boundary" && lastRef.boundary?.component as Component || null) as any;
     }
     /** This returns all the currently reffed components (in the order added). */
-    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [ComponentTypeEither] ? ComponentInstance<Type>[] : Component[] {
+    public getComponents(): [Type] extends [Node] ? Component[] : [Type] extends [Component] ? Type[] : Component[] {
         const components: Component[] = [];
         for (const treeNode of this.treeNodes)
             if (treeNode.type === "boundary" && treeNode.boundary?.component)

@@ -4,23 +4,21 @@
 
 ## v4.3.0 (2024-11-10)
 
-### TO-DO:
-- Change REF typing to COMPONENT INSTANCE..!
-- UPDATE COMMENTS for renderTimeout/updateTimeout.
-
-### Changes in Host settings
-- The default setting for `renderTimeout` has been changed to `null` - ie. synchronously right after updates. (The updateTimeout importantly still defaults to `0`.)
-- Dropped the setting for `useImmediateCalls` since it was kind of useless - more confusing than useful.
-- Added a setting for `renderInnerHTML` which is used in conjunction with the `MixDOM.defHTML` method.
-
-### Tiny JS changes
+### Minor JS changes & refines
+- In Host settings:
+  - The default setting for `renderTimeout` has been changed to `null` - ie. synchronously right after updates. (The updateTimeout importantly still defaults to `0`.)
+  - Dropped the setting for `useImmediateCalls` since it was kind of useless - more confusing than useful.
+  - Added a setting for `renderInnerHTML` which is used in conjunction with the `MixDOM.defHTML` method.
 - Changed default render timeout to `null`, as it provides a bit more expectable behaviour in certain special cases. 
 - Renamed `lastState` to `renderedState` and `getLastState` to `getRenderedState` - to better describe the purpose and behaviour.
 - Refined behaviour of the `buildProps` for wired components.
   - Dropped the special feature of not-updating wired component instances if the build props are identical to last run.
   - The feature was a bit surprising in practice, and redundant as you can control the wired component's updates (through `MyWired.api`), or more easily just define a component instead of a spread and control its updates, if needed.
+- Added support for naming the mixed components (like in the component creation shortcuts: add a string as the last arg).
 
-### Tiny TS changes
+### Minor TS change & refines
+- Component typing for `Ref` has been changed to instance (vs. class type / func), as it simplifies things and better describes the purpose.
+  - To get instance type from a class/func type, use `ComponentInstance<CompType>` type helper.
 - Changed the default typing (= without type args) in `Component`, `ComponentFunc` and such to `ComponentInfoAny`, which in turn has been converted to a partial interface.
 - Refined `ComponentInstance` type to use `ComponentWith` type.
 
@@ -30,7 +28,7 @@
   * Handling of cases where swaps between using `newDef` and `newDefHTML` - the two types of defs are never pairable.
 - Other tiny fixes:
   * Made sure `lastState` (now `renderedState`) is always cleared at the end of the boundary update.
-  * Corrected arguments for `shouldUpdate` life cycle signal arguments (remove the extra component arg).
+  * Corrected arguments for `shouldUpdate` life cycle signal arguments (removed the extra component arg).
   * Refined `component.isMounted()` to reflect the DOM mounted state.
   * Fixed handling of `Ref.getElement()` when domNode not found.
   * Refined `readDOMString` to read PseudoElements correctly and to not include contents of PseudoPortals.

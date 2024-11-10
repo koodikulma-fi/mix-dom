@@ -11,7 +11,7 @@ import type { MixDOMTreeNode, MixDOMTreeNodeBoundary, MixDOMTreeNodeDOM, MixDOMT
 // Only typing (distant).
 import type { Ref, RefDOMSignals } from "../common";
 import type { ContentBoundary } from "../boundaries";
-import type { SourceBoundary, ComponentSignals, ComponentFuncAny, ComponentType, ComponentTypeEither, PseudoFragment, MixDOMPseudoTags } from "../components";
+import type { SourceBoundary, ComponentSignals, ComponentFuncAny, ComponentType, PseudoFragment, MixDOMPseudoTags, Component } from "../components";
 import type { Host } from "../host";
 
 
@@ -119,7 +119,7 @@ export interface MixDOMInternalCompProps<Signals extends SignalsRecord = {}> ext
     /** Attach one or many refs. (Not available for SpreadFuncs.)
      * - Note that "_ref" is a special prop only available _outside_ the component - it's not actually part of props.
      */
-    _ref?: Ref<ComponentTypeEither> | Ref<ComponentTypeEither>[]; // RefBase | RefBase[];
+    _ref?: Ref<Component> | Ref<Component>[]; // RefBase | RefBase[];
     /** Attach signals to a child component directly through props. (Not available for SpreadFuncs.)
      * - Note that "_signals" is a special prop only available _outside_ the component - it's not actually part of props.
      */

@@ -604,7 +604,7 @@ export function createComponent<Info extends ComponentInfoPartial = ComponentInf
     const staticProps = staticPropsOrName && typeof staticPropsOrName === "object" ? staticPropsOrName : undefined;
     const name = (staticProps ? orName as string : staticPropsOrName as string) || func.name || "[createComponent]";
     // This { [func.name]: someFunc }[func.name] trick allows to reuse the name programatically. However, its mostly useful for classes, as the functions are named outside (= afterwards).
-    // .. It seems we must execute the condition _outside_ the dictionary (not within), to make this work for this particular case (due to bundling).
+    // .. Note that we must execute the condition _outside_ the dictionary (not within), to make this work for this particular case (otherwise the naming happens too late for JS processing).
     const f = func.length > 1 ?
         { [name]: (_props: ComponentProps<Info>, component: ComponentCtxWith<Info>, contextAPI: ComponentContextAPI<Info["contexts"] & {}>) => (func as ComponentCtxFuncShortcut<Info>)(component, contextAPI) as ComponentCtxFunc<Info>}[name] :
         { [name]: (_props: ComponentProps<Info>, component: ComponentWith<Info>) => (func as ComponentFuncShortcut<Info>)(component) as ComponentFunc<Info>}[name];

@@ -41,7 +41,7 @@ export type MixDOMCloneNodeBehaviour = "deep" | "shallow" | "always";
 export type MixDOMRenderTextTagCallback = (text: string | number) => Node | null;
 export type MixDOMRenderTextContentCallback = (text: string | number) => string | number;
 /** Handler for processing innerHTML for `MixDOM.defHTML` upon rendering. Should return the processed string, if returns `null` will not do anything. */
-export type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }, dummyElement: HTMLElement) => string | null;
+export type MixDOMRenderInnerHTMLCallback = (innerHTML: string, treeNode: MixDOMTreeNodeDOM & { def: MixDOMDefApplied & MixDOMDefContent; }, dummyElement: HTMLElement) => string | Node | null;
 export type MixDOMRenderTextTag = DOMTags | "" | MixDOMRenderTextTagCallback;
 
 
@@ -65,50 +65,36 @@ export interface HostSettingsUpdate extends Partial<Omit<HostSettings, "updateCo
  *      * However `settings.onlyRunInContainer` requires a refresh that is automated using modifySettings.
  */
 export interface HostSettings {
-    
-    // /** If `null`, then updates synchronously. Otherwise uses the given timeout in ms. Defaults to `0` ms (recommended).
-    //  * - This timeout delays the beginning of the update cycle, after being triggered (eg. by a change in a component's state).
-    //  *      * After the timeout has elapsed, `render(props, state)` method is called on components and a new structure is received.
-    //  *      * The structure is then applied to the component, and for any nested components similarly render method is called and then the defs applied recursively.
-    //  *      * Finally, the process outputs a list of render callbacks to apply the related dom changes.
-    //  * - Note that the actual rendering always happens synchronously right after all the updates have been performed - including any recursively triggered sub update cycles.
-    //  *      * Accordingly, the lifecycle calls for didMount and didUpdate are called right after rendering. All of this happens synchronously once the update cycle begins.
-    //  * - Note that the purpose of using `0` vs. `null` is to help in performance but also makes usage more practical.
-    //  *      * In practice, using `0` timeout simply cuts the update cycle from being triggered instantly, and thus individually for each update call.
-    //  *      * Instead, the cycle is "virtually delayed" to run after the current synchronous sequence of JS code (and other internal native things).
-    //  *      * As a result, only one update cycle is run, for example for a 100 updates.
-    //  *      * Furthermore, this also helps to perform the rendering in sync, which not only helps in practical performance but is also desireable UX wise.
-    //  * - Note only use `updateTimeout: null` if you really know what you're doing.
-    //  *      * Using `null` provides synchronous updates, but might have implications that are not evident at first sight.
-    //  *          - For example, when you call `component.setState()`, then the DOM has already been updated on the very next line. This can easily result in unintended bugs in your app.
-    //  *      * However, there is one common use case for `null` updateTiemout. It's for the very first render of the app (eg. to provide better info for SEO robots).
-    //  *          - On the other hand, it's perhaps better to not touch updateTimeout and instead trigger a synchronous update once when your app starts.
-    //  *          - Note that in either case, you might want to do the equivalent synchronous initial run for any related Contexts as well.
-    //  */
 
-	/** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms.
-     * - This timeout delays the beginning of the update process.
-     *   * After the timeout has elapsed, .render() is called on components and a new structure is received.
-     *   * The structure is then applied to the component, and for any nested components similarly .render() is called and then the defs applied recursively.
-     *   * Finally, the process outputs a list of render callbacks to apply the related dom changes. Executing the changes can be delayed with the 2nd timeout: settings.renderTimeout.
-     * - Note. Generally this helps to combine multiple updates together and thus prevent unnecessary updates.
-     *   * This is useful if (due to complex app setup) you sometimes end up calling update multiple times for the same component.
-     *     .. Without this, the update procedure would go through each time (and if rendering set to null, it as well).
-     *     .. But with this, the updates get clumped together. For example, updating immediately after startup will not result in onUpdate, but only one onMount.
-     * - Recommended usage for updateTimeout & renderTimeout:
-     *   * For most cases, use updateTimeout: 0 and renderTimeout: 0 or null. Your main code line will run first, and rendering runs after (sync or async).
-     *   * If you want synchronous updates on your components, use updateTimeout: null, renderTimeout: 0 - so updates are done before your main code line continues, but dom rendering is done after.
-     *   * If you want everything to be synchronous (including the dom), put both to null.
+	/** The delay in ms for the update cycle.
+     * - If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to 0ms (recommended).
+     * - This timeout delays the beginning of the update cycle, after being triggered (eg. by a change in a component's state).
+     *      * After the timeout has elapsed, `render(props, state)` method is called on components and a new structure is received.
+     *      * The structure is then applied to the component, and for any nested components similarly render method is called and then the defs applied recursively.
+     *      * Finally, the process outputs a list of render callbacks to apply the related dom changes.
+     *      * Note that the actual rendering always happens synchronously right after all the updates have been performed - including any recursively triggered sub update cycles.
+     *          - Accordingly, the lifecycle calls for didMount and didUpdate are called right after rendering. All of this happens synchronously once the update cycle begins.
+     * - Note that the purpose of using `0` vs. `null` is to help in performance but also make usage more practical.
+     *      * In practice, using `0` timeout simply cuts the update cycle from being triggered instantly, and thus individually for each update call.
+     *      * Instead, the cycle is "virtually delayed" to run after the current synchronous sequence of JS code (and other internal native things).
+     *      * As a result, only one update cycle is run, for example for a 100 updates.
+     *      * Furthermore, this also helps to perform the rendering in sync, which not only helps in practical performance but is also desireable UX wise.
+     * - Note only use `updateTimeout: null` if you really know what you're doing.
+     *      * Using `null` provides synchronous updates, but might have implications that are not evident at first sight.
+     *          - For example, when you call `component.setState()`, then the DOM has already been updated on the very next line. This can easily result in unintended bugs in your app.
+     *      * However, there is one common use case for `null` updateTimeut. It's for the very first render of the app (eg. to provide better info for SEO robots).
+     *          - On the other hand, it's perhaps better to not touch updateTimeout and instead trigger a synchronous update once when your app starts.
+     *          - Note that in either case, you might want to do the equivalent synchronous initial run for any related Contexts as well.
      */
     updateTimeout: number | null;
 
-    /** If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to null.
-     * - This timeout delays the actual dom rendering part of the component update process.
-     * - It can be useful to have a tiny delay to save from unnecessary rendering, when update gets called multiple times - even 0ms can help.
+    /** The delay in ms for the render cycle - it delays the actual dom rendering part of the component update process.
+     * - If is null, then is synchronous. Otherwise uses the given timeout in ms. Defaults to null.
+     * - It can be useful to have a tiny delay to save from unnecessary rendering in certain cases, when update gets called multiple times - even 0ms can help.
+     *      * However, as the update cycle is already (by default) using a tiny timeout (0ms), the render timeout will only help in peformance in some more complex cases.
      * - By default uses `null` (= synchronous rendering after updateTimeout), as the render cycle anyway always happens _after_ the update cycle.
      *     * If you also put updateTimeout to be `null` (synchronous), then is fully synchronous, and you can get access to your dom elements synchronously.
      *      * However, putting both to `null` is not recommended, as it can make external usage a bit impractical, in addition to causing a lot of update cycles.
-     * - Note that renderTimeout happens after updateTimeout, so they both affect how fast rendering happens - see settings.updateTimeout for details.
      */
     renderTimeout: number | null;
 
@@ -148,7 +134,9 @@ export interface HostSettings {
 
     /** Define a callback to process the innerHTML string produced by `MixDOM.defHTML`.
      * - The callback is called when applies to DOM. If not given, applies the string directly.
-     * - The callback should return the processed string - if the callback returns `null` will not do anything (= not apply changes to DOM).
+     * - The callback should return the processed string, or alternatively a new Node to use directly. If returns `null` will not do anything.
+     * - The arguments are: `(innerHTML, treeNode, dummyElement)`, where the innerHTML is what should be processed, while treeNode tells the location and dummyElement is the target where innerHTML is applied.
+     *      * After applying to the dummy, depending on other settings the final outcome is either the dummy element or its first child (if has only one child).
      */
     renderInnerHTML: MixDOMRenderInnerHTMLCallback | null;
 
